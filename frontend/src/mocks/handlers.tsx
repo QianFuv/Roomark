@@ -286,7 +286,7 @@ export const handlers = [
     // JUSTIFICATION: request body shape is defined by the Roomark OpenAPI contract.
     const { code } = (await request.json()) as { code: string };
 
-    if (code.toUpperCase() === MOCK_RATE_LIMITED_CODE) return problem(429, "rate_limited", "请求过于频繁");
+    if (code.toUpperCase() === MOCK_RATE_LIMITED_CODE) return problem(429, "rate_limited", "试得太频繁，请稍后再试");
 
     return code.toUpperCase() === MOCK_TOKEN
       ? HttpResponse.json({ slug: state.room.slug, name: state.room.name })
@@ -332,7 +332,7 @@ export const handlers = [
   }),
   http.post("*/api/rooms/:slug/series/preview", async ({ request }) => {
     if (sessionPerson(request) === undefined)
-      return problem(401, "session_required", "请先选择姓名并输入口令");
+      return problem(401, "session_required", "请先登录");
 
     // JUSTIFICATION: mock request bodies follow the OpenAPI request schema.
     const body = (await request.json()) as { rule: components["schemas"]["SeriesRule"] };
@@ -345,7 +345,7 @@ export const handlers = [
     const person = state.people.find((item) => item.id === body.personId || item.name === body.name);
 
     if (person?.lockedUntil !== undefined) {
-      return problem(423, "locked", "口令连续错误五次，请十五分钟后重试", {
+      return problem(423, "locked", "口令错太多次，15 分钟后再试", {
         lockedUntil: person.lockedUntil,
       });
     }
@@ -373,7 +373,7 @@ export const handlers = [
   http.post("*/api/rooms/:slug/bookings", async ({ request }) => {
     const personId = sessionPerson(request);
 
-    if (personId === undefined) return problem(401, "session_required", "请先选择姓名并输入口令");
+    if (personId === undefined) return problem(401, "session_required", "请先登录");
 
     // JUSTIFICATION: mock request bodies follow the OpenAPI request schema.
     const body = (await request.json()) as { start: string; end: string; title?: string };
@@ -382,7 +382,7 @@ export const handlers = [
     if (other !== undefined) {
       const conflict = conflictFor(body.start, body.end, other, 99);
 
-      return problem(409, "booking_conflict", "该时段已被占用", { ...conflict });
+      return problem(409, "booking_conflict", "这个时段已被约了", { ...conflict });
     }
 
     const person = state.people.find((item) => item.id === personId);
@@ -410,7 +410,7 @@ export const handlers = [
     const booking = state.bookings.find((item) => item.id === Number(params["id"]));
 
     if (sessionPerson(request) === undefined)
-      return problem(401, "session_required", "请先选择姓名并输入口令");
+      return problem(401, "session_required", "请先登录");
 
     if (booking === undefined) return problem(404, "not_found", "预约不存在");
 
