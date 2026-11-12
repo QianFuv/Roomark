@@ -9,7 +9,7 @@ info:
   productName: "Roomark" # The name of the application
   productIdentifier: "com.roomark.app" # The unique product identifier
   description: "Meeting-room booking" # The application description
-  copyright: "(c) 2025, My Company" # Copyright text
+  copyright: "© 2026 Roomark" # Copyright text
   comments: "Roomark" # Comments
   version: "1.0.0" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
