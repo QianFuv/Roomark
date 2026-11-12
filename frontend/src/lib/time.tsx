@@ -197,6 +197,56 @@ export function formatRelativeDate(
 }
 
 /**
+ * Day prefix for a time shown outside a single-day view: empty for today, `明天`, `后天`,
+ * otherwise `11月19日 周三`.
+ *
+ * @param date - The date.
+ * @param today - Today's date.
+ * @returns The prefix, or `""` for today.
+ */
+export function formatDayPrefix(
+  date: Temporal.PlainDate | string,
+  today: Temporal.PlainDate = todayDate(),
+): string {
+  const plainDate = date instanceof Temporal.PlainDate ? date : parseDate(date);
+  const days = today.until(plainDate, { largestUnit: "day" }).days;
+
+  if (days === 0) return "";
+
+  if (days === 1) return "明天";
+
+  if (days === 2) return "后天";
+
+  return formatDateLabel(plainDate);
+}
+
+/**
+ * Clock time that names its day when it is not today: `16:00`, `明天 08:00`, `11月14日 周五 08:00`.
+ *
+ * @param value - Timestamp.
+ * @param today - Today's date.
+ * @returns The label.
+ */
+export function formatClockWithDay(value: string, today: Temporal.PlainDate = todayDate()): string {
+  const prefix = formatDayPrefix(parseZoned(value).toPlainDate(), today);
+
+  return prefix === "" ? formatClock(value) : `${prefix} ${formatClock(value)}`;
+}
+
+/**
+ * Format a span of dates compactly: `11月10日–16日`, or `10月27日–11月2日` across months.
+ *
+ * @param first - First date.
+ * @param last - Last date.
+ * @returns The label.
+ */
+export function formatDateSpan(first: Temporal.PlainDate, last: Temporal.PlainDate): string {
+  return first.month === last.month
+    ? `${formatMonthDay(first)}–${last.day}日`
+    : `${formatMonthDay(first)}–${formatMonthDay(last)}`;
+}
+
+/**
  * Format a booking time for lists: `今天 14:00–16:00` or `11月19日 周三 14:00–16:00`.
  *
  * @param start - Start timestamp.

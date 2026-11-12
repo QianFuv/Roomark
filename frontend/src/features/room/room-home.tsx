@@ -1,27 +1,45 @@
 /**
- * Room home: live status, quick use, next booking, today's agenda, announcements and the
- * "usually free" heatmap.
+ * Room home: live status, quick use, next booking, today's agenda, announcements and the weekly
+ * "会议热力图".
  *
  * @module
  */
 import type { Temporal } from "@js-temporal/polyfill";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CalendarPlus, Megaphone, Pin, Repeat, Square, Timer, Zap } from "lucide-react";
+import {
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  Megaphone,
+  Pin,
+  Repeat,
+  Square,
+  Timer,
+  Zap,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { Announcement, Booking, Room, RoomStatus } from "../../api/client";
 import { dayAgenda, isFinished, isOngoing, quickUseOptions, type QuickUseOption } from "../../lib/schedule";
-import { usuallyFreeRanges, heatCells } from "../../lib/stats";
+import { heatRows, heatSummary } from "../../lib/stats";
 import {
   ceilToGrid,
   clockToMinutes,
+  dateRange,
   formatClock,
+  formatClockWithDay,
+  formatDateLabel,
+  formatDateSpan,
+  formatDayPrefix,
   formatDuration,
   formatShortDuration,
   minutesBetween,
   minutesOfDay,
   minutesToClock,
+  parseDate,
+  parseZoned,
+  startOfWeek,
   weekdayLabel,
 } from "../../lib/time";
 import { platform } from "../../platform/platform";
@@ -37,7 +55,7 @@ import { endBooking, extendBooking, quickUse } from "../booking/booking-actions"
 import { BookingDetailSheet, bookingHeading } from "../booking/booking-detail";
 import { PurposeField, TITLE_REQUIRED_MESSAGE } from "../booking/purpose-field";
 import { requestSession } from "../identity/identity";
-import { HeatmapGrid } from "./heatmap";
+import { HeatmapGrid, type HeatmapRow } from "./heatmap";
 import { RoomCalendar } from "./room-calendar";
 import { useNow, useRoomBookings, useRoomDetail, useRoomHeatmap } from "./room-data";
 
@@ -167,6 +185,15 @@ const styles = stylex.create({
     fontWeight: 600,
     width: 92,
   },
+  agendaTimeDated: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    minWidth: 92,
+    whiteSpace: "nowrap",
+    width: "auto",
+  },
+  agendaDay: { color: colors.primaryText, fontWeight: 700 },
   agendaBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2, minWidth: 0 },
   agendaTitle: {
     fontSize: fonts.sizeMd,
@@ -203,6 +230,17 @@ const styles = stylex.create({
   },
   freeSummary: { color: colors.text, fontSize: fonts.sizeMd, lineHeight: 1.6 },
   heatmapBody: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 },
+  heatmapData: { display: "flex", flexDirection: "column", gap: 12, transition: "opacity 160ms ease" },
+  heatmapLoading: { opacity: 0.55 },
+  weekBar: { alignItems: "center", display: "flex", gap: 6 },
+  weekLabel: {
+    color: colors.text,
+    flexGrow: 1,
+    fontSize: fonts.sizeMd,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 700,
+    minWidth: 0,
+  },
 });
 
 /**
@@ -221,6 +259,7 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   const bookings = useRoomBookings(slug, today, today, tier !== "wide");
   const [selected, setSelected] = useState<Booking>();
   const [calendarDate, setCalendarDate] = useState<string>();
+  const [calendarFocus, setCalendarFocus] = useState<string>();
   const quickRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -253,6 +292,25 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   }
 
   const { room, status, announcements } = detail.data;
+
+  /**
+   * Show a heatmap day or hour in the calendar: beside the page on wide windows, otherwise on the
+   * calendar tab.
+   *
+   * @param date - The date.
+   * @param clock - Optional `HH:MM` to scroll to.
+   */
+  function openInCalendar(date: string, clock?: string): void {
+    if (tier === "wide") {
+      setCalendarDate(date);
+      setCalendarFocus(clock);
+
+      return;
+    }
+
+    void navigate({ to: "/r/$slug/calendar", params: { slug }, search: { date, time: clock } });
+  }
+
   const current = status.current;
   const isMineNow = current !== undefined && current.isMine && current.canEdit;
 
@@ -271,14 +329,22 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
           )}
           {status.next === undefined ? null : (
             <Section title="下一场">
-              <AgendaBookingRow booking={status.next} now={now} onSelect={setSelected} />
+              <AgendaBookingRow booking={status.next} now={now} isDayNamed onSelect={setSelected} />
             </Section>
           )}
-          {tier === "wide" ? <UsuallyFree slug={slug} now={now} /> : null}
+          {tier === "wide" ? <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} /> : null}
         </div>
         {tier === "wide" ? (
           <section aria-label="日程" {...stylex.props(styles.calendarColumn)}>
-            <RoomCalendar slug={slug} anchorDate={calendarDate} onAnchorChange={setCalendarDate} />
+            <RoomCalendar
+              slug={slug}
+              anchorDate={calendarDate}
+              focusClock={calendarFocus}
+              onAnchorChange={(date) => {
+                setCalendarDate(date);
+                setCalendarFocus(undefined);
+              }}
+            />
           </section>
         ) : (
           <div {...stylex.props(styles.column)}>
@@ -293,7 +359,7 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
                 <TodayAgenda room={room} bookings={bookings.data ?? []} now={now} onSelect={setSelected} />
               )}
             </Section>
-            <UsuallyFree slug={slug} now={now} />
+            <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} />
           </div>
         )}
       </div>
@@ -335,10 +401,10 @@ export function statusSummary(room: Room, status: RoomStatus): string {
     const who = status.current?.person?.name ?? (status.current?.kind === "block" ? "不可预约" : "有人");
     const until = status.busyUntil ?? status.current?.end;
 
-    return until === undefined ? `使用中：${who}` : `使用中：${who} 到 ${formatClock(until)}`;
+    return until === undefined ? `使用中：${who}` : `使用中：${who} 到 ${formatClockWithDay(until)}`;
   }
 
-  if (status.freeUntil !== undefined) return `空闲至 ${formatClock(status.freeUntil)}`;
+  if (status.freeUntil !== undefined) return `空闲至 ${formatClockWithDay(status.freeUntil)}`;
 
   return `空闲至 ${room.rules.closeTime}`;
 }
@@ -407,7 +473,7 @@ function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now
         </div>
         <p {...stylex.props(styles.heroMain)}>
           {who}
-          {until === undefined ? "" : ` 到 ${formatClock(until)}`}
+          {until === undefined ? "" : ` 到 ${formatClockWithDay(until, now.toPlainDate())}`}
         </p>
         <p {...stylex.props(styles.heroSub)}>
           {purpose === undefined ? "" : `${purpose} · `}
@@ -444,7 +510,7 @@ function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now
       <p {...stylex.props(styles.heroMain)}>
         {freeUntil === undefined
           ? `今天剩余时间都空闲（至 ${room.rules.closeTime}）`
-          : `空闲至 ${formatClock(freeUntil)}`}
+          : `空闲至 ${formatClockWithDay(freeUntil, now.toPlainDate())}`}
       </p>
       <p {...stylex.props(styles.heroSub)}>
         {freeMinutes === undefined
@@ -684,21 +750,25 @@ function OngoingControls({ booking }: { booking: Booking }) {
  * @param props - Row props.
  * @param props.booking - The booking.
  * @param props.now - Current time.
+ * @param props.isDayNamed - Outside a day-scoped list: name the day when it is not today.
  * @param props.onSelect - Open details.
  * @returns The row.
  */
 function AgendaBookingRow({
   booking,
   now,
+  isDayNamed = false,
   onSelect,
 }: {
   booking: Booking;
   now: Temporal.ZonedDateTime;
+  isDayNamed?: boolean;
   onSelect: (booking: Booking) => void;
 }) {
   const isNow = isOngoing(booking, now);
   const isPast = isFinished(booking, now);
   const who = booking.kind === "block" ? "不可预约" : (booking.person?.name ?? "");
+  const day = isDayNamed ? formatDayPrefix(parseZoned(booking.start).toPlainDate(), now.toPlainDate()) : "";
 
   return (
     <button
@@ -706,8 +776,11 @@ function AgendaBookingRow({
       onClick={() => onSelect(booking)}
       {...stylex.props(styles.agendaRow, isNow && styles.agendaNow, isPast && styles.agendaPast)}
     >
-      <span {...stylex.props(styles.agendaTime)}>
-        {formatClock(booking.start)}–{formatClock(booking.end)}
+      <span {...stylex.props(styles.agendaTime, day !== "" && styles.agendaTimeDated)}>
+        {day === "" ? null : <span {...stylex.props(styles.agendaDay)}>{day}</span>}
+        <span>
+          {formatClock(booking.start)}–{formatClock(booking.end)}
+        </span>
       </span>
       <span {...stylex.props(styles.agendaBody)}>
         <span {...stylex.props(styles.agendaTitle)}>
@@ -788,35 +861,102 @@ function TodayAgenda({
 }
 
 /**
- * Collapsible "通常空闲时段" heatmap with a summary for today.
+ * Collapsible "会议热力图": the booked share of every hour of one week, current week first, with
+ * week navigation. A day or a cell opens the calendar there.
  *
  * @param props - Panel props.
  * @param props.slug - Room slug.
  * @param props.now - Current time.
+ * @param props.onOpen - Show a date (and an `HH:MM` time) in the calendar.
  * @returns The panel.
  */
-function UsuallyFree({ slug, now }: { slug: string; now: Temporal.ZonedDateTime }) {
-  const heatmap = useRoomHeatmap(slug, true);
-  const ranges = heatmap.data === undefined ? [] : usuallyFreeRanges(heatCells(heatmap.data), now.dayOfWeek);
+function MeetingHeatmap({
+  slug,
+  now,
+  onOpen,
+}: {
+  slug: string;
+  now: Temporal.ZonedDateTime;
+  onOpen: (date: string, clock?: string) => void;
+}) {
+  const today = now.toPlainDate();
+  const thisWeek = startOfWeek(today);
+  const [week, setWeek] = useState(thisWeek.toString());
+  const heatmap = useRoomHeatmap(slug, week);
+  const weekStart = parseDate(week);
+  const days = dateRange(weekStart, 7);
+  const weekLabel = formatDateSpan(weekStart, weekStart.add({ days: 6 }));
+  const hours = heatmap.data?.hours ?? [];
+  const summary = heatSummary(heatRows(heatmap.data?.cells, 7, hours));
+  const isLoading = heatmap.isPlaceholderData;
+
+  const rows: HeatmapRow[] = days.map((date) => ({
+    label: weekdayLabel(date.dayOfWeek).replace("周", ""),
+    name: weekdayLabel(date.dayOfWeek),
+    actionLabel: `在日历中查看 ${formatDateLabel(date)}`,
+    isHighlighted: date.equals(today),
+  }));
 
   return (
-    <Card>
-      <Disclosure title="通常空闲时段" hint="近 8 周">
+    <Card as="section" ariaLabel="会议热力图">
+      <Disclosure title="会议热力图" hint="一周各时段的预约">
         <div {...stylex.props(styles.heatmapBody)}>
+          <div {...stylex.props(styles.weekBar)}>
+            <span aria-live="polite" {...stylex.props(styles.weekLabel)}>
+              {weekLabel}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={weekStart.equals(thisWeek)}
+              onClick={() => setWeek(thisWeek.toString())}
+            >
+              本周
+            </Button>
+            <Button
+              variant="ghost"
+              aria-label="上一周"
+              onClick={() => setWeek(weekStart.subtract({ weeks: 1 }).toString())}
+              icon={<ChevronLeft size={20} aria-hidden />}
+            />
+            <Button
+              variant="ghost"
+              aria-label="下一周"
+              onClick={() => setWeek(weekStart.add({ weeks: 1 }).toString())}
+              icon={<ChevronRight size={20} aria-hidden />}
+            />
+          </div>
           {heatmap.data === undefined ? (
-            <Skeleton height={200} />
+            heatmap.isError ? (
+              <Notice tone="info">暂时无法加载热力图。</Notice>
+            ) : (
+              <Skeleton height={200} />
+            )
           ) : (
-            <>
+            <div
+              aria-busy={isLoading}
+              {...stylex.props(styles.heatmapData, isLoading && styles.heatmapLoading)}
+            >
               <p {...stylex.props(styles.freeSummary)}>
-                {weekdayLabel(now.dayOfWeek)}通常空闲：
-                {ranges.length === 0 ? "暂无明显空闲时段" : ranges.join("、")}
+                {summary.busiestRow === undefined
+                  ? "这一周没有预约"
+                  : `共预约 ${formatDuration(summary.totalMinutes)}，最忙的是${weekdayLabel(summary.busiestRow + 1)}`}
               </p>
               <HeatmapGrid
-                matrix={heatmap.data}
-                caption="近 8 周各时段占用比例，颜色越深越常被占用"
-                highlightWeekday={now.dayOfWeek}
+                matrix={heatmap.data.cells}
+                hours={hours}
+                rows={rows}
+                caption={`${weekLabel} 各时段的预约比例，颜色越深预约越满`}
+                valueLabel="已预约"
+                onSelect={(row, hour) => {
+                  const date = days[row];
+
+                  if (date === undefined) return;
+
+                  onOpen(date.toString(), hour === undefined ? undefined : minutesToClock(hour * 60));
+                }}
               />
-            </>
+            </div>
           )}
         </div>
       </Disclosure>

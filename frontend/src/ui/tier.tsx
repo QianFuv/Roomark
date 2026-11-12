@@ -1,6 +1,7 @@
 /**
  * Layout tier of the viewport, for the few places where the tiers differ in structure rather than
- * style (the StyleX `media.narrow` / `media.wide` queries cover the rest).
+ * style (the StyleX `media.narrow` / `media.wide` queries cover the rest), and the live
+ * reduced-motion preference for script-driven animation.
  *
  * @module
  */
@@ -45,4 +46,33 @@ function subscribe(onChange: () => void): () => void {
  */
 export function useLayoutTier(): LayoutTier {
   return useSyncExternalStore(subscribe, currentTier, () => "mobile");
+}
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+/**
+ * Re-render when the reduced-motion preference changes.
+ *
+ * @param onChange - Store callback.
+ * @returns Unsubscribe.
+ */
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const list = window.matchMedia(REDUCED_MOTION_QUERY);
+
+  list.addEventListener("change", onChange);
+
+  return () => list.removeEventListener("change", onChange);
+}
+
+/**
+ * Whether the user asks for reduced motion, updated live when the setting changes.
+ *
+ * @returns `true` to skip animations.
+ */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () => false,
+  );
 }
