@@ -87,7 +87,7 @@ Given a requested `[start, end)` of duration D that conflicts:
 1. Same day: free windows of length D, aligned to 15 min, inside open hours, not in the past, ordered by `|candidateStart − requestedStart|`. Return up to 2 (prefer one earlier and one later when both exist).
 2. Following days: the same clock time on the next days where it is free and allowed by rules (advance limit). Return up to 3.
 
-Each suggestion: `{start, end, kind: "same_day" | "other_day"}`. Every 409 also returns the conflicting booking (`name`, `title`, `start`, `end`) and a `conflictEventId`. When the client later books a suggestion it passes `conflictEventId` so stats can count accepted suggestions.
+Each suggestion: `{start, end, kind: "same_day" | "other_day"}`. Every 409 also returns the conflicting booking (`name`, `title`, `start`, `end`) and a `conflictEventId`. When the client later books a suggestion it passes `conflictEventId` so stats can count accepted suggestions. Conflicts seen only through the live `/check` are not recorded; when the client books a slot it took from a `/check` suggestion it sends `suggestedFrom: {start, end}` (the originally requested range) instead, and the server records one conflict event for that range, marked accepted, if the booked slot is a valid suggestion for it.
 
 ### 2.6 Recurring bookings
 
@@ -179,7 +179,7 @@ Person scope (session; room endpoints also need the room token):
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| POST | `/api/rooms/{slug}/bookings` | `{start,end,title?,conflictEventId?, onBehalfOf? (admin), kind? (admin: block)}` → 201 Booking / 409 Conflict / 422 |
+| POST | `/api/rooms/{slug}/bookings` | `{start,end,title,conflictEventId?,suggestedFrom?: {start,end}, onBehalfOf? (admin), kind? (admin: block)}` → 201 Booking / 409 Conflict / 422 |
 | POST | `/api/rooms/{slug}/quick` | `{minutes: 30\|60\|90\|120, title}`; capped at next booking / close time; returns Booking |
 | POST | `/api/rooms/{slug}/series/preview` | `{rule}` → `{ occurrences: Occurrence[] }` |
 | POST | `/api/rooms/{slug}/series` | `{rule,title?,overrides,onBehalfOf?,kind?}` → `{ seriesId, created: Booking[], skipped: date[] }` / 409 `{ occurrences }` |
