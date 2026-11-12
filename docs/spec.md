@@ -33,13 +33,13 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 ## 2. Product rules
 
-### 2.1 Rooms and room token
+### 2.1 Rooms and room code
 
 - A room has: `slug` (e.g. `9070`), name, location, capacity, description, and rules (§2.4).
-- Each room has a random **room token** (≥ 16 chars, URL-safe). The door QR encodes `{PUBLIC_URL}/r/{slug}?k={token}`.
+- Each room has a fixed random **room code**: 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no 0/O/1/I/L), unique across rooms, case-insensitive on input, generated when the room is created and never rotated. The door QR encodes `{PUBLIC_URL}/r/{slug}?k={code}`, and the poster also prints the code so people can type it (e.g. on the desktop app). `X-Room-Token` carries the code.
 - Every room-scoped API call needs header `X-Room-Token` matching that room, unless the caller is an admin. Without it the room is invisible (`403 room_token_required` / `room_token_invalid`). Exception: `/api/bookings/{id}/*` only needs the booker's own session, so people can manage their bookings from any device.
 - Clients remember tokens per room (web: `localStorage`; apps: same, inside the webview) and strip `k` from the address bar after storing it.
-- Admin can rotate the token; old QR codes stop working immediately.
+- Binding by typing: `POST /api/room-codes/resolve {code}` → `{ slug, name }` (rate-limited per client IP, failed attempts count towards the limit). Repeated wrong room codes on any endpoint are rate-limited per IP as well.
 
 ### 2.2 People and personal passcode
 
@@ -126,7 +126,7 @@ Filters: room (or all), date range (presets: 本周 / 本月 / 本学期 / 自�
 
 Times stored as Unix seconds (UTC). Suggested tables; the backend may refine names/columns but must keep the semantics.
 
-- `rooms(id, slug UNIQUE, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at)`
+- `rooms(id, slug UNIQUE, name, location, capacity, description, access_token (the room code), open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at)`
 - `people(id, name UNIQUE NOCASE among non-deleted, role, is_admin, passcode_hash, failed_attempts, locked_until, feed_token, source ('preset'|'self'), deleted_at, created_at)`
 - `sessions(id, token_hash UNIQUE, person_id, created_at, last_used_at, expires_at)`
 - `series(id, room_id, person_id NULL for blocks, kind, title, rule_json, created_at)`
@@ -207,8 +207,7 @@ Admin (`isAdmin`):
 | --- | --- | --- |
 | GET/POST | `/api/admin/rooms` | list incl. tokens / create |
 | PATCH | `/api/admin/rooms/{id}` | edit info + rules, archive |
-| POST | `/api/admin/rooms/{id}/rotate-token` | returns new token |
-| GET | `/api/admin/rooms/{id}/qr` | `{ url, tokenRotatedAt }` — the frontend renders the poster |
+| GET | `/api/admin/rooms/{id}/qr` | `{ url, code }` — the frontend renders the poster |
 | GET/POST | `/api/admin/people` | list / create preset |
 | POST | `/api/admin/people/import` | `{ people: [{name, role}] }` |
 | PATCH/DELETE | `/api/admin/people/{id}` | edit (name, role, isAdmin) / soft delete |
@@ -239,7 +238,7 @@ Light and dark themes. Colors follow the T3 Soft palette in `docs/design/t3-soft
 | `/r/$slug/calendar` | 3-day view on phones (swipe), week view ≥ 768 px. Tap empty slot → booking sheet prefilled. Booking blocks show name, title, 🔁 for series. Tap → detail sheet. |
 | `/r/$slug/book` | Booking form: date, start/end (15-min steps), 用途, 重复 toggle. Live check via `/check`. Conflict → suggestion chips (one tap books). Recurring → preview list (see below). |
 | `/me` | Identity (name, switch, logout, change passcode), 我的预约: upcoming / past tabs; series collapse into one card ("组会 · 每周三 14:00–16:00 · 11/19–1/7 · 还剩 6 次"), expandable. iCal feed links with copy buttons. |
-| `/admin/*` | 房间 (info, rules, rotate token, 导出二维码), 名单 (CRUD, import, reset passcode, admin flag), 预约 (filterable table, edit/cancel, 代人预约, 不可预约时段 incl. recurring), 公告, 统计. |
+| `/admin/*` | 房间 (info, rules, 导出二维码), 名单 (CRUD, import, reset passcode, admin flag), 预约 (filterable table, edit/cancel, 代人预约, 不可预约时段 incl. recurring), 公告, 统计. |
 | `/settings` | Apps only: server URL; desktop: 开机自启. |
 
 Identity flow (sheet, triggered by any write action when there is no session): search the preset list → if unclaimed, set a 6-digit passcode (enter twice) → done. "我不在名单里" → type name → set passcode. Claimed names → enter passcode. Locked → show remaining time. Admin login on `/admin` takes name + passcode.
@@ -256,7 +255,7 @@ Recurring preview layout:
 
 Conflicting occurrences default to 跳过; tapping a suggestion switches to it and the submit count updates. Edit/cancel of an occurrence asks 仅这一次 / 这次及以后全部. Destructive actions confirm first.
 
-QR export (admin → 房间 → 导出二维码): live preview; layouts A4 poster (room name large, QR, "扫码查看空闲 · 预约", small URL), A5 poster, QR only (square); formats PNG (300 dpi) and PDF. Corner text "二维码版本 YYYY-MM-DD" from `tokenRotatedAt`. Delivery: web → browser download; desktop → native save dialog via `FileService`; Android → `FileService` (share/save). Rotating the token warns that old codes stop working and jumps to the export page.
+QR export (admin → 房间 → 导出二维码): live preview; layouts A4 poster (room name large, QR, "扫码查看空闲 · 预约", small URL), A5 poster, QR only (square); formats PNG (300 dpi) and PDF. The poster shows the room code in large monospace text under the QR ("房间码 K7M2XQ"). Delivery: web → browser download; desktop → native save dialog via `FileService`; Android → `FileService` (share/save).
 
 Polling: room status and calendar refetch every 30 s and on window focus (TanStack Query). No WebSocket.
 
