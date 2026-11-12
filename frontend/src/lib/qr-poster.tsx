@@ -19,8 +19,8 @@ export interface PosterContent {
   roomName: string;
   location: string;
   url: string;
-  /** `YYYY-MM-DD` of the token rotation, printed as the QR version. */
-  versionDate: string;
+  /** The room's 6-character code, printed under the QR so people can type it. */
+  code: string;
 }
 
 /** Canvas size in pixels. */
@@ -38,6 +38,8 @@ const PAGE_SIZES_MM: Record<PosterLayout, readonly [number, number]> = {
   a5: [148, 210],
   qr: [80, 80],
 };
+
+const MONO_STACK = '"SF Mono", "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono", monospace';
 
 const FONT_STACK =
   '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif';
@@ -84,6 +86,49 @@ function fitFontSize(
   if (measured > maxWidth) size = Math.floor((size * maxWidth) / measured);
 
   return size;
+}
+
+/**
+ * Draw `房间码 K7M2XQ` centred on a baseline: a small label, then the code in large spaced
+ * monospace.
+ *
+ * @param context - Canvas context.
+ * @param code - Room code.
+ * @param centerX - Horizontal centre.
+ * @param baseline - Text baseline.
+ * @param size - Code font size in pixels.
+ */
+function drawRoomCode(
+  context: CanvasRenderingContext2D,
+  code: string,
+  centerX: number,
+  baseline: number,
+  size: number,
+): void {
+  const label = "房间码";
+  const labelSize = size * 0.42;
+  const gap = size * 0.45;
+  const advance = size * 0.82;
+
+  context.font = `600 ${labelSize}px ${FONT_STACK}`;
+
+  const labelWidth = context.measureText(label).width;
+  const total = labelWidth + gap + advance * (code.length - 1) + size * 0.62;
+  let x = centerX - total / 2;
+
+  context.textAlign = "left";
+  context.fillStyle = "#555555";
+  context.fillText(label, x, baseline);
+  x += labelWidth + gap;
+  context.fillStyle = "#111111";
+  context.font = `700 ${size}px ${MONO_STACK}`;
+
+  for (const character of code) {
+    context.fillText(character, x, baseline);
+    x += advance;
+  }
+
+  context.textAlign = "center";
 }
 
 /**
@@ -154,18 +199,14 @@ export function renderPoster(
   context.textBaseline = "alphabetic";
 
   if (layout === "qr") {
-    const footer = 9 * mm;
+    const footer = 15 * mm;
     const qrSize = Math.min(width, height - footer);
 
     drawQr(context, content.url, (width - qrSize) / 2, 0, qrSize);
-    context.fillStyle = "#111111";
-    context.textAlign = "left";
-    context.font = `700 ${fitFontSize(context, content.roomName, width * 0.55, 4.2 * mm, 700)}px ${FONT_STACK}`;
-    context.fillText(content.roomName, 4 * mm, height - 3.2 * mm);
-    context.textAlign = "right";
-    context.fillStyle = "#666666";
-    context.font = `400 ${2.4 * mm}px ${FONT_STACK}`;
-    context.fillText(`二维码版本 ${content.versionDate}`, width - 4 * mm, height - 3.2 * mm);
+    drawRoomCode(context, content.code, width / 2, qrSize + 6.5 * mm, 6 * mm);
+    context.fillStyle = "#444444";
+    context.font = `600 ${fitFontSize(context, content.roomName, width * 0.9, 3.2 * mm, 600)}px ${FONT_STACK}`;
+    context.fillText(content.roomName, width / 2, height - 2.6 * mm);
 
     return;
   }
@@ -199,23 +240,21 @@ export function renderPoster(
   const ctaSize = (layout === "a4" ? 11 : 8) * mm;
   const urlSize = (layout === "a4" ? 3.2 : 2.6) * mm;
   const footerTop = height - margin - urlSize * 3;
-  const qrSize = Math.min(contentWidth * 0.86, footerTop - cursor - ctaSize * 3.2 - 10 * mm);
-  const qrTop = cursor + (footerTop - cursor - qrSize - ctaSize * 2.2) / 2;
+  const codeSize = (layout === "a4" ? 12 : 9) * mm;
+  const below = codeSize * 1.9 + ctaSize * 2.2;
+  const qrSize = Math.min(contentWidth * 0.8, footerTop - cursor - below - 12 * mm);
+  const qrTop = cursor + (footerTop - cursor - qrSize - below) / 2;
 
   drawQr(context, content.url, (width - qrSize) / 2, qrTop, qrSize);
+  drawRoomCode(context, content.code, width / 2, qrTop + qrSize + codeSize * 1.25, codeSize);
 
   context.fillStyle = "#111111";
   context.font = `700 ${fitFontSize(context, CALL_TO_ACTION, contentWidth, ctaSize, 700)}px ${FONT_STACK}`;
-  context.fillText(CALL_TO_ACTION, width / 2, qrTop + qrSize + ctaSize * 1.5);
+  context.fillText(CALL_TO_ACTION, width / 2, qrTop + qrSize + codeSize * 1.9 + ctaSize * 1.3);
 
   context.fillStyle = "#777777";
   context.font = `400 ${fitFontSize(context, content.url, contentWidth, urlSize, 400)}px ${FONT_STACK}`;
   context.fillText(content.url, width / 2, height - margin - urlSize * 1.8);
-
-  context.textAlign = "right";
-  context.fillStyle = "#888888";
-  context.font = `400 ${urlSize}px ${FONT_STACK}`;
-  context.fillText(`二维码版本 ${content.versionDate}`, width - margin * 0.6, height - margin * 0.45);
 }
 
 /**
@@ -262,17 +301,11 @@ export async function exportPoster(
  * @param roomName - Room name.
  * @param layout - Layout.
  * @param format - Format.
- * @param versionDate - QR version date.
  * @returns File name.
  */
-export function posterFileName(
-  roomName: string,
-  layout: PosterLayout,
-  format: PosterFormat,
-  versionDate: string,
-): string {
+export function posterFileName(roomName: string, layout: PosterLayout, format: PosterFormat): string {
   const layoutLabel = layout === "a4" ? "A4" : layout === "a5" ? "A5" : "二维码";
   const safeName = roomName.replace(/[\\/:*?"<>|]+/g, "_");
 
-  return `${safeName}-${layoutLabel}-${versionDate}.${format}`;
+  return `${safeName}-${layoutLabel}.${format}`;
 }

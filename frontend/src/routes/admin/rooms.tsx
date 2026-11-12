@@ -1,12 +1,12 @@
 /**
- * Admin rooms: list, create, edit info and rules, archive, rotate the token, export the QR code.
+ * Admin rooms: list with each room's code, create, edit info and rules, archive, export the QR code.
  *
  * @module
  */
 import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Archive, Plus, QrCode, RefreshCw, Settings2, Users } from "lucide-react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Archive, Copy, Plus, QrCode, Settings2, Users } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -14,7 +14,6 @@ import { api, errorMessage, fetchClient, refreshBookings, type AdminRoom } from 
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { SwitchRow } from "../../ui/controls";
-import { confirmAction } from "../../ui/dialogs";
 import { ClockPicker } from "../../ui/clock-picker";
 import { TextAreaField, TextField } from "../../ui/field";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
@@ -28,7 +27,7 @@ const roomSchema = z
     slug: z
       .string()
       .trim()
-      .regex(/^[A-Za-z0-9_-]{1,32}$/, "只能使用字母、数字、- 和 _，最多 32 个字符"),
+      .regex(/^[A-Za-z0-9_-]{1,32}$/, "只能用字母、数字、- 和 _，最多 32 个字符"),
     name: z.string().trim().min(1, "请填写名称"),
     location: z.string(),
     capacity: z.string().regex(/^\d{0,4}$/, "请输入数字"),
@@ -42,7 +41,7 @@ const roomSchema = z
     archived: z.boolean(),
   })
   .refine((value) => value.closeTime > value.openTime, {
-    message: "关门时间需要晚于开门时间",
+    message: "关门要晚于开门",
     path: ["closeTime"],
   });
 
@@ -73,6 +72,16 @@ const styles = stylex.create({
   },
   rule: { fontVariantNumeric: "tabular-nums" },
   pair: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+  codeRow: { alignItems: "center", display: "flex", gap: 10, minWidth: 0 },
+  codeLabel: { color: colors.textMuted, fontSize: fonts.sizeSm },
+  code: {
+    color: colors.text,
+    flexGrow: 1,
+    fontFamily: fonts.mono,
+    fontSize: fonts.sizeXl,
+    fontWeight: 700,
+    letterSpacing: "0.18em",
+  },
   formTitle: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 700 },
 });
 
@@ -107,36 +116,17 @@ function roomValues(room: AdminRoom | undefined): RoomValues {
 function AdminRoomsPage() {
   const rooms = api.useQuery("get", "/api/admin/rooms");
   const [editing, setEditing] = useState<AdminRoom | "new">();
-  const navigate = useNavigate();
 
   /**
-   * Rotate a room token after a warning, then open the QR export.
+   * Copy a room code.
    *
    * @param room - The room.
    */
-  async function rotate(room: AdminRoom): Promise<void> {
-    const isConfirmed = await confirmAction(
-      `更换「${room.name}」的二维码？`,
-      "更换并导出新二维码",
-      "旧二维码会立即失效，已扫码的设备需要重新扫描门口的新二维码。",
-    );
-
-    if (!isConfirmed) return;
-
-    const result = await fetchClient.POST("/api/admin/rooms/{id}/rotate-token", {
-      params: { path: { id: room.id } },
-    });
-
-    await rooms.refetch();
-
-    if (result.data === undefined) {
-      notify("error", "更换失败", errorMessage(result.error));
-
-      return;
-    }
-
-    notify("success", "二维码已更换", "请打印新的二维码贴到门口");
-    void navigate({ to: "/admin/rooms/$roomId/qr", params: { roomId: String(room.id) } });
+  function copyCode(room: AdminRoom): void {
+    void navigator.clipboard
+      .writeText(room.code)
+      .then(() => notify("success", `已复制房间码 ${room.code}`))
+      .catch(() => notify("error", "复制失败", room.code));
   }
 
   return (
@@ -157,7 +147,7 @@ function AdminRoomsPage() {
           </div>
         )
       ) : (rooms.data ?? []).length === 0 ? (
-        <EmptyState title="还没有房间">新建一个房间后，就可以导出门口二维码。</EmptyState>
+        <EmptyState title="还没有房间" />
       ) : (
         <ul {...stylex.props(styles.grid)}>
           {(rooms.data ?? []).map((room) => (
@@ -192,6 +182,19 @@ function AdminRoomsPage() {
                 </span>
                 <span {...stylex.props(styles.rule)}>重复最长 {room.rules.recurringMaxWeeks} 周</span>
               </div>
+              <div {...stylex.props(styles.codeRow)}>
+                <span {...stylex.props(styles.codeLabel)}>房间码</span>
+                <span {...stylex.props(styles.code)}>{room.code}</span>
+                <Button
+                  variant="soft"
+                  size="sm"
+                  aria-label={`复制「${room.name}」的房间码`}
+                  icon={<Copy size={16} aria-hidden />}
+                  onClick={() => copyCode(room)}
+                >
+                  复制
+                </Button>
+              </div>
               <Row gap="sm">
                 <Button
                   variant="primary"
@@ -203,13 +206,6 @@ function AdminRoomsPage() {
                 </Button>
                 <Button icon={<Settings2 size={18} aria-hidden />} onClick={() => setEditing(room)}>
                   编辑
-                </Button>
-                <Button
-                  variant="ghost"
-                  icon={<RefreshCw size={18} aria-hidden />}
-                  onClick={() => void rotate(room)}
-                >
-                  更换二维码
                 </Button>
               </Row>
             </Card>
@@ -312,18 +308,18 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
                 value={field.state.value}
                 onValueChange={(next) => field.handleChange(next)}
                 error={field.state.meta.errors[0]?.message}
-                placeholder="例如：9070 会议室"
+                placeholder="如：9070 会议室"
               />
             )}
           </form.Field>
           <form.Field name="slug">
             {(field) => (
               <TextField
-                label="短名（链接中使用）"
+                label="短名（用于链接）"
                 value={field.state.value}
                 onValueChange={(next) => field.handleChange(next)}
                 error={field.state.meta.errors[0]?.message}
-                description={room === undefined ? undefined : "修改后旧二维码失效"}
+                description={room === undefined ? undefined : "改了以后要重新打印二维码"}
                 placeholder="9070"
               />
             )}
@@ -334,7 +330,7 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
                 label="位置"
                 value={field.state.value}
                 onValueChange={(next) => field.handleChange(next)}
-                placeholder="例如：九号楼 7 层"
+                placeholder="如：九号楼 7 层"
               />
             )}
           </form.Field>
@@ -416,7 +412,7 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
                 value={field.state.value}
                 onValueChange={(next) => field.handleChange(next)}
                 error={field.state.meta.errors[0]?.message}
-                description="0 表示不限，一组重复预约算 1 个"
+                description="0 表示不限；一组重复预约算 1 个"
               />
             )}
           </form.Field>
@@ -437,7 +433,7 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
             {(field) => (
               <SwitchRow
                 label="归档"
-                hint="归档后不再接受新预约，也不会出现在统计的房间列表中"
+                hint="不再接受新预约，统计里也不再列出"
                 isChecked={field.state.value}
                 onCheckedChange={(next) => field.handleChange(next)}
               />

@@ -27,8 +27,11 @@ type Occurrence = components["schemas"]["Occurrence"];
 /** Room slug served by the mocks. */
 export const MOCK_SLUG = "9070";
 
-/** Room token accepted by the mocks. */
-export const MOCK_TOKEN = "mock-room-token-0001";
+/** Room code accepted by the mocks. */
+export const MOCK_TOKEN = "K7M2XQ";
+
+/** Room code the mocks answer with `rate_limited`, as after too many wrong codes. */
+export const MOCK_RATE_LIMITED_CODE = "RRRRRR";
 
 /** Passcode of the claimed mock person 李四. */
 export const MOCK_PASSCODE = "246813";
@@ -279,6 +282,16 @@ function previewRule(rule: components["schemas"]["SeriesRule"]): Occurrence[] {
 
 /** All handlers. */
 export const handlers = [
+  http.post("*/api/room-codes/resolve", async ({ request }) => {
+    // JUSTIFICATION: request body shape is defined by the Roomark OpenAPI contract.
+    const { code } = (await request.json()) as { code: string };
+
+    if (code.toUpperCase() === MOCK_RATE_LIMITED_CODE) return problem(429, "rate_limited", "请求过于频繁");
+
+    return code.toUpperCase() === MOCK_TOKEN
+      ? HttpResponse.json({ slug: state.room.slug, name: state.room.name })
+      : problem(404, "room_code_invalid", "房间码不正确");
+  }),
   http.get("*/api/rooms/:slug", () =>
     HttpResponse.json({ room: state.room, status: { state: "free" }, announcements: [] }),
   ),
