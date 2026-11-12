@@ -12,6 +12,7 @@ import {
   refreshBookings,
   type Booking,
   type Conflict,
+  type TimeRange,
 } from "../../api/client";
 import { formatBookingWhen, formatClockRange } from "../../lib/time";
 import { rememberTitle, roomToken } from "../../state/app-store";
@@ -85,6 +86,7 @@ export interface NewBooking {
   end: string;
   title: string;
   conflictEventId?: number | undefined;
+  suggestedFrom?: TimeRange | undefined;
   onBehalfOf?: number | undefined;
   kind?: "normal" | "block" | undefined;
 }
@@ -106,6 +108,7 @@ export async function createBooking(slug: string, booking: NewBooking): Promise<
       end: booking.end,
       title: booking.title.trim(),
       conflictEventId: booking.conflictEventId,
+      suggestedFrom: booking.suggestedFrom,
       onBehalfOf: booking.onBehalfOf,
       kind: booking.kind,
     },

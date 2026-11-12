@@ -29,6 +29,9 @@ export type RoomStatus = components["schemas"]["RoomStatus"];
 /** A conflict with suggestions. */
 export type Conflict = components["schemas"]["Conflict"];
 
+/** A `[start, end)` range of RFC 3339 timestamps. */
+export type TimeRange = components["schemas"]["TimeRange"];
+
 /** A conflict suggestion. */
 export type Suggestion = components["schemas"]["Suggestion"];
 

@@ -1,7 +1,7 @@
 /**
  * Booking form: live conflict check with suggestions that only change the form's time (the main
- * button books, attributed to the conflict), and the recurring preview where a conflict defaults
- * to skip and a suggestion raises the submit count.
+ * button books, attributed to the originally requested range or to the submit conflict), and the
+ * recurring preview where a conflict defaults to skip and a suggestion raises the submit count.
  *
  * @module
  */
@@ -11,8 +11,8 @@ import { z } from "zod";
 import type { Middleware } from "openapi-fetch";
 
 import { fetchClient, type Room } from "../../api/client";
-import { MOCK_PASSCODE, MOCK_SLUG, MOCK_TOKEN } from "../../mocks/handlers";
-import { nowZoned } from "../../lib/time";
+import { MOCK_PASSCODE, MOCK_SLUG, MOCK_TOKEN, addMockBooking } from "../../mocks/handlers";
+import { nowZoned, toTimestamp } from "../../lib/time";
 import { rememberRoom, setSession } from "../../state/app-store";
 import { renderWithProviders } from "../../test/render";
 import { BookingForm } from "./booking-form";
@@ -112,7 +112,7 @@ describe("booking form", () => {
     await expect.element(screen.getByRole("button", { name: /^预约$/ })).toBeDisabled();
   });
 
-  test("given an empty 用途 when a suggestion is tapped then the form switches to that time without booking, and 预约 asks for 用途 then books with attribution", async () => {
+  test("given an empty 用途 when a live-check suggestion is tapped then the form switches to that time without booking, and 预约 asks for 用途 then books it as suggested from the requested range", async () => {
     rememberRoom(MOCK_SLUG, MOCK_TOKEN);
     await signIn();
 
@@ -148,9 +148,98 @@ describe("booking form", () => {
         start: expect.stringContaining("T11:00:00"),
         end: expect.stringContaining("T12:00:00"),
         title: "答辩彩排",
-        conflictEventId: 99,
+        suggestedFrom: {
+          start: toTimestamp(TOMORROW, "10:00"),
+          end: toTimestamp(TOMORROW, "11:00"),
+        },
       }),
     ]);
+    expect(posts[0]).not.toHaveProperty("conflictEventId");
+  });
+
+  test("given a tapped suggestion when the time is changed by hand, even back to the same slot, then 预约 books it without attribution", async () => {
+    rememberRoom(MOCK_SLUG, MOCK_TOKEN);
+    await signIn();
+
+    const posts = recordBookingPosts();
+    const onDone = vi.fn();
+
+    const screen = await renderWithProviders(
+      <BookingForm
+        room={ROOM}
+        draft={{
+          date: TOMORROW.toString(),
+          start: "10:00",
+          end: "11:00",
+          title: "答辩彩排",
+          isRepeat: false,
+        }}
+        onDone={onDone}
+      />,
+    );
+
+    await screen.getByRole("button", { name: "当天 11:00–12:00，1 小时" }).click();
+    await expect.element(screen.getByText(/已改到 .*11:00–12:00，可以预约/)).toBeVisible();
+    await screen.getByRole("button", { name: "延后 15 分钟结束" }).click();
+    await expect.element(screen.getByText(/11:00–12:15 可以预约/)).toBeVisible();
+    await screen.getByRole("button", { name: "提前 15 分钟结束" }).click();
+    await expect.element(screen.getByText(/11:00–12:00 可以预约/)).toBeVisible();
+    await screen.getByRole("button", { name: /^预约$/ }).click();
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(posts).toEqual([
+      expect.objectContaining({
+        start: expect.stringContaining("T11:00:00"),
+        end: expect.stringContaining("T12:00:00"),
+      }),
+    ]);
+    expect(posts[0]).not.toHaveProperty("suggestedFrom");
+    expect(posts[0]).not.toHaveProperty("conflictEventId");
+  });
+
+  test("given a slot taken between the check and 预约 when a suggestion from the 409 is booked then it is attributed by conflictEventId", async () => {
+    rememberRoom(MOCK_SLUG, MOCK_TOKEN);
+    await signIn();
+
+    const posts = recordBookingPosts();
+    const onDone = vi.fn();
+
+    const screen = await renderWithProviders(
+      <BookingForm
+        room={ROOM}
+        draft={{
+          date: TOMORROW.toString(),
+          start: "15:00",
+          end: "16:00",
+          title: "答辩彩排",
+          isRepeat: false,
+        }}
+        onDone={onDone}
+      />,
+    );
+
+    await expect.element(screen.getByText(/15:00–16:00 可以预约/)).toBeVisible();
+    addMockBooking({
+      roomSlug: MOCK_SLUG,
+      kind: "normal",
+      title: "讨论",
+      start: toTimestamp(TOMORROW, "15:00"),
+      end: toTimestamp(TOMORROW, "16:00"),
+      plannedEnd: toTimestamp(TOMORROW, "16:00"),
+      status: "confirmed",
+      person: { id: 3, name: "张三", role: "student" },
+      isMine: false,
+      canEdit: false,
+      releasedMinutes: 0,
+    });
+    await screen.getByRole("button", { name: /^预约$/ }).click();
+    await screen.getByRole("button", { name: "当天 16:00–17:00，1 小时" }).click();
+    await screen.getByRole("button", { name: /^预约$/ }).click();
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(posts).toEqual([
+      expect.objectContaining({ start: expect.stringContaining("T15:00:00") }),
+      expect.objectContaining({ start: expect.stringContaining("T16:00:00"), conflictEventId: 99 }),
+    ]);
+    expect(posts[1]).not.toHaveProperty("suggestedFrom");
   });
 
   test("given a filled 用途 when a suggestion is tapped then nothing is booked until 预约 is pressed", async () => {

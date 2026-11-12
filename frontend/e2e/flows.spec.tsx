@@ -169,7 +169,12 @@ test("given a taken slot when a suggestion is tapped then only the time changes 
   await page.getByRole("button", { name: /^预约$/ }).click();
   await identifyWithPasscode(page, "李四", LISI_PASSCODE);
   await expect(page.getByText("预约成功")).toBeVisible();
-  expect(bookingPosts).toEqual([expect.objectContaining({ title: "答辩彩排" })]);
+  expect(bookingPosts).toEqual([
+    expect.objectContaining({
+      title: "答辩彩排",
+      suggestedFrom: { start: `${tomorrow()}T10:00:00+08:00`, end: `${tomorrow()}T11:00:00+08:00` },
+    }),
+  ]);
 });
 
 test("given a weekly rule when a week conflicts then it defaults to skip and a suggestion raises the count", async ({

@@ -209,16 +209,22 @@ function overlapping(start: string, end: string): Booking | undefined {
  * @param start - Requested start.
  * @param end - Requested end.
  * @param other - The conflicting booking.
+ * @param conflictEventId - Recorded conflict event; `0` for the live check, which records none.
  * @returns Conflict.
  */
-function conflictFor(start: string, end: string, other: Booking): components["schemas"]["Conflict"] {
+function conflictFor(
+  start: string,
+  end: string,
+  other: Booking,
+  conflictEventId: number,
+): components["schemas"]["Conflict"] {
   const duration = parseZoned(end).epochMilliseconds - parseZoned(start).epochMilliseconds;
   const later = parseZoned(other.end);
   const nextDayStart = parseZoned(start).add({ days: 1 });
 
   return {
     conflictWith: { name: other.person?.name ?? "", title: other.title, start: other.start, end: other.end },
-    conflictEventId: 99,
+    conflictEventId,
     suggestions: [
       {
         kind: "same_day",
@@ -257,7 +263,7 @@ function previewRule(rule: components["schemas"]["SeriesRule"]): Occurrence[] {
           start,
           end,
           status: "conflict" as const,
-          conflict: conflictFor(start, end, other),
+          conflict: conflictFor(start, end, other, 99),
         };
   });
 }
@@ -294,7 +300,7 @@ export const handlers = [
     return HttpResponse.json(
       other === undefined
         ? { ok: true, violations: [] }
-        : { ok: false, violations: [], conflict: conflictFor(body.start, body.end, other) },
+        : { ok: false, violations: [], conflict: conflictFor(body.start, body.end, other, 0) },
     );
   }),
   http.post("*/api/rooms/:slug/series/preview", async ({ request }) => {
@@ -347,7 +353,7 @@ export const handlers = [
     const other = overlapping(body.start, body.end);
 
     if (other !== undefined) {
-      const conflict = conflictFor(body.start, body.end, other);
+      const conflict = conflictFor(body.start, body.end, other, 99);
 
       return problem(409, "booking_conflict", "该时段已被占用", { ...conflict });
     }

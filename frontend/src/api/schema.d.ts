@@ -730,6 +730,7 @@ export interface components {
             onBehalfOf?: number;
             /** Format: date-time */
             start: string;
+            suggestedFrom?: components["schemas"]["TimeRange"];
             /** @description Meeting purpose, 1–200 characters after trimming surrounding whitespace. */
             title: string;
         };
@@ -1247,6 +1248,12 @@ export interface components {
             end: string;
             /** @enum {string} */
             kind: "same_day" | "other_day";
+            /** Format: date-time */
+            start: string;
+        };
+        TimeRange: {
+            /** Format: date-time */
+            end: string;
             /** Format: date-time */
             start: string;
         };

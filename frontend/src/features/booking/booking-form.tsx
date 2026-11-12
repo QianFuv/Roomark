@@ -22,6 +22,7 @@ import {
   type Conflict,
   type Room,
   type Suggestion,
+  type TimeRange,
 } from "../../api/client";
 import {
   DEFAULT_SERIES_COUNT,
@@ -223,11 +224,28 @@ function slotKey(slot: FormSlot): string {
   return `${slot.date}|${slot.start}|${slot.end}`;
 }
 
-/** A suggestion applied to the form, kept so the booking is attributed to its conflict. */
+/**
+ * A suggestion applied to the form, kept so the booking is attributed to its conflict: by
+ * `conflictEventId` for a submit conflict, or by the originally requested range (`requested`)
+ * for a conflict seen only through the live check, which has no event id.
+ */
 interface AppliedSuggestion {
   conflict: Conflict;
   index: number;
   key: string;
+  requested: TimeRange | undefined;
+}
+
+/**
+ * Timestamps of a slot key's range.
+ *
+ * @param key - Key from {@link slotKey}.
+ * @returns The range.
+ */
+function keyRange(key: string): TimeRange {
+  const [date = "", start = "", end = ""] = key.split("|");
+
+  return { start: toTimestamp(date, start), end: toTimestamp(date, end) };
 }
 
 /**
@@ -291,11 +309,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       try {
         if (editing !== undefined) await submitEdit(value);
         else if (value.isRepeat) await submitSeries(value);
-        else
-          await submitSingle(
-            value,
-            applied?.key === slotKey(value) ? applied.conflict.conflictEventId : undefined,
-          );
+        else await submitSingle(value, applied?.key === slotKey(value) ? applied : undefined);
       } finally {
         setIsBusy(false);
       }
@@ -326,7 +340,9 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     now,
   );
 
-  const [checkKey] = useDebouncedValue(`${values.date}|${values.start}|${values.end}`, { wait: 250 });
+  if (applied !== undefined && applied.key !== slotKey(values)) setApplied(undefined);
+
+  const [checkKey] = useDebouncedValue(slotKey(values), { wait: 250 });
   const [checkDate = "", checkStart = "", checkEnd = ""] = checkKey.split("|");
   const isRangeValid = clockToMinutes(values.end) > clockToMinutes(values.start);
   const titleError = hasTriedSubmit && values.title.trim() === "" ? TITLE_REQUIRED_MESSAGE : undefined;
@@ -349,7 +365,11 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     },
   );
 
-  const isCheckStale = checkKey !== `${values.date}|${values.start}|${values.end}` || check.isFetching;
+  const isCheckStale = checkKey !== slotKey(values) || check.isFetching;
+  const [checkedKey, setCheckedKey] = useState(checkKey);
+
+  if (check.data !== undefined && !check.isPlaceholderData && checkedKey !== checkKey)
+    setCheckedKey(checkKey);
 
   /**
    * Change the date; on today a start that has already passed moves to the next grid step.
@@ -400,14 +420,17 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
    * Submit a single booking.
    *
    * @param value - Form values.
-   * @param conflictEventId - Conflict that produced the chosen slot.
+   * @param suggestion - The applied suggestion the chosen slot came from, if any.
    */
-  async function submitSingle(value: FormValues, conflictEventId: number | undefined): Promise<void> {
+  async function submitSingle(value: FormValues, suggestion: AppliedSuggestion | undefined): Promise<void> {
+    const conflictEventId = suggestion?.conflict.conflictEventId ?? 0;
+
     const outcome = await createBooking(room.slug, {
       start: toTimestamp(value.date, value.start),
       end: toTimestamp(value.date, value.end),
       title: value.title,
       conflictEventId: conflictEventId === 0 ? undefined : conflictEventId,
+      suggestedFrom: conflictEventId === 0 ? suggestion?.requested : undefined,
       kind: value.kind === "block" ? "block" : undefined,
       onBehalfOf: value.onBehalfOf === "" ? undefined : Number(value.onBehalfOf),
     });
@@ -524,13 +547,20 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
 
     const slot = suggestionSlot(suggestion);
 
+    const requested =
+      conflict.conflictEventId !== 0
+        ? undefined
+        : conflict === applied?.conflict
+          ? applied.requested
+          : keyRange(checkedKey);
+
     form.setFieldValue("date", slot.date);
     form.setFieldValue("weekdays", [String(parseDate(slot.date).dayOfWeek)]);
     form.setFieldValue("start", slot.start);
     form.setFieldValue("end", slot.end);
     setSubmitConflict(undefined);
     setSubmitError(undefined);
-    setApplied({ conflict, index, key: slotKey(slot) });
+    setApplied({ conflict, index, key: slotKey(slot), requested });
   }
 
   const isOnApplied = applied !== undefined && applied.key === slotKey(values);
