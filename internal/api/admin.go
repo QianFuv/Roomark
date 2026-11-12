@@ -50,7 +50,7 @@ func (s *Service) admin(ctx context.Context, q *store.Queries, op string, r requ
 		}
 		result := make([]domain.Person, 0, len(body.People))
 		for _, item := range body.People {
-			person, err := s.createPreset(ctx, q, item)
+			person, err := s.createPreset(ctx, q, PresetPerson(item))
 			if err != nil {
 				return nil, err
 			}

@@ -240,7 +240,17 @@ type EditPerson struct {
 // ImportPeople imports a roster atomically.
 type ImportPeople struct {
 	// People contains roster input or source identities.
-	People []PresetPerson `json:"people" minItems:"1" maxItems:"1000"`
+	People []ImportPerson `json:"people" minItems:"1" maxItems:"1000"`
+}
+
+// ImportPerson creates a roster entry with an optional administrative flag.
+type ImportPerson struct {
+	// Name is the displayed person name.
+	Name string `json:"name" minLength:"1" maxLength:"80"`
+	// Role is the teacher, student or other identity category.
+	Role string `json:"role" enum:"teacher,student,other"`
+	// IsAdmin grants administrative access and defaults to false.
+	IsAdmin bool `json:"isAdmin,omitempty" default:"false"`
 }
 
 // AnnouncementInput creates a room-specific or global banner.
