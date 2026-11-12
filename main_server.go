@@ -1,0 +1,33 @@
+//go:build server
+
+package main
+
+import (
+	"context"
+	"errors"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"net/http"
+	"os"
+	"roomark/internal/api"
+	"strings"
+)
+
+const platformName = "web"
+
+func run() error {
+	service, err := api.Open(context.Background(), api.Config{Database: os.Getenv("ROOMARK_DB"), PublicURL: os.Getenv("ROOMARK_PUBLIC_URL"), AllowedOrigins: strings.Split(os.Getenv("ROOMARK_ALLOWED_ORIGINS"), ","), AdminName: os.Getenv("ROOMARK_ADMIN_NAME"), AdminPasscode: os.Getenv("ROOMARK_ADMIN_PASSCODE")})
+	if err != nil {
+		return err
+	}
+	handler := service.Handler()
+	app, _ := newApp(application.AssetOptions{Handler: spaAssets(), Middleware: func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ical/") {
+				handler.ServeHTTP(writer, r)
+				return
+			}
+			next.ServeHTTP(writer, r)
+		})
+	}})
+	return errors.Join(app.Run(), service.Close())
+}
