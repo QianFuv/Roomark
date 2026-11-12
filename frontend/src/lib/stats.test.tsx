@@ -10,12 +10,12 @@ import {
   compareMetric,
   conflictSlotLabel,
   deltaText,
-  heatCells,
+  heatRows,
+  heatSummary,
   labelBuckets,
   presetRange,
   previousRange,
   trendRows,
-  usuallyFreeRanges,
 } from "./stats";
 
 describe("stats filters", () => {
@@ -48,17 +48,23 @@ describe("stats display", () => {
     expect(deltaText(compareMetric(3, 0))).toBe("上期无数据");
   });
 
-  test("given a heatmap matrix when flattening then levels follow the ratio and free hours merge", () => {
-    const matrix = Array.from({ length: 7 }, () =>
-      Array.from({ length: 14 }, (_unused, column) => (column < 2 ? 0 : 0.9)),
-    );
+  test("given a heatmap matrix with gaps when building rows then ratios clamp and levels follow the ratio", () => {
+    const rows = heatRows([[0, 0.3, 1.4], null], 7, [9, 10, 11]);
 
-    const cells = heatCells(matrix);
+    expect(rows).toHaveLength(7);
+    expect(rows[0]).toEqual([
+      { hour: 9, ratio: 0, level: 0 },
+      { hour: 10, ratio: 0.3, level: 2 },
+      { hour: 11, ratio: 1, level: 4 },
+    ]);
+    expect(rows[1]?.map((cell) => cell.ratio)).toEqual([0, 0, 0]);
+  });
 
-    expect(cells).toHaveLength(98);
-    expect(cells[0]).toEqual({ weekday: 1, hour: 8, ratio: 0, level: 0 });
-    expect(cells[2]?.level).toBe(4);
-    expect(usuallyFreeRanges(cells, 1)).toEqual(["08:00–10:00"]);
+  test("given a week of booked shares when summarizing then minutes add up and the busiest day wins", () => {
+    const rows = heatRows([[0.5, 1], [], [1, 1, 0.25]], 7, [9, 10, 11]);
+
+    expect(heatSummary(rows)).toEqual({ totalMinutes: 225, busiestRow: 2 });
+    expect(heatSummary(heatRows(null, 7, [9]))).toEqual({ totalMinutes: 0, busiestRow: undefined });
   });
 
   test("given API buckets and trend points when labeling then rows carry Chinese labels and both series", () => {

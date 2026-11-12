@@ -1088,6 +1088,19 @@ export interface components {
             room: components["schemas"]["Room"];
             status: components["schemas"]["RoomStatus"];
         };
+        RoomHeatmap: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/schemas/RoomHeatmap.json
+             */
+            readonly $schema?: string;
+            cells: (number[] | null)[] | null;
+            days: string[] | null;
+            hours: number[] | null;
+            /** Format: date */
+            weekStart: string;
+        };
         RoomInput: {
             /**
              * Format: uri
@@ -1298,7 +1311,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1412,7 +1424,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1530,7 +1541,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1646,7 +1656,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1766,7 +1775,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1880,7 +1888,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -1994,7 +2001,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2112,7 +2118,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2230,7 +2235,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2346,7 +2350,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2466,7 +2469,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2582,7 +2584,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2696,7 +2697,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2814,7 +2814,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -2934,7 +2933,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3050,7 +3048,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3166,7 +3163,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3280,7 +3276,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3361,7 +3356,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3481,7 +3475,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3601,7 +3594,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3717,7 +3709,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3837,7 +3828,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -3951,7 +3941,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4065,7 +4054,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4179,7 +4167,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4297,7 +4284,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4411,7 +4397,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4529,7 +4514,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4649,7 +4633,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4765,7 +4748,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -4881,7 +4863,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5001,7 +4982,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5121,8 +5101,8 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
+                week?: string;
             };
             header?: {
                 Authorization?: string;
@@ -5141,7 +5121,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": (number[] | null)[] | null;
+                    "application/json": components["schemas"]["RoomHeatmap"];
                 };
             };
             /** @description Bad Request */
@@ -5237,7 +5217,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5357,7 +5336,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5477,7 +5455,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5597,7 +5574,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5715,7 +5691,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5829,7 +5804,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {
@@ -5912,7 +5886,6 @@ export interface operations {
                 personId?: number;
                 status?: "confirmed" | "cancelled";
                 past?: boolean;
-                weeks?: number;
                 k?: string;
             };
             header?: {

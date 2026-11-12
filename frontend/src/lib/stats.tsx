@@ -29,17 +29,24 @@ export interface MetricDelta {
 
 /** One heatmap cell ready to render. */
 export interface HeatCell {
-  weekday: number;
   hour: number;
   ratio: number;
   level: 0 | 1 | 2 | 3 | 4;
 }
 
-/** First hour shown on heatmaps. */
-export const HEATMAP_FIRST_HOUR = 8;
+/** Hourly columns of the statistics heatmap (08–21, matching the API's `[7][14]` matrix). */
+export const STATS_HEATMAP_HOURS: readonly number[] = Array.from(
+  { length: 14 },
+  (_unused, index) => 8 + index,
+);
 
-/** Number of hourly columns on heatmaps (08–22). */
-export const HEATMAP_HOURS = 14;
+/** Totals of a weekly heatmap. */
+export interface HeatSummary {
+  /** Booked minutes over the whole week. */
+  totalMinutes: number;
+  /** Row with the most booked time, or `undefined` when nothing is booked. */
+  busiestRow: number | undefined;
+}
 
 /** Display labels of the duration histogram, in API order. */
 export const DURATION_LABELS = ["≤30 分钟", "≤1 小时", "≤2 小时", "≤3 小时", "≤4 小时", ">4 小时"] as const;
@@ -161,27 +168,26 @@ export function deltaText(delta: MetricDelta): string {
 }
 
 /**
- * Flatten a `[7][14]` occupancy matrix into cells with a 0–4 intensity level.
+ * Clamp an occupancy matrix into rows of cells with a 0–4 intensity level; missing values count
+ * as 0.
  *
- * @param matrix - Ratios per ISO weekday (row 0 = Monday) and hour from 08.
- * @returns Cells in row-major order.
+ * @param matrix - Ratios per row and hour column.
+ * @param rowCount - Number of rows to produce.
+ * @param hours - Hour of each column.
+ * @returns One array of cells per row.
  */
-export function heatCells(matrix: readonly (readonly number[] | null)[] | null | undefined): HeatCell[] {
-  const cells: HeatCell[] = [];
-
-  for (let row = 0; row < 7; row += 1) {
-    for (let column = 0; column < HEATMAP_HOURS; column += 1) {
+export function heatRows(
+  matrix: readonly (readonly number[] | null)[] | null | undefined,
+  rowCount: number,
+  hours: readonly number[],
+): HeatCell[][] {
+  return Array.from({ length: rowCount }, (_row, row) =>
+    hours.map((hour, column) => {
       const ratio = Math.min(Math.max(matrix?.[row]?.[column] ?? 0, 0), 1);
-      cells.push({
-        weekday: row + 1,
-        hour: HEATMAP_FIRST_HOUR + column,
-        ratio,
-        level: heatLevel(ratio),
-      });
-    }
-  }
 
-  return cells;
+      return { hour, ratio, level: heatLevel(ratio) };
+    }),
+  );
 }
 
 /**
@@ -203,35 +209,28 @@ function heatLevel(ratio: number): HeatCell["level"] {
 }
 
 /**
- * Hours a weekday is usually free: consecutive columns below the threshold, merged into ranges.
+ * Booked time of a week heatmap and its busiest day.
  *
- * @param cells - Heatmap cells.
- * @param weekday - ISO weekday.
- * @param threshold - Occupancy below which an hour counts as usually free.
- * @returns Ranges such as `["08:00–10:00", "16:00–22:00"]`.
+ * @param rows - Cells per day.
+ * @returns The summary.
  */
-export function usuallyFreeRanges(cells: readonly HeatCell[], weekday: number, threshold = 0.25): string[] {
-  const hours = cells
-    .filter((cell) => cell.weekday === weekday)
-    .sort((left, right) => left.hour - right.hour);
+export function heatSummary(rows: readonly (readonly HeatCell[])[]): HeatSummary {
+  let totalMinutes = 0;
+  let busiestRow: number | undefined;
+  let busiestMinutes = 0;
 
-  const ranges: string[] = [];
-  let rangeStart: number | undefined;
+  rows.forEach((cells, row) => {
+    const minutes = Math.round(cells.reduce((sum, cell) => sum + cell.ratio, 0) * 60);
 
-  for (const cell of hours) {
-    if (cell.ratio < threshold) {
-      rangeStart ??= cell.hour;
-    } else if (rangeStart !== undefined) {
-      ranges.push(`${pad(rangeStart)}:00–${pad(cell.hour)}:00`);
-      rangeStart = undefined;
+    totalMinutes += minutes;
+
+    if (minutes > busiestMinutes) {
+      busiestMinutes = minutes;
+      busiestRow = row;
     }
-  }
+  });
 
-  if (rangeStart !== undefined) {
-    ranges.push(`${pad(rangeStart)}:00–${pad(HEATMAP_FIRST_HOUR + HEATMAP_HOURS)}:00`);
-  }
-
-  return ranges;
+  return { totalMinutes, busiestRow };
 }
 
 /**

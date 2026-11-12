@@ -1,16 +1,15 @@
 /**
- * Weekday × hour occupancy heatmap (used for the public "通常空闲时段" and in statistics).
+ * Day × hour occupancy heatmap (the room's weekly "会议热力图" and the statistics heatmap).
  *
  * @module
  */
 import * as stylex from "@stylexjs/stylex";
 
-import { HEATMAP_FIRST_HOUR, HEATMAP_HOURS, formatPercent, heatCells, type HeatCell } from "../../lib/stats";
-import { weekdayLabel } from "../../lib/time";
+import { formatPercent, heatRows } from "../../lib/stats";
 import { colors, fonts, radii } from "../../styles/tokens.stylex";
 
 const styles = stylex.create({
-  wrapper: { overflowX: "auto", paddingBottom: 4 },
+  wrapper: { overflowX: "auto", paddingBottom: 4, position: "relative" },
   table: {
     borderCollapse: "separate",
     borderSpacing: 3,
@@ -28,7 +27,26 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   todayHead: { color: colors.primaryText },
+  rowButton: {
+    backgroundColor: { default: "transparent", ":hover": colors.surfaceHover },
+    borderRadius: 4,
+    borderWidth: 0,
+    color: "inherit",
+    cursor: "pointer",
+    fontFamily: fonts.sans,
+    fontSize: "inherit",
+    fontWeight: "inherit",
+    minHeight: 24,
+    minWidth: 24,
+    outline: { default: "none", ":focus-visible": `2px solid ${colors.focusRing}` },
+    padding: 0,
+  },
   cell: { borderRadius: 4, height: 22, minWidth: 16 },
+  cellSelectable: {
+    cursor: "pointer",
+    outline: { default: "none", ":hover": `2px solid ${colors.focusRing}` },
+    outlineOffset: -1,
+  },
   level0: { backgroundColor: colors.heat0 },
   level1: { backgroundColor: colors.heat1 },
   level2: { backgroundColor: colors.heat2 },
@@ -57,35 +75,50 @@ const styles = stylex.create({
 
 const LEVEL_STYLES = [styles.level0, styles.level1, styles.level2, styles.level3, styles.level4] as const;
 
+/** One row of {@link HeatmapGrid}. */
+export interface HeatmapRow {
+  /** Short visible label such as `三`. */
+  label: string;
+  /** Name used in each cell's text alternative, such as `周三`. */
+  name: string;
+  /** Accessible name of the row action, when rows are selectable. */
+  actionLabel?: string;
+  isHighlighted?: boolean;
+}
+
 /** Props of {@link HeatmapGrid}. */
 export interface HeatmapGridProps {
   matrix: readonly (readonly number[] | null)[] | null | undefined;
+  hours: readonly number[];
+  rows: readonly HeatmapRow[];
   caption: string;
-  highlightWeekday?: number;
+  /** Word before the percentage in each cell's text, such as `已预约`. */
+  valueLabel: string;
   lowLabel?: string;
   highLabel?: string;
+  /** Open a row (from its header) or a cell (with its hour). */
+  onSelect?: (row: number, hour?: number) => void;
 }
 
 /**
- * Accessible heatmap table: one row per weekday, one column per hour.
+ * Accessible heatmap table: one row per day, one column per hour. Every cell carries a text
+ * alternative such as `周三 14:00 已预约 75%`; selectable rows expose a button in their header.
  *
  * @param props - Grid props.
  * @returns The table.
  */
 export function HeatmapGrid({
   matrix,
+  hours,
+  rows,
   caption,
-  highlightWeekday,
+  valueLabel,
   lowLabel = "空闲",
-  highLabel = "常被占用",
+  highLabel = "已满",
+  onSelect,
 }: HeatmapGridProps) {
-  const cells = heatCells(matrix);
-
-  const rows: HeatCell[][] = Array.from({ length: 7 }, (_unused, index) =>
-    cells.filter((cell) => cell.weekday === index + 1),
-  );
-
-  const hours = Array.from({ length: HEATMAP_HOURS }, (_unused, index) => HEATMAP_FIRST_HOUR + index);
+  const cellRows = heatRows(matrix, rows.length, hours);
+  const firstHour = hours[0] ?? 0;
 
   return (
     <div {...stylex.props(styles.frame)}>
@@ -95,33 +128,53 @@ export function HeatmapGrid({
           <thead>
             <tr>
               <th scope="col" {...stylex.props(styles.corner)}>
-                <span {...stylex.props(styles.srOnly)}>星期</span>
+                <span {...stylex.props(styles.srOnly)}>日期</span>
               </th>
               {hours.map((hour) => (
                 <th key={hour} scope="col" {...stylex.props(styles.hour)}>
-                  {hour % 2 === 0 ? hour : <span {...stylex.props(styles.srOnly)}>{hour}</span>}
+                  {(hour - firstHour) % 2 === 0 ? hour : <span {...stylex.props(styles.srOnly)}>{hour}</span>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={index}>
+            {rows.map((row, rowIndex) => (
+              <tr key={row.name}>
                 <th
                   scope="row"
-                  {...stylex.props(styles.rowHead, highlightWeekday === index + 1 && styles.todayHead)}
+                  {...stylex.props(styles.rowHead, row.isHighlighted === true && styles.todayHead)}
                 >
-                  {weekdayLabel(index + 1).replace("周", "")}
+                  {onSelect === undefined ? (
+                    row.label
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={row.actionLabel ?? row.name}
+                      onClick={() => onSelect(rowIndex)}
+                      {...stylex.props(styles.rowButton)}
+                    >
+                      {row.label}
+                    </button>
+                  )}
                 </th>
-                {row.map((cell) => (
-                  <td
-                    key={cell.hour}
-                    title={`${weekdayLabel(cell.weekday)} ${cell.hour}:00 · 占用 ${formatPercent(cell.ratio)}`}
-                    {...stylex.props(styles.cell, LEVEL_STYLES[cell.level])}
-                  >
-                    <span {...stylex.props(styles.srOnly)}>{formatPercent(cell.ratio)}</span>
-                  </td>
-                ))}
+                {(cellRows[rowIndex] ?? []).map((cell) => {
+                  const text = `${row.name} ${String(cell.hour).padStart(2, "0")}:00 ${valueLabel} ${formatPercent(cell.ratio)}`;
+
+                  return (
+                    <td
+                      key={cell.hour}
+                      title={text}
+                      onClick={onSelect === undefined ? undefined : () => onSelect(rowIndex, cell.hour)}
+                      {...stylex.props(
+                        styles.cell,
+                        LEVEL_STYLES[cell.level],
+                        onSelect !== undefined && styles.cellSelectable,
+                      )}
+                    >
+                      <span {...stylex.props(styles.srOnly)}>{text}</span>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

@@ -47,18 +47,19 @@ export function useRoomBookings(slug: string, from: string, to: string, isEnable
 }
 
 /**
- * Public "usually free" heatmap of the last 8 weeks.
+ * Public "会议热力图": booked share per day and hour of the Monday–Sunday week containing a date,
+ * refreshed every 30 s. The previous week stays on screen while another one loads.
  *
  * @param slug - Room slug.
- * @param isEnabled - Whether to fetch.
+ * @param week - Any date `YYYY-MM-DD` in the week.
  * @returns The query.
  */
-export function useRoomHeatmap(slug: string, isEnabled: boolean) {
+export function useRoomHeatmap(slug: string, week: string) {
   return api.useQuery(
     "get",
     "/api/rooms/{slug}/heatmap",
-    { params: { path: { slug }, query: { weeks: 8 } } },
-    { enabled: isEnabled, staleTime: 10 * 60_000 },
+    { params: { path: { slug }, query: { week } } },
+    { refetchInterval: POLL_MS, placeholderData: keepPreviousData },
   );
 }
 

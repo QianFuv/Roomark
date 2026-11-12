@@ -13,10 +13,11 @@ import { useState, type ReactNode } from "react";
 
 import { api, authHeaders, errorMessage, serverUrl } from "../../api/client";
 import { HistogramChart, RankingChart, ShareChart, TrendChart } from "../../features/stats/charts";
-import { HeatmapGrid } from "../../features/room/heatmap";
+import { HeatmapGrid, type HeatmapRow } from "../../features/room/heatmap";
 import {
   DURATION_LABELS,
   LEAD_TIME_LABELS,
+  STATS_HEATMAP_HOURS,
   compareMetric,
   conflictSlotLabel,
   deltaText,
@@ -32,7 +33,7 @@ import {
   type RangePreset,
   type Stats,
 } from "../../lib/stats";
-import { parseDate, todayDate } from "../../lib/time";
+import { parseDate, todayDate, weekdayLabel } from "../../lib/time";
 import { platform } from "../../platform/platform";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
@@ -46,6 +47,12 @@ import { notify } from "../../ui/toast";
 export const Route = createFileRoute("/admin/stats")({ component: StatsPage });
 
 type Role = "all" | "teacher" | "student" | "other";
+
+/** Weekday rows of the statistics heatmap, Monday first. */
+const WEEKDAY_ROWS: readonly HeatmapRow[] = Array.from({ length: 7 }, (_unused, index) => ({
+  label: weekdayLabel(index + 1).replace("周", ""),
+  name: weekdayLabel(index + 1),
+}));
 
 const styles = stylex.create({
   filters: {
@@ -511,7 +518,10 @@ function StatsBody({ stats }: { stats: Stats }) {
         <Section title="时段热力图" aside="星期 × 小时的占用比例">
           <HeatmapGrid
             matrix={stats.heatmap}
+            hours={STATS_HEATMAP_HOURS}
+            rows={WEEKDAY_ROWS}
             caption="各星期各小时的占用比例"
+            valueLabel="占用"
             lowLabel="0%"
             highLabel="100%"
           />

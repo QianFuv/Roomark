@@ -7,7 +7,16 @@
 import { HttpResponse, http } from "msw";
 
 import type { components } from "../api/schema";
-import { formatTimestamp, nowZoned, parseZoned, toTimestamp } from "../lib/time";
+import {
+  dateRange,
+  formatTimestamp,
+  nowZoned,
+  parseDate,
+  parseZoned,
+  startOfWeek,
+  toTimestamp,
+  todayDate,
+} from "../lib/time";
 
 type Booking = components["schemas"]["Booking"];
 
@@ -274,13 +283,18 @@ export const handlers = [
     HttpResponse.json({ room: state.room, status: { state: "free" }, announcements: [] }),
   ),
   http.get("*/api/rooms/:slug/bookings", () => HttpResponse.json(state.bookings)),
-  http.get("*/api/rooms/:slug/heatmap", () =>
-    HttpResponse.json(
-      Array.from({ length: 7 }, (_row, row) =>
-        Array.from({ length: 14 }, (_cell, cell) => ((row + cell) % 5) / 5),
-      ),
-    ),
-  ),
+  http.get("*/api/rooms/:slug/heatmap", ({ request }) => {
+    const week = new URL(request.url).searchParams.get("week");
+    const weekStart = startOfWeek(week === null ? todayDate() : parseDate(week));
+    const hours = Array.from({ length: 14 }, (_hour, index) => 8 + index);
+
+    return HttpResponse.json({
+      weekStart: weekStart.toString(),
+      days: dateRange(weekStart, 7).map((date) => date.toString()),
+      hours,
+      cells: Array.from({ length: 7 }, (_row, row) => hours.map((_hour, column) => ((row + column) % 5) / 4)),
+    });
+  }),
   http.get("*/api/people", () =>
     HttpResponse.json(
       state.people.map((person) => ({
