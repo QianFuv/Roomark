@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"roomark/internal/domain"
 	"roomark/internal/rules"
@@ -18,6 +20,14 @@ func violationsProblem(violations []domain.Violation) *Problem {
 	p := problem(422, violations[0].Code, violations[0].Message)
 	p.Violations = violations
 	return p
+}
+
+func normalizeTitle(title string) (string, error) {
+	title = strings.TrimSpace(title)
+	if length := utf8.RuneCountInString(title); length == 0 || length > 200 {
+		return "", violationsProblem([]domain.Violation{{Code: "title_required", Message: "用途不能为空，且不能超过200个字符"}})
+	}
+	return title, nil
 }
 
 func activeCount(bookings []domain.Booking, slug string, personID int64, now time.Time) int {
@@ -139,11 +149,16 @@ func (s *Service) createBooking(ctx context.Context, q *store.Queries, r request
 		}
 		body.Start = rules.Local(s.now().Truncate(time.Minute))
 		body.End = body.Start.Add(time.Duration(quick.Minutes) * time.Minute)
+		body.Title = quick.Title
 	} else {
 		body, err = bodyAs[CreateBooking](r)
 		if err != nil {
 			return nil, err
 		}
+	}
+	body.Title, err = normalizeTitle(body.Title)
+	if err != nil {
+		return nil, err
 	}
 	owner, kind, err := bookingOwner(ctx, q, person, body.OnBehalfOf, body.Kind)
 	if err != nil {
@@ -215,6 +230,10 @@ func (s *Service) series(ctx context.Context, q *store.Queries, r request, room 
 			return nil, err
 		}
 		body = parsed
+		body.Title, err = normalizeTitle(body.Title)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		parsed, err := bodyAs[RuleInput](r)
 		if err != nil {
@@ -429,6 +448,13 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 		edit, err = bodyAs[EditBooking](r)
 		if err != nil {
 			return nil, err
+		}
+		if edit.Title != nil {
+			title, err := normalizeTitle(*edit.Title)
+			if err != nil {
+				return nil, err
+			}
+			edit.Title = &title
 		}
 	}
 	if op == "cancel-booking" {

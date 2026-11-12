@@ -315,7 +315,7 @@
             "type": "string"
           },
           "next": {
-            "pattern": "^([0-9]{4}|[0-9]{6})$",
+            "pattern": "^[0-9]{6}$",
             "type": "string"
           }
         },
@@ -502,11 +502,13 @@
             "type": "string"
           },
           "title": {
-            "maxLength": 200,
+            "description": "Meeting purpose, 1–200 characters after trimming surrounding whitespace.",
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
+          "title",
           "start",
           "end"
         ],
@@ -548,11 +550,13 @@
             "$ref": "#/components/schemas/SeriesRule"
           },
           "title": {
-            "maxLength": 200,
+            "description": "Meeting purpose, 1–200 characters after trimming surrounding whitespace.",
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
+          "title",
           "overrides",
           "rule"
         ],
@@ -652,7 +656,8 @@
             "type": "string"
           },
           "title": {
-            "maxLength": 200,
+            "description": "Meeting purpose, 1–200 characters after trimming surrounding whitespace; omit to keep the existing title.",
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -849,7 +854,7 @@
           },
           "people": {
             "items": {
-              "$ref": "#/components/schemas/PresetPerson"
+              "$ref": "#/components/schemas/ImportPerson"
             },
             "maxItems": 1000,
             "minItems": 1,
@@ -861,6 +866,33 @@
         },
         "required": [
           "people"
+        ],
+        "type": "object"
+      },
+      "ImportPerson": {
+        "additionalProperties": false,
+        "properties": {
+          "isAdmin": {
+            "default": false,
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "teacher",
+              "student",
+              "other"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "role"
         ],
         "type": "object"
       },
@@ -881,7 +913,7 @@
             "type": "string"
           },
           "passcode": {
-            "pattern": "^([0-9]{4}|[0-9]{6})$",
+            "pattern": "^[0-9]{6}$",
             "type": "string"
           },
           "personId": {
@@ -1092,7 +1124,7 @@
             "type": "string"
           },
           "passcode": {
-            "pattern": "^([0-9]{4}|[0-9]{6})$",
+            "pattern": "^[0-9]{6}$",
             "type": "string"
           }
         },
@@ -1365,10 +1397,16 @@
             ],
             "format": "int64",
             "type": "integer"
+          },
+          "title": {
+            "description": "Meeting purpose, 1–200 characters after trimming surrounding whitespace.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
-          "minutes"
+          "minutes",
+          "title"
         ],
         "type": "object"
       },
@@ -1694,7 +1732,7 @@
             "type": "string"
           },
           "passcode": {
-            "pattern": "^([0-9]{4}|[0-9]{6})$",
+            "pattern": "^[0-9]{6}$",
             "type": "string"
           }
         },

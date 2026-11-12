@@ -14,11 +14,11 @@ import (
 	"roomark/internal/store"
 )
 
-var passcodePattern = regexp.MustCompile(`^([0-9]{4}|[0-9]{6})$`)
+var passcodePattern = regexp.MustCompile(`^[0-9]{6}$`)
 
 func hashPasscode(value string) (string, error) {
 	if !passcodePattern.MatchString(value) {
-		return "", problem(422, "invalid_passcode", "口令必须为四位或六位数字")
+		return "", problem(422, "invalid_passcode", "口令必须为六位数字")
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 	return string(hash), err
@@ -70,7 +70,7 @@ func (s *Service) login(ctx context.Context, q *store.Queries, r request) (any, 
 	if person.PasscodeHash == "" {
 		return nil, problem(409, "passcode_not_set", "请先为此姓名设置口令")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(person.PasscodeHash), []byte(body.Passcode)); err != nil {
+	if !passcodePattern.MatchString(body.Passcode) || bcrypt.CompareHashAndPassword([]byte(person.PasscodeHash), []byte(body.Passcode)) != nil {
 		failures := person.FailedAttempts + 1
 		if person.LockedUntil != 0 {
 			failures = 1

@@ -148,7 +148,7 @@ func run(binary string) error {
 		return err
 	}
 	c.authorization = ""
-	session, err = c.call("POST", fmt.Sprintf("/api/people/%d/claim", id), map[string]string{"passcode": "1234"}, 200)
+	session, err = c.call("POST", fmt.Sprintf("/api/people/%d/claim", id), map[string]string{"passcode": "123456"}, 200)
 	if err != nil {
 		return err
 	}

@@ -101,7 +101,7 @@ func TestBookingHTTPFlow(t *testing.T) {
 	admin := c.session
 	c.session = ""
 	var session domain.Session
-	c.call("POST", fmt.Sprintf("/api/people/%d/claim", preset.ID), Passcode{Passcode: "1234"}, 200, &session)
+	c.call("POST", fmt.Sprintf("/api/people/%d/claim", preset.ID), Passcode{Passcode: "123456"}, 200, &session)
 	c.session = session.Token
 	var booking domain.Booking
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &booking)
@@ -111,7 +111,7 @@ func TestBookingHTTPFlow(t *testing.T) {
 		t.Fatalf("conflict=%s", response.Body)
 	}
 	suggestion := conflict.Suggestions[0]
-	c.call("POST", "/api/rooms/9070/bookings", CreateBooking{TimeRange: TimeRange{Start: suggestion.Start, End: suggestion.End}, ConflictEventID: conflict.ConflictEventID}, 201, nil)
+	c.call("POST", "/api/rooms/9070/bookings", CreateBooking{TimeRange: TimeRange{Start: suggestion.Start, End: suggestion.End}, ConflictEventID: conflict.ConflictEventID, Title: "讨论"}, 201, nil)
 	var preview domain.Preview
 	rule := domain.SeriesRule{Freq: "weekly", Weekdays: []int{5}, StartDate: "2026-11-13", Count: 3, StartTime: "16:00", EndTime: "17:00"}
 	c.call("POST", "/api/rooms/9070/series/preview", RuleInput{Rule: rule}, 200, &preview)
@@ -119,7 +119,7 @@ func TestBookingHTTPFlow(t *testing.T) {
 		t.Fatalf("preview=%+v", preview)
 	}
 	var series domain.SeriesResult
-	c.call("POST", "/api/rooms/9070/series", CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
+	c.call("POST", "/api/rooms/9070/series", CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
 	if len(series.Created) != 3 {
 		t.Fatalf("series=%+v", series)
 	}
@@ -157,25 +157,25 @@ func TestAuthorizationLockoutAndRevocation(t *testing.T) {
 	c.call("GET", "/api/rooms/9070", nil, 403, nil)
 	c.roomToken = savedToken
 	var first domain.Session
-	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "1234"}, Name: "李四"}, 201, &first)
+	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "123456"}, Name: "李四"}, 201, &first)
 	for attempt := 0; attempt < 5; attempt++ {
 		expected := 401
 		if attempt == 4 {
 			expected = 423
 		}
-		c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "0000"}, expected, nil)
+		c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "000000"}, expected, nil)
 	}
-	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "1234"}, 423, nil)
+	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 423, nil)
 	now := c.service.now().Add(16 * time.Minute)
 	c.service.now = func() time.Time { return now }
 	var second domain.Session
-	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "1234"}, 200, &second)
+	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 200, &second)
 	c.session = admin
 	c.call("POST", fmt.Sprintf("/api/admin/people/%d/reset-passcode", first.Person.ID), nil, 200, nil)
 	c.session = second.Token
 	c.call("GET", "/api/me", nil, 401, nil)
 	c.session = ""
-	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "1234"}, 409, nil)
+	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 409, nil)
 	c.session = admin
 	var rotated TokenResult
 	c.call("POST", "/api/admin/rooms/1/rotate-token", nil, 200, &rotated)
@@ -221,7 +221,7 @@ func TestSeriesChangedPreviewAndOverrides(t *testing.T) {
 	rule := domain.SeriesRule{Freq: "weekly", Weekdays: []int{5}, StartDate: "2026-11-13", Count: 3, StartTime: "14:00", EndTime: "15:00"}
 	c.call("POST", "/api/rooms/9070/series/preview", RuleInput{Rule: rule}, 200, nil)
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, nil)
-	body := CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}
+	body := CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}
 	var fresh Problem
 	c.call("POST", "/api/rooms/9070/series", body, 409, &fresh)
 	if fresh.Code != "preview_changed" || fresh.Occurrences[0].Status != "conflict" {
@@ -264,7 +264,7 @@ func TestCORSAndCheckDoesNotWrite(t *testing.T) {
 func TestQuickExtendEndAndFollowingEdit(t *testing.T) {
 	c := newTestClient(t)
 	var quick domain.Booking
-	c.call("POST", "/api/rooms/9070/quick", Quick{Minutes: 30}, 201, &quick)
+	c.call("POST", "/api/rooms/9070/quick", map[string]any{"minutes": 30, "title": "讨论"}, 201, &quick)
 	var extended domain.Booking
 	c.call("POST", fmt.Sprintf("/api/bookings/%d/extend", quick.ID), Extend{Minutes: 30}, 200, &extended)
 	if extended.End.Sub(quick.End) != 30*time.Minute {
@@ -281,7 +281,7 @@ func TestQuickExtendEndAndFollowingEdit(t *testing.T) {
 	rule := domain.SeriesRule{Freq: "weekly", Weekdays: []int{5}, StartDate: "2026-11-13", Count: 3, StartTime: "14:00", EndTime: "15:00"}
 	c.call("POST", "/api/rooms/9070/series/preview", RuleInput{Rule: rule}, 200, nil)
 	var series domain.SeriesResult
-	c.call("POST", "/api/rooms/9070/series", CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
+	c.call("POST", "/api/rooms/9070/series", CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
 	start, end := series.Created[1].Start.Add(time.Hour), series.Created[1].End.Add(time.Hour)
 	c.call("PATCH", fmt.Sprintf("/api/bookings/%d", series.Created[1].ID), EditBooking{Start: &start, End: &end, Scope: "following"}, 200, nil)
 	var mine domain.MyBookings
@@ -300,7 +300,7 @@ func TestActiveLimitCountsSeriesOnce(t *testing.T) {
 	rule := domain.SeriesRule{Freq: "weekly", Weekdays: []int{5}, StartDate: "2026-11-13", Count: 3, StartTime: "14:00", EndTime: "15:00"}
 	c.call("POST", "/api/rooms/9070/series/preview", RuleInput{Rule: rule}, 200, nil)
 	var series domain.SeriesResult
-	c.call("POST", "/api/rooms/9070/series", CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
+	c.call("POST", "/api/rooms/9070/series", CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &series)
 	var failure Problem
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("16:00", "17:00"), 422, &failure)
 	if failure.Code != "too_many_active" {
@@ -321,7 +321,7 @@ func TestSeriesPreviewConflictsAreSkipped(t *testing.T) {
 		t.Fatalf("conflict=%+v", preview)
 	}
 	var created domain.SeriesResult
-	c.call("POST", "/api/rooms/9070/series", CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &created)
+	c.call("POST", "/api/rooms/9070/series", CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{}}, 201, &created)
 	if len(created.Created) != 2 || len(created.Skipped) != 1 || created.Skipped[0] != "2026-11-13" {
 		t.Fatalf("result=%+v", created)
 	}
@@ -347,14 +347,14 @@ func TestIPRateLimitAndOwnership(t *testing.T) {
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &booking)
 	c.session = ""
 	var other domain.Session
-	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "1234"}, Name: "其他人"}, 201, &other)
+	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "123456"}, Name: "其他人"}, 201, &other)
 	c.session = other.Token
 	c.call("POST", fmt.Sprintf("/api/bookings/%d/cancel", booking.ID), Scope{}, 403, nil)
 	c.session = ""
 	for range 8 {
-		c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "1234"}, 401, nil)
+		c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "123456"}, 401, nil)
 	}
-	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "1234"}, 429, nil)
+	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "123456"}, 429, nil)
 }
 
 // TestCheckExcludesEditedBooking lets the edit form check a new time without colliding with the booking's own slot.
@@ -383,7 +383,7 @@ func TestOwnerManagesBookingWithoutRoomToken(t *testing.T) {
 	c := newTestClient(t)
 	c.session = ""
 	var owner domain.Session
-	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "1234"}, Name: "预约人"}, 201, &owner)
+	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "123456"}, Name: "预约人"}, 201, &owner)
 	c.session = owner.Token
 	var booking domain.Booking
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &booking)
@@ -432,7 +432,7 @@ func TestSeriesOverrideConflictReturnsOccurrences(t *testing.T) {
 	c.call("POST", "/api/rooms/9070/series/preview", RuleInput{Rule: rule}, 200, nil)
 	move := bookingBody("16:00", "17:00")
 	var failure Problem
-	c.call("POST", "/api/rooms/9070/series", CreateSeries{RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{{Date: "2026-11-13", Action: "move", Start: &move.Start, End: &move.End}}}, 409, &failure)
+	c.call("POST", "/api/rooms/9070/series", CreateSeries{Title: "讨论", RuleInput: RuleInput{Rule: rule}, Overrides: []domain.Override{{Date: "2026-11-13", Action: "move", Start: &move.Start, End: &move.End}}}, 409, &failure)
 	if len(failure.Occurrences) != 3 || failure.Occurrences[0].Status != "conflict" || failure.Occurrences[0].Conflict == nil || failure.Occurrences[0].Conflict.ConflictEventID == 0 {
 		t.Fatalf("recurring conflict must include fresh occurrences: %+v", failure)
 	}

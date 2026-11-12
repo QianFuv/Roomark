@@ -47,6 +47,45 @@ func init() {
 		}
 		return p
 	}
+	huma.NewErrorWithContext = func(ctx huma.Context, status int, message string, errs ...error) huma.StatusError {
+		for _, err := range errs {
+			detail, ok := err.(huma.ErrorDetailer)
+			if !ok {
+				continue
+			}
+			fieldError := detail.ErrorDetail()
+			switch ctx.Operation().OperationID {
+			case "create-booking", "quick-booking", "create-series", "edit-booking":
+				if status == 422 && (fieldError.Location == "body.title" || ctx.Operation().OperationID != "edit-booking" && isBodyFieldError(fieldError, "title")) {
+					return violationsProblem([]domain.Violation{{Code: "title_required", Message: "用途不能为空，且不能超过200个字符"}})
+				}
+			case "login":
+				if status == 422 && isBodyFieldError(fieldError, "passcode") {
+					return problem(401, "invalid_passcode", "姓名或口令不正确")
+				}
+			case "claim-person", "create-person", "change-passcode":
+				field := "passcode"
+				if ctx.Operation().OperationID == "change-passcode" {
+					field = "next"
+				}
+				if status == 422 && isBodyFieldError(fieldError, field) {
+					return problem(422, "invalid_passcode", "口令必须为六位数字")
+				}
+			}
+		}
+		return huma.NewError(status, message, errs...)
+	}
+}
+
+func isBodyFieldError(detail *huma.ErrorDetail, field string) bool {
+	if detail.Location == "body."+field {
+		return true
+	}
+	if body, ok := detail.Value.(map[string]any); ok && detail.Location == "body" {
+		_, isPresent := body[field]
+		return !isPresent
+	}
+	return false
 }
 
 // Headers and filters are shared across operations; unused query fields are ignored.
@@ -94,7 +133,7 @@ type CheckRange struct {
 type CreateBooking struct {
 	TimeRange
 	// Title is the plain-text meeting or banner title.
-	Title string `json:"title,omitempty" maxLength:"200"`
+	Title string `json:"title" minLength:"1" doc:"Meeting purpose, 1–200 characters after trimming surrounding whitespace."`
 	// ConflictEventID attributes a subsequently accepted suggestion.
 	ConflictEventID int64 `json:"conflictEventId,omitempty"`
 	// OnBehalfOf selects the booker for an administrative reservation.
@@ -107,6 +146,8 @@ type CreateBooking struct {
 type Quick struct {
 	// Minutes is the requested quick-use or extension duration.
 	Minutes int `json:"minutes" enum:"30,60,90,120"`
+	// Title is the plain-text meeting purpose.
+	Title string `json:"title" minLength:"1" doc:"Meeting purpose, 1–200 characters after trimming surrounding whitespace."`
 }
 
 // Extend requests an extension of an ongoing booking.
@@ -129,7 +170,7 @@ type RuleInput struct {
 type CreateSeries struct {
 	RuleInput
 	// Title is the plain-text meeting or banner title.
-	Title string `json:"title,omitempty" maxLength:"200"`
+	Title string `json:"title" minLength:"1" doc:"Meeting purpose, 1–200 characters after trimming surrounding whitespace."`
 	// Overrides contains per-date recurrence decisions.
 	Overrides []domain.Override `json:"overrides"`
 }
@@ -141,9 +182,26 @@ type EditBooking struct {
 	// End is the effective reservation end instant.
 	End *time.Time `json:"end,omitempty"`
 	// Title is the plain-text meeting or banner title.
-	Title *string `json:"title,omitempty" maxLength:"200"`
+	Title *string `json:"title,omitempty" minLength:"1" doc:"Meeting purpose, 1–200 characters after trimming surrounding whitespace; omit to keep the existing title."`
 	// Scope selects this occurrence or this and following occurrences.
 	Scope string `json:"scope,omitempty" enum:"this,following"`
+}
+
+// UnmarshalJSON preserves an explicitly null title as empty so it fails title validation.
+func (b *EditBooking) UnmarshalJSON(data []byte) error {
+	type editBooking EditBooking
+	fields := struct {
+		*editBooking
+		Title json.RawMessage `json:"title"`
+	}{editBooking: (*editBooking)(b)}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	if fields.Title != nil {
+		b.Title = new(string)
+		return json.Unmarshal(fields.Title, b.Title)
+	}
+	return nil
 }
 
 // Scope selects a single or following occurrences.
@@ -159,13 +217,13 @@ type Login struct {
 	// Name is the displayed person or room name.
 	Name string `json:"name,omitempty" maxLength:"80"`
 	// Passcode contains the initial or authentication numeric passcode.
-	Passcode string `json:"passcode" pattern:"^([0-9]{4}|[0-9]{6})$"`
+	Passcode string `json:"passcode" pattern:"^[0-9]{6}$"`
 }
 
 // Passcode chooses an initial numeric passcode.
 type Passcode struct {
 	// Passcode contains the initial or authentication numeric passcode.
-	Passcode string `json:"passcode" pattern:"^([0-9]{4}|[0-9]{6})$"`
+	Passcode string `json:"passcode" pattern:"^[0-9]{6}$"`
 }
 
 // SelfPerson registers a custom identity.
@@ -180,7 +238,7 @@ type ChangePasscode struct {
 	// Current is the ongoing reservation.
 	Current string `json:"current"`
 	// Next is the replacement numeric passcode.
-	Next string `json:"next" pattern:"^([0-9]{4}|[0-9]{6})$"`
+	Next string `json:"next" pattern:"^[0-9]{6}$"`
 }
 
 // RoomInput creates a room with optional default booking rules.
