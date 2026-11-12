@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Roomark
+Comment=Meeting room booking
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/roomark.exe %u
+Terminal=false
+Type=Application
+Icon=roomark.exe
+Categories=Utility;
+StartupWMClass=roomark.exe
+
+ 
