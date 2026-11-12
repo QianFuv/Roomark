@@ -37,7 +37,7 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 - A room has: `slug` (e.g. `9070`), name, location, capacity, description, and rules (§2.4).
 - Each room has a random **room token** (≥ 16 chars, URL-safe). The door QR encodes `{PUBLIC_URL}/r/{slug}?k={token}`.
-- Every room-scoped API call needs header `X-Room-Token` matching that room, unless the caller is an admin. Without it the room is invisible (`403 room_token_required` / `room_token_invalid`).
+- Every room-scoped API call needs header `X-Room-Token` matching that room, unless the caller is an admin. Without it the room is invisible (`403 room_token_required` / `room_token_invalid`). Exception: `/api/bookings/{id}/*` only needs the booker's own session, so people can manage their bookings from any device.
 - Clients remember tokens per room (web: `localStorage`; apps: same, inside the webview) and strip `k` from the address bar after storing it.
 - Admin can rotate the token; old QR codes stop working immediately.
 
@@ -72,7 +72,7 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 | Rule | Default |
 | --- | --- |
-| Open hours | 08:00–22:00 |
+| Open hours (`HH:MM`, close at most `23:59`) | 08:00–22:00 |
 | Max duration per booking | 240 min |
 | Max advance for single bookings | 14 days |
 | Max active bookings per person (a series counts as 1) | 0 = unlimited |
@@ -172,7 +172,7 @@ Room scope (`X-Room-Token` or admin):
 | GET | `/api/rooms/{slug}` | `{ room, status, announcements }` |
 | GET | `/api/rooms/{slug}/bookings?from&to` | confirmed bookings in date range (max 62 days) |
 | GET | `/api/rooms/{slug}/heatmap?weeks=8` | public occupancy `[7][14]` ratios |
-| POST | `/api/rooms/{slug}/check` | `{start,end}` → `{ ok, violations, conflict? }` (no write; for live form feedback) |
+| POST | `/api/rooms/{slug}/check` | `{start,end,excludeBookingId?}` → `{ ok, violations, conflict? }` (no write; for live form feedback; `excludeBookingId` ignores the booking being edited) |
 | GET | `/api/people` | preset + self-added people `{ id, name, role, hasPasscode }` (needs any valid room token via `X-Room-Token` + `?room={slug}`) |
 
 Person scope (session; room endpoints also need the room token):
