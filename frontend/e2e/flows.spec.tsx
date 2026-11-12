@@ -1,7 +1,7 @@
 /**
  * Main user flows against a real server: scan link, room status, quick use with first-time
  * identity and a required purpose, the calendar updating right after an early end, conflict
- * suggestion, recurring preview, admin QR export and stats.
+ * suggestion, recurring preview, admin QR export and stats, and the admin booking filters.
  *
  * @module
  */
@@ -129,20 +129,47 @@ test("given my ongoing booking on the calendar when I end it early then the cale
   await expect(planned).toHaveCount(0, { timeout: 3_000 });
 });
 
-test("given a taken slot when booking it then the conflict offers suggestions that book in one tap", async ({
+test("given a taken slot when a suggestion is tapped then only the time changes and 预约 books it", async ({
   page,
 }) => {
+  const bookingPosts: unknown[] = [];
+
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/bookings")) {
+      bookingPosts.push(request.postDataJSON());
+    }
+  });
+
   await openRoom(page);
   await page.goto(`/r/${ROOM_SLUG}/book?date=${tomorrow()}&start=10:00&end=11:00`);
-  await expect(page.getByText(/李四 10:00–11:00「组会」 已占用/)).toBeVisible();
-  await expectAccessible(page);
-  await page.getByRole("textbox", { name: "用途" }).fill("答辩彩排");
 
-  const suggestion = page.getByRole("button", { name: /^当天 / }).first();
+  const panel = page.getByRole("region", { name: "时段冲突" });
+
+  await expect(panel).toContainText("10:00–11:00 已被李四「组会」占用");
+  await expectAccessible(page);
+
+  const suggestion = panel.getByRole("button", { name: /^当天 / }).first();
+
+  const range =
+    /\d{2}:\d{2}–\d{2}:\d{2}/.exec((await suggestion.getAttribute("aria-label")) ?? "")?.[0] ?? "";
 
   await suggestion.click();
+  await expect(suggestion).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByText(`已改到`)).toContainText(`${range}，可以预约`);
+  await expect(page.getByText(range).first()).toBeVisible();
+  expect(bookingPosts).toEqual([]);
+
+  await page.getByRole("button", { name: /^预约$/ }).click();
+  await expect(page.getByRole("textbox", { name: "用途" })).toBeFocused();
+  await expect(page.getByText("请填写用途")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "用途" })).toBeInViewport();
+  expect(bookingPosts).toEqual([]);
+
+  await page.getByRole("textbox", { name: "用途" }).fill("答辩彩排");
+  await page.getByRole("button", { name: /^预约$/ }).click();
   await identifyWithPasscode(page, "李四", LISI_PASSCODE);
   await expect(page.getByText("预约成功")).toBeVisible();
+  expect(bookingPosts).toEqual([expect.objectContaining({ title: "答辩彩排" })]);
 });
 
 test("given a weekly rule when a week conflicts then it defaults to skip and a suggestion raises the count", async ({
@@ -184,5 +211,26 @@ test("given an admin when exporting the QR code then the poster preview and stat
   await expectAccessible(page);
   await page.goto("/admin/stats");
   await expect(page.getByRole("region", { name: "概览" })).toContainText("预约次数");
+  await expectAccessible(page);
+});
+
+test("given an admin on the bookings page when filtering then the dates use the calendar picker and the person is searchable", async ({
+  page,
+}) => {
+  await page.goto("/admin");
+  await page.getByRole("textbox", { name: "姓名" }).fill("管理员");
+  await page.getByRole("textbox").nth(1).pressSequentially(ADMIN_PASSCODE);
+  await expect(page.getByRole("heading", { name: "房间" })).toBeVisible();
+  await page.goto("/admin/bookings");
+  await expect(page.locator('input[type="date"]')).toHaveCount(0);
+  await page.getByRole("button", { name: /^从：.*打开日历$/ }).click();
+  await expect(page.getByRole("dialog", { name: "从日历" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const person = page.getByRole("combobox", { name: "预约人" });
+
+  await person.fill("李");
+  await page.getByRole("option", { name: "李四" }).click();
+  await expect(person).toHaveValue("李四");
   await expectAccessible(page);
 });

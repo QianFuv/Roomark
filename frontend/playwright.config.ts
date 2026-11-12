@@ -32,7 +32,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "mobile", use: { ...devices["Pixel 7"], viewport: { width: 360, height: 780 } } },
+    {
+      name: "mobile",
+      testIgnore: "**/overflow.spec.tsx",
+      use: { ...devices["Pixel 7"], viewport: { width: 360, height: 780 } },
+    },
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } } },
   ],
   webServer: {

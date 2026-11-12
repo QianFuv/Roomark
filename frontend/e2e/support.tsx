@@ -145,3 +145,69 @@ export async function expectAccessible(page: Page): Promise<void> {
     ),
   ).toEqual([]);
 }
+
+/** One element whose content is wider than its box. */
+export interface OverflowFinding {
+  element: string;
+  text: string;
+  scrollWidth: number;
+  clientWidth: number;
+}
+
+/**
+ * Find visible elements whose content overflows horizontally, plus page-level horizontal scroll.
+ * Elements meant to scroll (`overflow-x: auto | scroll`), intentional ellipsis, inline boxes and
+ * visually hidden helpers are ignored.
+ *
+ * @param page - The page.
+ * @returns The offending elements.
+ */
+export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
+  return page.evaluate(() => {
+    const findings: OverflowFinding[] = [];
+    const root = document.documentElement;
+
+    if (root.scrollWidth > root.clientWidth + 1) {
+      findings.push({
+        element: "html",
+        text: "page scrolls horizontally",
+        scrollWidth: root.scrollWidth,
+        clientWidth: root.clientWidth,
+      });
+    }
+
+    for (const element of document.body.querySelectorAll<HTMLElement>("*")) {
+      if (!(element instanceof HTMLElement)) continue;
+
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      const isSkipped =
+        style.display === "none" ||
+        style.display === "inline" ||
+        style.display === "contents" ||
+        style.visibility === "hidden" ||
+        rect.width <= 2 ||
+        rect.height <= 2 ||
+        style.overflowX === "auto" ||
+        style.overflowX === "scroll" ||
+        style.textOverflow === "ellipsis" ||
+        style.clipPath !== "none" ||
+        style.clip !== "auto";
+
+      if (isSkipped || element.scrollWidth <= element.clientWidth + 1) continue;
+
+      const id = element.id === "" ? "" : `#${element.id}`;
+      const label = element.getAttribute("aria-label");
+
+      findings.push({
+        element: `${element.tagName.toLowerCase()}${id}${label === null ? "" : `[aria-label="${label}"]`}`,
+        text: (element.textContent ?? "").trim().slice(0, 60),
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+      });
+    }
+
+    return findings;
+  });
+}
