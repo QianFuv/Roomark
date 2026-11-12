@@ -38,12 +38,12 @@ const announcementSchema = z
     roomSlug: z.string(),
     title: z.string().trim().min(1, "请填写标题").max(60, "最多 60 个字"),
     body: z.string().max(1000, "最多 1000 个字"),
-    startsAt: z.string().min(1, "请选择开始时间"),
-    endsAt: z.string().min(1, "请选择结束时间"),
+    startsAt: z.string().min(1, "请选开始时间"),
+    endsAt: z.string().min(1, "请选结束时间"),
     pinned: z.boolean(),
   })
   .refine((value) => value.endsAt > value.startsAt, {
-    message: "结束时间需要晚于开始时间",
+    message: "结束要晚于开始",
     path: ["endsAt"],
   });
 
@@ -115,7 +115,7 @@ function AdminAnnouncementsPage() {
   return (
     <Stack gap="lg">
       <Row gap="md" isSpread>
-        <PageHeader title="公告" subtitle="生效期间显示在会议室页面顶部。" />
+        <PageHeader title="公告" />
         <Button variant="primary" icon={<Plus size={18} aria-hidden />} onClick={() => setEditing("new")}>
           发布公告
         </Button>
@@ -292,7 +292,7 @@ function AnnouncementForm({
               value={field.state.value}
               onValueChange={(next) => field.handleChange(next)}
               error={field.state.meta.errors[0]?.message}
-              placeholder="例如：周五下午消杀，暂停使用"
+              placeholder="如：周五下午消杀，暂停使用"
             />
           )}
         </form.Field>
@@ -330,7 +330,6 @@ function AnnouncementForm({
           {(field) => (
             <SwitchRow
               label="置顶"
-              hint="置顶公告排在最前面"
               isChecked={field.state.value}
               onCheckedChange={(next) => field.handleChange(next)}
             />

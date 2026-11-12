@@ -6,7 +6,7 @@
  */
 import { OTPField } from "@base-ui/react/otp-field";
 import * as stylex from "@stylexjs/stylex";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 import { colors, fonts, radii } from "../styles/tokens.stylex";
 
@@ -16,6 +16,8 @@ export const PASSCODE_LENGTH = 6;
 /** Props of {@link PasscodeInput}. */
 export interface PasscodeInputProps {
   label: string;
+  /** Shown after the label, e.g. a {@link HelpHint}. */
+  labelAside?: ReactNode;
   isLabelVisible?: boolean;
   value: string;
   onValueChange: (value: string) => void;
@@ -27,6 +29,7 @@ export interface PasscodeInputProps {
 
 const styles = stylex.create({
   root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
+  labelRow: { alignItems: "center", display: "flex", gap: 4 },
   label: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 500, lineHeight: 1.5 },
   hiddenLabel: {
     clipPath: "inset(50%)",
@@ -67,6 +70,7 @@ const styles = stylex.create({
  */
 export function PasscodeInput({
   label,
+  labelAside,
   isLabelVisible = true,
   value,
   onValueChange,
@@ -80,9 +84,12 @@ export function PasscodeInput({
 
   return (
     <div {...stylex.props(styles.root)}>
-      <label htmlFor={id} {...stylex.props(isLabelVisible ? styles.label : styles.hiddenLabel)}>
-        {label}
-      </label>
+      <span {...stylex.props(styles.labelRow)}>
+        <label htmlFor={id} {...stylex.props(isLabelVisible ? styles.label : styles.hiddenLabel)}>
+          {label}
+        </label>
+        {labelAside}
+      </span>
       <OTPField.Root
         id={id}
         length={PASSCODE_LENGTH}

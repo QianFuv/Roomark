@@ -42,12 +42,15 @@ export function tomorrow(): string {
  * @returns Tokens.
  */
 export async function seed(request: APIRequestContext): Promise<Seeded> {
-  const login = await request.post("/api/sessions", { data: { name: "管理员", passcode: ADMIN_PASSCODE } });
+  let adminToken = "";
 
-  expect(login.ok()).toBeTruthy();
+  await expect(async () => {
+    const login = await request.post("/api/sessions", { data: { name: "管理员", passcode: ADMIN_PASSCODE } });
 
-  // JUSTIFICATION: response shape is defined by the Roomark OpenAPI contract.
-  const adminToken = ((await login.json()) as { token: string }).token;
+    expect(login.ok(), await login.text()).toBeTruthy();
+    // JUSTIFICATION: response shape is defined by the Roomark OpenAPI contract.
+    adminToken = ((await login.json()) as { token: string }).token;
+  }).toPass({ intervals: [7_000], timeout: 90_000 });
   const auth = { Authorization: `Bearer ${adminToken}` };
 
   const rules = {
@@ -62,7 +65,7 @@ export async function seed(request: APIRequestContext): Promise<Seeded> {
   // JUSTIFICATION: response shape is defined by the Roomark OpenAPI contract.
   let rooms = (await (await request.get("/api/admin/rooms", { headers: auth })).json()) as {
     slug: string;
-    accessToken: string;
+    code: string;
   }[];
 
   if (!rooms.some((room) => room.slug === ROOM_SLUG)) {
@@ -83,7 +86,7 @@ export async function seed(request: APIRequestContext): Promise<Seeded> {
     rooms = (await (await request.get("/api/admin/rooms", { headers: auth })).json()) as typeof rooms;
   }
 
-  const roomToken = rooms.find((room) => room.slug === ROOM_SLUG)?.accessToken ?? "";
+  const roomToken = rooms.find((room) => room.slug === ROOM_SLUG)?.code ?? "";
 
   await request.post("/api/admin/people/import", {
     headers: auth,
@@ -155,9 +158,10 @@ export interface OverflowFinding {
 }
 
 /**
- * Find visible elements whose content overflows horizontally, plus page-level horizontal scroll.
- * Elements meant to scroll (`overflow-x: auto | scroll`), intentional ellipsis, inline boxes and
- * visually hidden helpers are ignored.
+ * Find horizontal overflow: page-level horizontal scroll, any scroll container (`overflow-x:
+ * auto | scroll`) whose content is wider than it (only the calendar's paging region may scroll
+ * sideways), and any other visible element whose content escapes its box. Intentional ellipsis,
+ * inline boxes, clipped boxes and visually hidden helpers are ignored.
  *
  * @param page - The page.
  * @returns The offending elements.
@@ -166,6 +170,7 @@ export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
   return page.evaluate(() => {
     const findings: OverflowFinding[] = [];
     const root = document.documentElement;
+    const pagingRegion = '[role="region"][aria-label$="的预约"]';
 
     if (root.scrollWidth > root.clientWidth + 1) {
       findings.push({
@@ -181,6 +186,7 @@ export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
 
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
+      const isScroller = style.overflowX === "auto" || style.overflowX === "scroll";
 
       const isSkipped =
         style.display === "none" ||
@@ -189,9 +195,9 @@ export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
         style.visibility === "hidden" ||
         rect.width <= 2 ||
         rect.height <= 2 ||
-        style.overflowX === "auto" ||
-        style.overflowX === "scroll" ||
-        style.textOverflow === "ellipsis" ||
+        (isScroller && element.closest(pagingRegion) !== null) ||
+        (!isScroller && style.overflowX === "clip") ||
+        (!isScroller && style.textOverflow === "ellipsis") ||
         style.clipPath !== "none" ||
         style.clip !== "auto";
 
@@ -199,9 +205,10 @@ export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
 
       const id = element.id === "" ? "" : `#${element.id}`;
       const label = element.getAttribute("aria-label");
+      const kind = isScroller ? "scroller " : "";
 
       findings.push({
-        element: `${element.tagName.toLowerCase()}${id}${label === null ? "" : `[aria-label="${label}"]`}`,
+        element: `${kind}${element.tagName.toLowerCase()}${id}${label === null ? "" : `[aria-label="${label}"]`}`,
         text: (element.textContent ?? "").trim().slice(0, 60),
         scrollWidth: element.scrollWidth,
         clientWidth: element.clientWidth,
@@ -210,4 +217,152 @@ export async function findOverflow(page: Page): Promise<OverflowFinding[]> {
 
     return findings;
   });
+}
+
+/** Largest unfilled gap, in CSS pixels, a layout may leave. */
+const BLANK_BAND_LIMIT = 120;
+
+/**
+ * Find unfilled bands, measured at the top of the page:
+ *
+ * 1. Side-by-side columns: for every grid or row-flex container in `<main>` whose in-flow children
+ *    sit side by side (horizontally disjoint, overlapping vertically by at least half the shorter
+ *    one) and whose tallest child is at least 240 px tall, each child's painted bottom (its own box
+ *    when it has a background or border, otherwise its lowest painted descendant) must be within
+ *    {@link BLANK_BAND_LIMIT} of the row's bottom.
+ * 2. Workspaces (`data-fill="viewport"`) must end within {@link BLANK_BAND_LIMIT} of the window's
+ *    bottom.
+ * 3. The side navigation's background must reach the bottom of the document.
+ *
+ * @param page - The page.
+ * @returns One description per band.
+ */
+export async function findBlankBands(page: Page): Promise<string[]> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  return page.evaluate((limit) => {
+    const bands = new Set<string>();
+
+    /**
+     * Whether an element paints a surface of its own.
+     *
+     * @param element - The element.
+     * @returns `true` for a visible background or a bottom border.
+     */
+    function isPainted(element: Element): boolean {
+      const style = getComputedStyle(element);
+      const color = style.backgroundColor;
+      const hasColor = color !== "transparent" && !/rgba\(.*,\s*0\)$/.test(color);
+
+      return hasColor || style.backgroundImage !== "none" || parseFloat(style.borderBottomWidth) > 0;
+    }
+
+    /**
+     * Whether a child takes part in its parent's layout and is visible.
+     *
+     * @param element - The element.
+     * @returns `true` for in-flow, visible boxes.
+     */
+    function isInFlow(element: Element): boolean {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.position !== "absolute" &&
+        style.position !== "fixed" &&
+        rect.height > 2 &&
+        rect.width > 2
+      );
+    }
+
+    /**
+     * Bottom edge of what an element visibly paints.
+     *
+     * @param element - The element.
+     * @returns Bottom in viewport coordinates.
+     */
+    function paintedBottom(element: Element): number {
+      const rect = element.getBoundingClientRect();
+      const children = [...element.children].filter(isInFlow);
+
+      if (isPainted(element) || children.length === 0) return rect.bottom;
+
+      return Math.max(rect.top, ...children.map(paintedBottom));
+    }
+
+    /**
+     * Short name of an element for the report.
+     *
+     * @param element - The element.
+     * @returns The name.
+     */
+    function describe(element: Element): string {
+      const label = element.getAttribute("aria-label");
+      const heading = element.querySelector("h1, h2, h3")?.textContent?.trim();
+      const named = label === null ? "" : `[${label}]`;
+      const titled = heading === undefined ? "" : ` "${heading.slice(0, 20)}"`;
+
+      return `${element.tagName.toLowerCase()}${named}${titled}`;
+    }
+
+    for (const container of document.querySelector("main")?.querySelectorAll("*") ?? []) {
+      const style = getComputedStyle(container);
+
+      const isRow =
+        style.display.includes("grid") ||
+        (style.display.includes("flex") && style.flexDirection.startsWith("row"));
+
+      if (!isRow) continue;
+
+      const kids = [...container.children].filter(isInFlow);
+      const rects = kids.map((kid) => kid.getBoundingClientRect());
+
+      if (Math.max(0, ...rects.map((rect) => rect.height)) < 240) continue;
+
+      for (let first = 0; first < kids.length; first += 1) {
+        for (let second = first + 1; second < kids.length; second += 1) {
+          const left = rects[first];
+          const right = rects[second];
+
+          if (left === undefined || right === undefined) continue;
+
+          const isDisjoint = left.right <= right.left + 1 || right.right <= left.left + 1;
+          const overlap = Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top);
+
+          if (!isDisjoint || overlap < Math.min(left.height, right.height) / 2) continue;
+
+          const rowBottom = Math.max(left.bottom, right.bottom);
+
+          for (const kid of [kids[first], kids[second]]) {
+            if (kid === undefined) continue;
+
+            const gap = rowBottom - paintedBottom(kid);
+
+            if (gap > limit) {
+              bands.add(`${describe(kid)} ends ${Math.round(gap)}px above its row in ${describe(container)}`);
+            }
+          }
+        }
+      }
+    }
+
+    for (const workspace of document.querySelectorAll("[data-fill='viewport']")) {
+      const gap = window.innerHeight - workspace.getBoundingClientRect().bottom;
+
+      if (gap > limit)
+        bands.add(`${describe(workspace)} workspace ends ${Math.round(gap)}px above the window bottom`);
+    }
+
+    const rail = document.querySelector("nav[aria-label='侧边导航']")?.parentElement;
+
+    if (rail !== null && rail !== undefined && getComputedStyle(rail).display !== "none") {
+      const gap =
+        document.documentElement.scrollHeight - (rail.getBoundingClientRect().bottom + window.scrollY);
+
+      if (gap > 1) bands.add(`side navigation ends ${Math.round(gap)}px above the page bottom`);
+    }
+
+    return [...bands];
+  }, BLANK_BAND_LIMIT);
 }

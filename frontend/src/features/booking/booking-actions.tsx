@@ -64,18 +64,14 @@ export async function quickUse(
   await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data === undefined) {
-    notify("error", "没能开始使用", errorMessage(result.error));
+    notify("error", "开始失败", errorMessage(result.error));
 
     return undefined;
   }
 
   rememberTitle(result.data.title);
 
-  notify(
-    "success",
-    "已开始使用",
-    `${formatClockRange(result.data.start, result.data.end)}，用完可以提前结束`,
-  );
+  notify("success", "已开始使用", formatClockRange(result.data.start, result.data.end));
 
   return result.data;
 }
@@ -150,12 +146,12 @@ export async function askScope(booking: Booking, verb: string): Promise<EditScop
   if (booking.series === undefined) return "this";
 
   return chooseAction(
-    `${verb}周期预约`,
+    `${verb}哪几次？`,
     [
       { value: "this", label: "仅这一次", description: formatBookingWhen(booking.start, booking.end) },
       {
         value: "following",
-        label: "这次及以后全部",
+        label: "这次及以后",
         description: `第 ${booking.series.index} 次起，共 ${booking.series.total - booking.series.index + 1} 次`,
         variant: verb === "取消" ? "danger" : "secondary",
       },
@@ -229,7 +225,7 @@ export async function extendBooking(booking: Booking, minutes: 15 | 30 | 60): Pr
   notify(
     "success",
     "已续时",
-    `现在用到 ${formatClockRange(result.data.start, result.data.end).split("–")[1] ?? ""}`,
+    `用到 ${formatClockRange(result.data.start, result.data.end).split("–")[1] ?? ""}`,
   );
 
   return result.data;
@@ -242,7 +238,7 @@ export async function extendBooking(booking: Booking, minutes: 15 | 30 | 60): Pr
  * @returns Whether it ended.
  */
 export async function endBooking(booking: Booking): Promise<boolean> {
-  const isConfirmed = await confirmAction("现在结束使用？", "提前结束", "会议室会立即释放给其他人。", false);
+  const isConfirmed = await confirmAction("现在结束使用？", "提前结束", undefined, false);
 
   if (!isConfirmed) return false;
 
@@ -253,12 +249,12 @@ export async function endBooking(booking: Booking): Promise<boolean> {
   await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data === undefined) {
-    notify("error", "操作失败", errorMessage(result.error));
+    notify("error", "结束失败", errorMessage(result.error));
 
     return false;
   }
 
-  notify("success", "已结束使用", "谢谢你及时释放会议室");
+  notify("success", "已结束使用");
 
   return true;
 }

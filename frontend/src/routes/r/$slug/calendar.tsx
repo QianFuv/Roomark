@@ -7,6 +7,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { RoomCalendar } from "../../../features/room/room-calendar";
+import { useLayoutTier } from "../../../ui/tier";
 
 const searchSchema = z.object({
   date: z
@@ -33,9 +34,11 @@ function CalendarPage() {
   const { slug } = Route.useParams();
   const { date, time } = Route.useSearch();
   const navigate = useNavigate();
+  const tier = useLayoutTier();
 
   return (
     <RoomCalendar
+      isFill={tier !== "mobile"}
       slug={slug}
       anchorDate={date}
       focusClock={time}
@@ -45,6 +48,7 @@ function CalendarPage() {
           params: { slug },
           search: next === undefined ? {} : { date: next },
           replace: true,
+          resetScroll: false,
         })
       }
     />

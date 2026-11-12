@@ -20,6 +20,7 @@ import { Button } from "../../ui/button";
 import { CORE_FEATURES, DataTable } from "../../ui/data-table";
 import { DatePicker } from "../../ui/date-picker";
 import { ComboboxField, SelectField } from "../../ui/field";
+import { HelpHint } from "../../ui/help-hint";
 import { Badge, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
 
 export const Route = createFileRoute("/admin/bookings")({ component: AdminBookingsPage });
@@ -164,6 +165,12 @@ function AdminBookingsPage() {
       <Row gap="md" isSpread>
         <PageHeader title="预约" />
         <Row gap="sm">
+          {targetRoom === undefined ? null : (
+            <HelpHint topic="代人预约和不可预约时段">
+              会打开{roomNames.get(targetRoom) ?? targetRoom}
+              的预约表单，在上方筛选里可以换房间。表单里打开「重复预约」可以设置每周的不可预约时段。
+            </HelpHint>
+          )}
           <Button
             icon={<UserRoundPlus size={18} aria-hidden />}
             disabled={targetRoom === undefined}
@@ -229,7 +236,7 @@ function AdminBookingsPage() {
             ...(people.data ?? []).map((person) => ({ value: String(person.id), label: person.name })),
           ]}
           placeholder="搜索姓名"
-          emptyText="没有找到这个人"
+          emptyText="名单里没有这个人"
           onValueChange={setPersonId}
         />
         <SelectField
@@ -251,12 +258,6 @@ function AdminBookingsPage() {
         )
       ) : (
         <DataTable table={table} caption="预约列表" emptyText="这个范围内没有预约" />
-      )}
-      {targetRoom === undefined ? null : (
-        <Notice tone="info">
-          「代人预约」和「不可预约时段」会打开 {roomNames.get(targetRoom) ?? targetRoom}{" "}
-          的预约表单（可在上方筛选中切换房间），在表单里打开「重复预约」即可设置周期性的不可预约时段。
-        </Notice>
       )}
     </Stack>
   );

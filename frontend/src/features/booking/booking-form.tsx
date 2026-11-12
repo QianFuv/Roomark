@@ -8,6 +8,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
+import { useBlocker, useRouter } from "@tanstack/react-router";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { CalendarCheck, Check, CircleAlert, LoaderCircle, Repeat } from "lucide-react";
 import { useRef, useState } from "react";
@@ -35,7 +36,6 @@ import {
   GRID_MINUTES,
   clockToMinutes,
   formatBookingWhen,
-  formatDuration,
   formatMonthDay,
   minutesOfDay,
   minutesToClock,
@@ -50,9 +50,12 @@ import { Button } from "../../ui/button";
 import { Disclosure, Stepper, SwitchRow } from "../../ui/controls";
 import { DatePicker } from "../../ui/date-picker";
 import { ComboboxField, type SelectOption } from "../../ui/field";
+import { HelpHint } from "../../ui/help-hint";
 import { Card, Notice, Stack } from "../../ui/layout";
 import { ChipGroup, Segmented } from "../../ui/segmented";
+import { confirmAction } from "../../ui/dialogs";
 import { notify } from "../../ui/toast";
+import { overlayDepth } from "../../app/overlay-history";
 import { requestSession } from "../identity/identity";
 import { useNow, useRoomBookings } from "../room/room-data";
 import { askScope, createBooking, roomHeader } from "./booking-actions";
@@ -89,7 +92,7 @@ const formSchema = z.object({
   title: z.string().max(TITLE_MAX_LENGTH, `用途最多 ${TITLE_MAX_LENGTH} 个字`),
   isRepeat: z.boolean(),
   freq: z.enum(["weekly", "biweekly"]),
-  weekdays: z.array(z.string()).min(1, "至少选择一天"),
+  weekdays: z.array(z.string()).min(1, "至少选一天"),
   endMode: z.enum(["count", "until"]),
   count: z.number(),
   untilDate: z.string(),
@@ -120,7 +123,6 @@ const styles = stylex.create({
     },
   },
   timeColumn: { display: "flex", flexDirection: "column", gap: 14, minWidth: 0 },
-  rules: { color: colors.textMuted, fontSize: fonts.sizeXs, lineHeight: 1.5 },
   checkBox: { minHeight: 48 },
   check: {
     alignItems: "flex-start",
@@ -317,6 +319,35 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   });
 
   const values = useStore(form.store, (state) => state.values);
+  const router = useRouter();
+  const [formDepth] = useState(() => overlayDepth(router.history.location.state));
+  const isLeavingRef = useRef(false);
+  const isDirty = values.title.trim() !== draft.title.trim() || values.isRepeat !== draft.isRepeat;
+
+  useBlocker({
+    shouldBlockFn: async ({ next, action }) => {
+      if (isLeavingRef.current || !isDirty) return false;
+
+      const isPop = action === "BACK" || action === "FORWARD" || action === "GO";
+      const nextDepth = isPop ? overlayDepth(window.history.state) : 0;
+
+      if (next.pathname === router.history.location.pathname && isPop && nextDepth >= formDepth) return false;
+
+      return !(await confirmAction("放弃填写的内容？", "放弃", undefined, true, false));
+    },
+    enableBeforeUnload: () => isDirty && !isLeavingRef.current,
+  });
+
+  /**
+   * Finish: leave without the unsaved-content prompt.
+   *
+   * @param result - What was saved.
+   */
+  function finish(result: BookingResult): void {
+    isLeavingRef.current = true;
+    onDone(result);
+  }
+
   const isBlock = values.kind === "block";
   const selectedDate = parseDate(values.date);
 
@@ -436,7 +467,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     });
 
     if (outcome.kind === "created") {
-      onDone({ kind: "single", booking: outcome.booking });
+      finish({ kind: "single", booking: outcome.booking });
     } else if (outcome.kind === "conflict") {
       setApplied(undefined);
       setSubmitConflict(outcome.conflict);
@@ -472,15 +503,15 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       notify(
         "success",
         `已预约 ${created} 次`,
-        skipped > 0 ? `跳过了 ${skipped} 次` : describeRule(ruleFromValues(value)),
+        skipped > 0 ? `跳过 ${skipped} 次` : describeRule(ruleFromValues(value)),
       );
-      onDone({ kind: "series", count: created });
+      finish({ kind: "series", count: created });
 
       return;
     }
 
     if (result.error.status === 409) {
-      setSubmitError("有时段刚刚被别人预约了，预览已更新，请确认后再提交。");
+      setSubmitError("有一次刚被别人约走，预览已更新，确认后再提交");
 
       return;
     }
@@ -514,8 +545,8 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
 
     if (result.data !== undefined) {
       rememberTitle(result.data.title);
-      notify("success", "已保存修改", formatBookingWhen(result.data.start, result.data.end));
-      onDone({ kind: "single", booking: result.data });
+      notify("success", "已保存", formatBookingWhen(result.data.start, result.data.end));
+      finish({ kind: "single", booking: result.data });
 
       return;
     }
@@ -577,7 +608,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
 
   const submitLabel =
     editing !== undefined
-      ? "保存修改"
+      ? "保存"
       : values.isRepeat
         ? `预约 ${seriesOverrides.willBook} 次`
         : isBlock
@@ -597,7 +628,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     >
       <div {...stylex.props(styles.when)}>
         <DatePicker
-          label={values.isRepeat ? "从哪天开始" : "日期"}
+          label={values.isRepeat ? "开始日期" : "日期"}
           value={values.date}
           min={today}
           max={maxDate}
@@ -617,12 +648,6 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
               setSubmitError(undefined);
             }}
           />
-          <p {...stylex.props(styles.rules)}>
-            开放时间 {room.rules.openTime}–{room.rules.closeTime}
-            {isBlock
-              ? ""
-              : `，单次最长 ${formatDuration(maxDuration)}，最多提前 ${room.rules.maxAdvanceDays} 天预约`}
-          </p>
           {values.isRepeat && editing === undefined ? null : (
             <div aria-live="polite" {...stylex.props(styles.checkBox)}>
               {submitError !== undefined ? (
@@ -637,7 +662,6 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                   conflict={visibleConflict}
                   today={today}
                   selectedIndex={selectedIndex}
-                  hint="点一下改到这个时间"
                   isBusy={isBusy}
                   onTake={(index) => takeSuggestion(visibleConflict, index)}
                   footer={
@@ -653,9 +677,9 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                         }
                         confirmText={
                           editing !== undefined
-                            ? "点「保存修改」确认"
+                            ? "点「保存」确认"
                             : isTitleEmpty
-                              ? "填写用途后点「预约」"
+                              ? "填好用途再点「预约」"
                               : "点「预约」确认"
                         }
                       />
@@ -675,7 +699,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                     <Check size={18} aria-hidden />
                   </span>
                   <span>
-                    {formatMonthDay(values.date)} {values.start}–{values.end} 可以预约
+                    {formatMonthDay(values.date)} {values.start}–{values.end} 可以约
                   </span>
                 </div>
               ) : isRangeValid ? (
@@ -683,7 +707,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                   <span {...stylex.props(styles.checkIcon)}>
                     <LoaderCircle size={18} aria-hidden {...stylex.props(styles.spin)} />
                   </span>
-                  <span>正在检查这个时段…</span>
+                  <span>检查中…</span>
                 </div>
               ) : null}
             </div>
@@ -696,7 +720,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
         value={values.title}
         onValueChange={(next) => form.setFieldValue("title", next)}
         error={titleError}
-        placeholder={isBlock ? "例如：消杀、考试" : undefined}
+        placeholder={isBlock ? "如：消杀、考试" : undefined}
       />
 
       {isAdmin && editing === undefined ? (
@@ -710,7 +734,6 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       {editing === undefined ? (
         <SwitchRow
           label="重复预约"
-          hint="例如每周三的组会"
           isChecked={values.isRepeat}
           onCheckedChange={(next) => form.setFieldValue("isRepeat", next)}
         />
@@ -731,12 +754,12 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
             />
             <Stack gap="xs">
               <ChipGroup
-                label="在星期几"
+                label="星期"
                 values={values.weekdays}
                 options={WEEKDAY_OPTIONS}
                 onValuesChange={(next) => form.setFieldValue("weekdays", next)}
               />
-              {values.weekdays.length === 0 ? <Notice tone="warning">至少选择一天</Notice> : null}
+              {values.weekdays.length === 0 ? <Notice tone="warning">至少选一天</Notice> : null}
             </Stack>
             <Segmented
               label="结束方式"
@@ -750,7 +773,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
             />
             {values.endMode === "count" ? (
               <Stepper
-                label="重复次数"
+                label="次数"
                 value={values.count}
                 min={2}
                 max={Math.max(2, room.rules.recurringMaxWeeks)}
@@ -759,7 +782,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
               />
             ) : (
               <DatePicker
-                label={`截止日期（最长 ${room.rules.recurringMaxWeeks} 周）`}
+                label="截止日期"
                 value={values.untilDate}
                 min={selectedDate}
                 max={repeatHorizon}
@@ -823,7 +846,7 @@ function AppliedStatus({ label, state, confirmText }: { label: string; state: st
         : styles.panelStatusWarn;
 
   const message =
-    state === "ok" ? `，可以预约。${confirmText}` : state === "pending" ? "，正在检查…" : `：${state}`;
+    state === "ok" ? `，可以约。${confirmText}` : state === "pending" ? "，检查中…" : `：${state}`;
 
   return (
     <p {...stylex.props(styles.panelStatus, tone)}>
@@ -837,7 +860,7 @@ function AppliedStatus({ label, state, confirmText }: { label: string; state: st
         )}
       </span>
       <span>
-        已改到 {label}
+        已换到 {label}
         {message}
       </span>
     </p>
@@ -865,7 +888,7 @@ function AdminOptions({
   const people = api.useQuery("get", "/api/admin/people");
 
   const options: SelectOption<string>[] = [
-    { value: "", label: "我自己" },
+    { value: "", label: "自己" },
     ...(people.data ?? []).map((person) => ({ value: String(person.id), label: person.name })),
   ];
 
@@ -879,7 +902,11 @@ function AdminOptions({
         <Stack gap="md">
           <SwitchRow
             label="设为不可预约时段"
-            hint="例如消杀、考试；只检查冲突，不受其他规则限制"
+            help={
+              <HelpHint topic="不可预约时段">
+                用于消杀、考试等。只检查是否和已有预约冲突，不受开放时间和时长限制。
+              </HelpHint>
+            }
             isChecked={values.kind === "block"}
             onCheckedChange={(isChecked) => onKindChange(isChecked ? "block" : "normal")}
           />
@@ -889,7 +916,7 @@ function AdminOptions({
               value={values.onBehalfOf}
               options={options}
               placeholder="搜索姓名"
-              emptyText="没有找到这个人"
+              emptyText="名单里没有这个人"
               onValueChange={onBehalfChange}
             />
           )}

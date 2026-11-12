@@ -1,7 +1,7 @@
 /**
- * Scroll-free time picker: an hour grid whose cells show which quarters are free, quarter buttons
- * for the exact start, duration chips and a ±15 minute end stepper. The end is computed from the
- * start and duration; choices that would run into another booking, past closing time or beyond the
+ * Scroll-free time picker in four short rows: the chosen range with a ±15 minute end stepper, an
+ * hour grid whose cells show which quarters are free, the quarter of the start, and one row of
+ * duration chips. Choices that would run into another booking, past closing time or beyond the
  * maximum duration are disabled.
  *
  * @module
@@ -12,35 +12,39 @@ import { useId } from "react";
 
 import type { Booking } from "../../api/client";
 import { latestEnd, nextBusy, slotState, type DayAvailability, type SlotState } from "../../lib/schedule";
-import {
-  GRID_MINUTES,
-  clockToMinutes,
-  formatDuration,
-  formatShortDuration,
-  minutesToClock,
-} from "../../lib/time";
+import { GRID_MINUTES, clockToMinutes, formatDuration, minutesToClock } from "../../lib/time";
 import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { HelpHint } from "../../ui/help-hint";
 
 const DURATIONS = [30, 60, 90, 120, 180, 240] as const;
 
 const QUARTERS = [0, 15, 30, 45] as const;
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 14, minWidth: 0 },
-  block: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  head: { alignItems: "baseline", display: "flex", gap: 8, justifyContent: "space-between" },
-  label: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
+  root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
+  head: { alignItems: "center", display: "flex", gap: 4, minHeight: 44 },
+  label: {
+    alignItems: "center",
+    color: colors.text,
+    display: "flex",
+    fontSize: fonts.sizeSm,
+    fontWeight: 600,
+    gap: 4,
+  },
   summary: {
     color: colors.text,
+    flexGrow: 1,
     fontSize: fonts.sizeMd,
     fontVariantNumeric: "tabular-nums",
     fontWeight: 700,
+    minWidth: 0,
+    textAlign: "end",
   },
   summaryMuted: { color: colors.textMuted, fontWeight: 500 },
   hours: {
     display: "grid",
     gap: 6,
-    gridTemplateColumns: "repeat(auto-fill, minmax(52px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
   },
   hour: {
     alignItems: "center",
@@ -61,21 +65,21 @@ const styles = stylex.create({
     fontSize: fonts.sizeSm,
     fontVariantNumeric: "tabular-nums",
     fontWeight: 600,
-    gap: 5,
+    gap: 4,
     justifyContent: "center",
-    minHeight: 46,
+    minHeight: 44,
     opacity: { default: 1, ":disabled": 0.45 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 6,
-    paddingInline: 4,
+    paddingBlock: 4,
+    paddingInline: 2,
   },
-  bars: { display: "flex", gap: 2, width: 28 },
+  bars: { display: "flex", gap: 2, width: 24 },
   bar: { borderRadius: 2, flexGrow: 1, height: 3 },
   barFree: { backgroundColor: colors.free },
   barBusy: { backgroundColor: colors.busySolid },
   barOff: { backgroundColor: colors.borderStrong },
   quarters: { display: "grid", gap: 6, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
-  chips: { display: "flex", flexWrap: "wrap", gap: 6 },
+  chips: { display: "grid", gap: 6, gridTemplateColumns: "repeat(auto-fit, minmax(0, 1fr))" },
   choice: {
     alignItems: "center",
     backgroundColor: {
@@ -91,27 +95,21 @@ const styles = stylex.create({
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
+    fontSize: fonts.sizeSm,
     fontVariantNumeric: "tabular-nums",
     fontWeight: 600,
     justifyContent: "center",
-    minHeight: 40,
+    minHeight: 44,
+    minWidth: 0,
     opacity: { default: 1, ":disabled": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 14,
+    paddingInline: 2,
     whiteSpace: "nowrap",
   },
   choiceTaken: {
     backgroundColor: { default: colors.busySoft, '[aria-pressed="true"]': colors.busy },
     borderColor: { default: colors.busySoft, '[aria-pressed="true"]': colors.busy },
     color: { default: colors.busy, '[aria-pressed="true"]': colors.canvas },
-  },
-  endRow: { alignItems: "center", display: "flex", gap: 8 },
-  endValue: {
-    color: colors.text,
-    flexGrow: 1,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
   },
   stepper: {
     alignItems: "center",
@@ -123,16 +121,14 @@ const styles = stylex.create({
     color: colors.text,
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
-    height: 40,
+    flexShrink: 0,
+    height: 44,
     justifyContent: "center",
     opacity: { default: 1, ":disabled": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     width: 44,
   },
-  hint: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
-  legend: { alignItems: "center", color: colors.textMuted, display: "flex", fontSize: fonts.sizeXs, gap: 12 },
-  legendItem: { alignItems: "center", display: "inline-flex", gap: 5 },
-  legendSwatch: { borderRadius: 2, height: 3, width: 12 },
+  hint: { color: colors.warning, fontSize: fonts.sizeSm, lineHeight: 1.5 },
 });
 
 const BAR_STYLES: Record<SlotState, stylex.StyleXStyles> = {
@@ -217,138 +213,125 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
     blocker === undefined
       ? ""
       : blocker.item.kind === "block"
-        ? "不可预约时段"
-        : `${blocker.item.person?.name ?? "其他人"}的预约`;
+        ? "不可预约"
+        : `${blocker.item.person?.name ?? "别人"}已约`;
 
   return (
     <div {...stylex.props(styles.root)}>
-      <div {...stylex.props(styles.block)}>
-        <div {...stylex.props(styles.head)}>
-          <span id={`${ids}-start`} {...stylex.props(styles.label)}>
-            开始时间
-          </span>
-          <span aria-live="polite" {...stylex.props(styles.summary)}>
-            {start}–{end}
-            <span {...stylex.props(styles.summaryMuted)}>
-              {duration > 0 ? ` · ${formatDuration(duration)}` : ""}
-            </span>
-          </span>
-        </div>
-        <div role="group" aria-labelledby={`${ids}-start`} {...stylex.props(styles.hours)}>
-          {hours.map((hour) => {
-            const states = QUARTERS.map((quarter) => slotState(availability, hour * 60 + quarter));
-            const freeCount = states.filter((state) => state === "free").length;
-            const isSelected = hour === selectedHour;
-
-            return (
-              <button
-                key={hour}
-                type="button"
-                aria-pressed={isSelected}
-                aria-label={`${hour} 点，${freeCount === 0 ? "不可选" : `${freeCount} 个可选时段`}`}
-                disabled={freeCount === 0 && !isSelected}
-                onClick={() => chooseHour(hour)}
-                {...stylex.props(styles.hour)}
-              >
-                {String(hour).padStart(2, "0")}:00
-                <span aria-hidden {...stylex.props(styles.bars)}>
-                  {states.map((state, index) => (
-                    <span key={QUARTERS[index]} {...stylex.props(styles.bar, BAR_STYLES[state])} />
-                  ))}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div role="group" aria-label="精确到 15 分钟" {...stylex.props(styles.quarters)}>
-          {QUARTERS.map((quarter) => {
-            const minutes = selectedHour * 60 + quarter;
-            const state = slotState(availability, minutes);
-            const isSelected = minutes === startMinutes;
-
-            return (
-              <button
-                key={quarter}
-                type="button"
-                aria-pressed={isSelected}
-                aria-label={`从 ${minutesToClock(minutes)} 开始${state === "busy" ? "（已被预约）" : ""}`}
-                disabled={state !== "free" && !isSelected}
-                onClick={() => chooseStart(minutes)}
-                {...stylex.props(styles.choice, state === "busy" && styles.choiceTaken)}
-              >
-                {minutesToClock(minutes)}
-              </button>
-            );
-          })}
-        </div>
-        <div aria-hidden {...stylex.props(styles.legend)}>
-          <span {...stylex.props(styles.legendItem)}>
-            <span {...stylex.props(styles.legendSwatch, styles.barFree)} />
-            空闲
-          </span>
-          <span {...stylex.props(styles.legendItem)}>
-            <span {...stylex.props(styles.legendSwatch, styles.barBusy)} />
-            已预约
-          </span>
-          <span {...stylex.props(styles.legendItem)}>
-            <span {...stylex.props(styles.legendSwatch, styles.barOff)} />
-            已过去
-          </span>
-        </div>
-      </div>
-
-      <div {...stylex.props(styles.block)}>
-        <span id={`${ids}-duration`} {...stylex.props(styles.label)}>
-          时长
+      <div {...stylex.props(styles.head)}>
+        <span {...stylex.props(styles.label)}>
+          <span id={`${ids}-start`}>时间</span>
+          <HelpHint topic="时间格子">
+            每个整点下的四段小条代表四个一刻钟：蓝色可约，红色已被预约，灰色已过去。
+          </HelpHint>
         </span>
-        <div role="group" aria-labelledby={`${ids}-duration`} {...stylex.props(styles.chips)}>
-          {durations.map((minutes) => (
-            <button
-              key={minutes}
-              type="button"
-              aria-pressed={duration === minutes}
-              disabled={startMinutes + minutes > latest && duration !== minutes}
-              onClick={() => onChange(start, minutesToClock(startMinutes + minutes))}
-              {...stylex.props(
-                styles.choice,
-                startMinutes + minutes > latest && latest > startMinutes && styles.choiceTaken,
-              )}
-            >
-              {formatShortDuration(minutes)}
-            </button>
-          ))}
-        </div>
-        <div {...stylex.props(styles.endRow)}>
-          <span {...stylex.props(styles.endValue)}>
-            结束于 <strong>{end}</strong>
+        <span aria-live="polite" {...stylex.props(styles.summary)}>
+          {start}–{end}
+          <span {...stylex.props(styles.summaryMuted)}>
+            {duration > 0 ? ` · ${formatDuration(duration)}` : ""}
           </span>
-          <button
-            type="button"
-            aria-label="提前 15 分钟结束"
-            disabled={endMinutes - GRID_MINUTES <= startMinutes}
-            onClick={() => onChange(start, minutesToClock(endMinutes - GRID_MINUTES))}
-            {...stylex.props(styles.stepper)}
-          >
-            <Minus size={18} aria-hidden />
-          </button>
-          <button
-            type="button"
-            aria-label="延后 15 分钟结束"
-            disabled={endMinutes + GRID_MINUTES > latest}
-            onClick={() => onChange(start, minutesToClock(endMinutes + GRID_MINUTES))}
-            {...stylex.props(styles.stepper)}
-          >
-            <Plus size={18} aria-hidden />
-          </button>
-        </div>
-        {blocker === undefined ? null : (
-          <p {...stylex.props(styles.hint)}>
-            {latest <= startMinutes
-              ? `这个开始时间已是${blockerName}，请换一个时间`
-              : `${minutesToClock(blocker.startMinutes)} 起是${blockerName}，最晚可约到 ${minutesToClock(latest)}`}
-          </p>
-        )}
+        </span>
+        <button
+          type="button"
+          aria-label="结束时间提前 15 分钟"
+          disabled={endMinutes - GRID_MINUTES <= startMinutes}
+          onClick={() => onChange(start, minutesToClock(endMinutes - GRID_MINUTES))}
+          {...stylex.props(styles.stepper)}
+        >
+          <Minus size={18} aria-hidden />
+        </button>
+        <button
+          type="button"
+          aria-label="结束时间推后 15 分钟"
+          disabled={endMinutes + GRID_MINUTES > latest}
+          onClick={() => onChange(start, minutesToClock(endMinutes + GRID_MINUTES))}
+          {...stylex.props(styles.stepper)}
+        >
+          <Plus size={18} aria-hidden />
+        </button>
       </div>
+      <div role="group" aria-labelledby={`${ids}-start`} {...stylex.props(styles.hours)}>
+        {hours.map((hour) => {
+          const states = QUARTERS.map((quarter) => slotState(availability, hour * 60 + quarter));
+          const freeCount = states.filter((state) => state === "free").length;
+          const isSelected = hour === selectedHour;
+
+          return (
+            <button
+              key={hour}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={`${hour} 点，${freeCount === 0 ? "约满了" : `${freeCount} 个一刻钟可约`}`}
+              disabled={freeCount === 0 && !isSelected}
+              onClick={() => chooseHour(hour)}
+              {...stylex.props(styles.hour)}
+            >
+              {String(hour).padStart(2, "0")}
+              <span aria-hidden {...stylex.props(styles.bars)}>
+                {states.map((state, index) => (
+                  <span key={QUARTERS[index]} {...stylex.props(styles.bar, BAR_STYLES[state])} />
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div role="group" aria-label="开始的一刻钟" {...stylex.props(styles.quarters)}>
+        {QUARTERS.map((quarter) => {
+          const minutes = selectedHour * 60 + quarter;
+          const state = slotState(availability, minutes);
+          const isSelected = minutes === startMinutes;
+
+          return (
+            <button
+              key={quarter}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={`${minutesToClock(minutes)} 开始${state === "busy" ? "（已被预约）" : ""}`}
+              disabled={state !== "free" && !isSelected}
+              onClick={() => chooseStart(minutes)}
+              {...stylex.props(styles.choice, state === "busy" && styles.choiceTaken)}
+            >
+              {minutesToClock(minutes)}
+            </button>
+          );
+        })}
+      </div>
+      <div role="group" aria-label="时长" {...stylex.props(styles.chips)}>
+        {durations.map((minutes) => (
+          <button
+            key={minutes}
+            type="button"
+            aria-pressed={duration === minutes}
+            aria-label={formatDuration(minutes)}
+            disabled={startMinutes + minutes > latest && duration !== minutes}
+            onClick={() => onChange(start, minutesToClock(startMinutes + minutes))}
+            {...stylex.props(
+              styles.choice,
+              startMinutes + minutes > latest && latest > startMinutes && styles.choiceTaken,
+            )}
+          >
+            {formatChipDuration(minutes)}
+          </button>
+        ))}
+      </div>
+      {blocker === undefined ? null : (
+        <p {...stylex.props(styles.hint)}>
+          {latest <= startMinutes
+            ? `这个时间${blockerName}，换个开始时间`
+            : `${minutesToClock(blocker.startMinutes)} 起${blockerName}，最晚约到 ${minutesToClock(latest)}`}
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * Short duration for a narrow chip: `30分`, `1小时`, `1.5小时`.
+ *
+ * @param minutes - Duration.
+ * @returns The label.
+ */
+function formatChipDuration(minutes: number): string {
+  return minutes < 60 ? `${minutes}分` : `${Math.round((minutes / 60) * 10) / 10}小时`;
 }

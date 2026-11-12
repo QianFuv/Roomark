@@ -66,7 +66,7 @@ export function BookingDetailSheet({ booking, onClose }: BookingDetailSheetProps
  * @param booking - The booking.
  * @returns E.g. `组会` or `不可预约`.
  */
-export function bookingHeading(booking: Booking): string {
+function bookingHeading(booking: Booking): string {
   if (booking.kind === "block") return booking.title === "" ? "不可预约" : `不可预约 · ${booking.title}`;
 
   return booking.title === "" ? "会议室预约" : booking.title;
@@ -134,7 +134,7 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
           {isPast ? <Badge>已结束</Badge> : null}
           {booking.kind === "block" ? <Badge tone="warning">不可预约时段</Badge> : null}
           {booking.releasedMinutes > 0 ? (
-            <Badge tone="free">提前释放 {booking.releasedMinutes} 分钟</Badge>
+            <Badge tone="free">提前 {booking.releasedMinutes} 分钟结束</Badge>
           ) : null}
         </Row>
       </div>
@@ -189,7 +189,7 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
                   });
                 }}
               >
-                修改时间或用途
+                修改
               </Button>
               <Button
                 variant="danger"

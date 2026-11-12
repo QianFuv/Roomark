@@ -34,7 +34,7 @@ export default defineConfig({
   projects: [
     {
       name: "mobile",
-      testIgnore: "**/overflow.spec.tsx",
+      testIgnore: "**/layout.spec.tsx",
       use: { ...devices["Pixel 7"], viewport: { width: 360, height: 780 } },
     },
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } } },

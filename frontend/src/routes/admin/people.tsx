@@ -120,14 +120,7 @@ function AdminPeoplePage() {
    * @param person - The person.
    */
   async function resetPasscode(person: Person): Promise<void> {
-    if (
-      !(await confirmAction(
-        `重置「${person.name}」的口令？`,
-        "重置口令",
-        "对方下次使用时需要重新设置 4 位或 6 位口令。",
-      ))
-    )
-      return;
+    if (!(await confirmAction(`重置「${person.name}」的口令？`, "重置口令", undefined))) return;
 
     const result = await fetchClient.POST("/api/admin/people/{id}/reset-passcode", {
       params: { path: { id: person.id } },
@@ -136,7 +129,7 @@ function AdminPeoplePage() {
     await people.refetch();
 
     if (result.data === undefined) notify("error", "重置失败", errorMessage(result.error));
-    else notify("success", "已重置口令", `${person.name} 下次使用时重新设置`);
+    else notify("success", "已重置口令", `${person.name}下次登录时重新设置`);
   }
 
   /**
@@ -145,14 +138,7 @@ function AdminPeoplePage() {
    * @param person - The person.
    */
   async function remove(person: Person): Promise<void> {
-    if (
-      !(await confirmAction(
-        `删除「${person.name}」？`,
-        "删除",
-        "已有的预约记录会保留在统计中，未来的预约不受影响。",
-      ))
-    )
-      return;
+    if (!(await confirmAction(`删除「${person.name}」？`, "删除", "已有的预约和统计会保留"))) return;
 
     const result = await fetchClient.DELETE("/api/admin/people/{id}", {
       params: { path: { id: person.id } },
@@ -161,7 +147,7 @@ function AdminPeoplePage() {
     await people.refetch();
 
     if (result.data === undefined) notify("error", "删除失败", errorMessage(result.error));
-    else notify("success", `已删除 ${person.name}`);
+    else notify("success", `已删除${person.name}`);
   }
 
   const columns = columnHelper.columns([
@@ -189,14 +175,14 @@ function AdminPeoplePage() {
             <Button
               size="sm"
               variant="ghost"
-              aria-label={`编辑 ${person.name}`}
+              aria-label={`编辑${person.name}`}
               icon={<Pencil size={16} aria-hidden />}
               onClick={() => setEditing(person)}
             />
             <Button
               size="sm"
               variant="ghost"
-              aria-label={`重置 ${person.name} 的口令`}
+              aria-label={`重置${person.name}的口令`}
               disabled={!person.hasPasscode}
               icon={<KeyRound size={16} aria-hidden />}
               onClick={() => void resetPasscode(person)}
@@ -204,7 +190,7 @@ function AdminPeoplePage() {
             <Button
               size="sm"
               variant="ghost"
-              aria-label={`删除 ${person.name}`}
+              aria-label={`删除${person.name}`}
               disabled={person.id === session?.person.id}
               icon={<Trash2 size={16} aria-hidden />}
               onClick={() => void remove(person)}
@@ -219,10 +205,7 @@ function AdminPeoplePage() {
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="名单"
-        subtitle="预设名单中的人第一次使用时自己设置口令；不在名单里的人也可以自己添加名字。"
-      />
+      <PageHeader title="名单" />
       <div {...stylex.props(styles.toolbar)}>
         <div {...stylex.props(styles.search)}>
           <TextField label="搜索" type="search" value={query} onValueChange={setQuery} placeholder="姓名" />
@@ -329,7 +312,7 @@ function PersonForm({
         return;
       }
 
-      notify("success", person === undefined ? `已添加 ${body.name}` : "已保存");
+      notify("success", person === undefined ? `已添加${body.name}` : "已保存");
       onDone();
     },
   });
@@ -368,7 +351,7 @@ function PersonForm({
           {(field) => (
             <SwitchRow
               label="管理员"
-              hint={isSelf ? "不能在这里取消自己的管理员身份" : "可以管理房间、名单、预约、公告和查看统计"}
+              hint={isSelf ? "不能取消自己的管理员身份" : undefined}
               isChecked={field.state.value}
               isDisabled={isSelf}
               onCheckedChange={(next) => field.handleChange(next)}
@@ -409,7 +392,7 @@ function ImportForm({ onDone }: { onDone: () => void }) {
         onValueChange={setText}
         rows={8}
         placeholder={"张老师,老师\n李四,学生\n王五"}
-        description="格式：姓名 或 姓名,身份（老师 / 学生 / 其他，默认学生）。已存在的名字会跳过。"
+        description="姓名,身份（老师 / 学生 / 其他，可省略，默认学生）；已有的名字会跳过"
       />
       {rows.length === 0 ? null : (
         <Notice tone="info" title={`将导入 ${rows.length} 人`}>

@@ -9,7 +9,8 @@ import { createStore, useSelector } from "@tanstack/react-store";
 import { ChevronRight, RotateCcw, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 
-import { api, asProblem, errorMessage, fetchClient, type Person } from "../../api/client";
+import { api, asProblem, errorMessage, fetchClient, serverUrl, type Person } from "../../api/client";
+import { overlayHistorySettled } from "../../app/overlay-history";
 import { formatClock, minutesBetween, nowZoned, parseZoned } from "../../lib/time";
 import { appStore, setSession, type StoredSession } from "../../state/app-store";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
@@ -17,11 +18,14 @@ import { Button } from "../../ui/button";
 import { TextField } from "../../ui/field";
 import { Badge, EmptyState, Notice, Skeleton, Stack } from "../../ui/layout";
 import { PASSCODE_LENGTH, PasscodeInput } from "../../ui/passcode";
+import { HelpHint } from "../../ui/help-hint";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
 
 interface IdentityRequest {
   roomSlug?: string | undefined;
+  /** `switch`: replace the current identity; cancelling keeps it. */
+  mode: "login" | "switch";
   resolvers: ((session: StoredSession | undefined) => void)[];
 }
 
@@ -40,10 +44,35 @@ export function requestSession(roomSlug?: string): Promise<StoredSession | undef
 
   if (existing !== undefined) return Promise.resolve(existing);
 
+  return openIdentitySheet("login", roomSlug);
+}
+
+/**
+ * Open the identity sheet to become someone else, right where the user is. Cancelling keeps the
+ * current identity; choosing another one replaces it and signs the old session out.
+ *
+ * @returns The new session, or `undefined` if the user cancelled.
+ */
+export function switchIdentity(): Promise<StoredSession | undefined> {
+  return openIdentitySheet("switch");
+}
+
+/**
+ * Show the identity sheet (or join the request already showing).
+ *
+ * @param mode - Sign in or switch.
+ * @param roomSlug - Room whose people list to show.
+ * @returns The session, or `undefined` if cancelled.
+ */
+function openIdentitySheet(
+  mode: IdentityRequest["mode"],
+  roomSlug?: string,
+): Promise<StoredSession | undefined> {
   return new Promise((resolve) => {
     identityStore.setState((state) => ({
       request: {
         roomSlug: roomSlug ?? state.request?.roomSlug ?? fallbackRoomSlug(),
+        mode: state.request?.mode ?? mode,
         resolvers: [...(state.request?.resolvers ?? []), resolve],
       },
     }));
@@ -82,7 +111,9 @@ function settleRequest(session: StoredSession | undefined): void {
   const request = identityStore.state.request;
 
   identityStore.setState(() => ({}));
-  request?.resolvers.forEach((resolve) => resolve(session));
+  window.setTimeout(() => {
+    void overlayHistorySettled().then(() => request?.resolvers.forEach((resolve) => resolve(session)));
+  }, 0);
 }
 
 /**
@@ -91,6 +122,15 @@ function settleRequest(session: StoredSession | undefined): void {
  * @param session - Session from the API.
  */
 function completeSession(session: StoredSession): void {
+  const previous = appStore.state.session;
+
+  if (previous !== undefined && previous.token !== session.token) {
+    void fetch(serverUrl("/api/sessions/current"), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${previous.token}` },
+    }).catch(() => undefined);
+  }
+
   setSession(session);
   notify("success", `你好，${session.person.name}`);
   settleRequest(session);
@@ -103,11 +143,11 @@ function completeSession(session: StoredSession): void {
  * @returns Chinese message with remaining minutes.
  */
 function lockedMessage(lockedUntil: string | undefined): string {
-  if (lockedUntil === undefined || lockedUntil === "") return "口令连续错误次数过多，请 15 分钟后再试";
+  if (lockedUntil === undefined || lockedUntil === "") return "口令错太多次，15 分钟后再试";
 
   const minutes = Math.max(1, minutesBetween(nowZoned(), parseZoned(lockedUntil)));
 
-  return `口令连续错误次数过多，已暂时锁定。请在 ${formatClock(lockedUntil)} 后再试（约 ${minutes} 分钟）`;
+  return `口令错太多次，${formatClock(lockedUntil)} 后再试（约 ${minutes} 分钟）`;
 }
 
 type Step =
@@ -172,7 +212,6 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   selectedTag: { color: colors.textMuted, fontSize: fonts.sizeSm },
-  hint: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.6 },
   steps: { alignItems: "center", display: "flex", gap: 6 },
   stepDot: {
     backgroundColor: colors.borderStrong,
@@ -217,8 +256,7 @@ export function IdentitySheet() {
       onOpenChange={(open) => {
         if (!open) settleRequest(undefined);
       }}
-      title="你是谁？"
-      description="选好名字后用 6 位口令确认，此设备之后会记住你。"
+      title={request?.mode === "switch" ? "切换身份" : "登录"}
     >
       {isOpen ? <IdentityFlow key={request.roomSlug ?? "none"} roomSlug={request.roomSlug} /> : null}
     </Sheet>
@@ -322,9 +360,7 @@ function PickPerson({
           </div>
         </Notice>
       ) : matches.length === 0 ? (
-        <EmptyState icon={<Search size={28} aria-hidden />} title="没有找到这个名字">
-          <p {...stylex.props(styles.hint)}>如果你不在名单里，可以添加自己的名字。</p>
-        </EmptyState>
+        <EmptyState icon={<Search size={28} aria-hidden />} title="名单里没有这个名字" />
       ) : (
         <ul aria-label="名单" {...stylex.props(styles.list)}>
           {matches.map((person) => (
@@ -374,8 +410,8 @@ function SelectedPerson({
         <span {...stylex.props(styles.selectedTag)}>{tag}</span>
       </span>
       {onChange === undefined ? null : (
-        <Button variant="ghost" size="sm" aria-label="换一个名字" onClick={onChange}>
-          换一个
+        <Button variant="ghost" size="sm" aria-label="换个名字" onClick={onChange}>
+          换人
         </Button>
       )}
     </div>
@@ -443,29 +479,27 @@ function EnterPasscode({
       return;
     }
 
-    setError(problem?.code === "invalid_passcode" ? "口令不正确，请重新输入" : errorMessage(result.error));
+    setError(problem?.code === "invalid_passcode" ? "口令不对，再试一次" : errorMessage(result.error));
   }
 
   return (
     <Stack gap="lg">
       <SelectedPerson name={person.name} tag={ROLE_LABELS[person.role]} onChange={onBack} />
       {isLocked ? (
-        <Notice tone="busy" title="暂时无法登录" isLive>
+        <Notice tone="busy" title="已锁定" isLive>
           {error}
         </Notice>
       ) : (
-        <Stack gap="md">
-          <PasscodeInput
-            label={`输入你的 ${PASSCODE_LENGTH} 位口令`}
-            value={passcode}
-            onValueChange={setPasscode}
-            onComplete={(value) => void submit(value)}
-            error={error}
-            isDisabled={isSubmitting}
-            isAutoFocus
-          />
-          <p {...stylex.props(styles.hint)}>忘记口令请联系管理员重置；连续输错 5 次会锁定 15 分钟。</p>
-        </Stack>
+        <PasscodeInput
+          label={`输入 ${PASSCODE_LENGTH} 位口令`}
+          labelAside={<HelpHint topic="口令">忘了口令请找管理员重置。连续输错 5 次会锁定 15 分钟。</HelpHint>}
+          value={passcode}
+          onValueChange={setPasscode}
+          onComplete={(value) => void submit(value)}
+          error={error}
+          isDisabled={isSubmitting}
+          isAutoFocus
+        />
       )}
     </Stack>
   );
@@ -496,7 +530,7 @@ function StepDots({ isConfirming }: { isConfirming: boolean }) {
  * @param props.submitError - Error from the server.
  * @returns The passcode setter.
  */
-export function NewPasscode({
+function NewPasscode({
   onSubmit,
   isSubmitting,
   submitError,
@@ -523,7 +557,7 @@ export function NewPasscode({
       {isConfirming ? (
         <PasscodeInput
           key="confirm"
-          label="再输入一次确认"
+          label="再输一次确认"
           value={second}
           onValueChange={setSecond}
           onComplete={(value) => {
@@ -533,7 +567,7 @@ export function NewPasscode({
               return;
             }
 
-            setMismatch("两次输入不一致，请重新设置");
+            setMismatch("两次不一致，请重新设置");
             restart();
           }}
           error={submitError}
@@ -544,6 +578,7 @@ export function NewPasscode({
         <PasscodeInput
           key="first"
           label={`设置 ${PASSCODE_LENGTH} 位数字口令`}
+          labelAside={<HelpHint topic="口令">以后在任何设备上选这个名字，都用这个口令登录。</HelpHint>}
           value={first}
           onValueChange={setFirst}
           onComplete={() => {
@@ -559,9 +594,7 @@ export function NewPasscode({
           <RotateCcw size={14} aria-hidden />
           重新设置
         </button>
-      ) : (
-        <p {...stylex.props(styles.hint)}>以后在任何设备上选择这个名字，都用这个口令确认。</p>
-      )}
+      ) : null}
     </Stack>
   );
 }
@@ -605,7 +638,7 @@ function ClaimPasscode({
 
               if (result.data !== undefined) completeSession(result.data);
               else if (asProblem(result.error)?.code === "already_claimed") {
-                setError("这个名字刚刚被设置了口令，请换一个名字后直接输入口令");
+                setError("这个名字刚被设了口令，请返回后直接输入口令");
               } else setError(errorMessage(result.error));
             });
         }}
@@ -644,13 +677,12 @@ function CustomName({ roomSlug, onBack }: { roomSlug: string | undefined; onBack
         <Stack gap="lg">
           <TextField
             label="你的名字"
-            placeholder="例如：王小明"
+            placeholder="如：王小明"
             value={name}
             onValueChange={setName}
             maxLength={20}
             autoFocus
             error={error}
-            description="其他人会在预约上看到这个名字。"
           />
           <Stack gap="sm">
             <Button type="submit" variant="primary" size="lg" isFullWidth disabled={trimmed.length === 0}>
@@ -689,7 +721,7 @@ function CustomName({ roomSlug, onBack }: { roomSlug: string | undefined; onBack
 
               setError(
                 asProblem(result.error)?.code === "name_taken"
-                  ? "这个名字已经有人使用，请换一个或从名单中选择"
+                  ? "这个名字已有人用，换一个或回名单里选"
                   : errorMessage(result.error),
               );
               setIsNameConfirmed(false);
@@ -751,9 +783,8 @@ export function ManualLogin({
     setPasscode("");
 
     if (problem?.status === 423) setError(lockedMessage(problem.lockedUntil));
-    else if (problem?.code === "passcode_not_set")
-      setError("这个名字还没有设置口令，请扫描会议室二维码后在名单中选择它");
-    else if (problem?.code === "invalid_passcode") setError("姓名或口令不正确");
+    else if (problem?.code === "passcode_not_set") setError("这个名字还没设口令，请在会议室的名单里选它");
+    else if (problem?.code === "invalid_passcode") setError("姓名或口令不对");
     else setError(errorMessage(result.error));
   }
 
@@ -793,5 +824,59 @@ export function ManualLogin({
         </Stack>
       </Stack>
     </form>
+  );
+}
+
+/**
+ * Passcode change: current passcode, then the new one twice.
+ *
+ * @param props - Component props.
+ * @param props.onDone - Close the sheet.
+ * @returns The form.
+ */
+export function ChangePasscodeForm({ onDone }: { onDone: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [isCurrentEntered, setIsCurrentEntered] = useState(false);
+  const [error, setError] = useState<string>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isCurrentEntered) {
+    return (
+      <PasscodeInput
+        label="输入当前口令"
+        value={current}
+        onValueChange={setCurrent}
+        onComplete={() => {
+          setError(undefined);
+          setIsCurrentEntered(true);
+        }}
+        error={error}
+        isAutoFocus
+      />
+    );
+  }
+
+  return (
+    <NewPasscode
+      isSubmitting={isSubmitting}
+      submitError={error}
+      onSubmit={(next) => {
+        setIsSubmitting(true);
+        void fetchClient.PUT("/api/me/passcode", { body: { current, next } }).then((result) => {
+          setIsSubmitting(false);
+
+          if (result.data !== undefined) {
+            notify("success", "口令已修改");
+            onDone();
+
+            return;
+          }
+
+          setError(errorMessage(result.error));
+          setCurrent("");
+          setIsCurrentEntered(false);
+        });
+      }}
+    />
   );
 }

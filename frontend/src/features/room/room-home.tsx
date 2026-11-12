@@ -7,17 +7,7 @@
 import type { Temporal } from "@js-temporal/polyfill";
 import * as stylex from "@stylexjs/stylex";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  CalendarPlus,
-  ChevronLeft,
-  ChevronRight,
-  Megaphone,
-  Pin,
-  Repeat,
-  Square,
-  Timer,
-  Zap,
-} from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Megaphone, Pin, Repeat, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { Announcement, Booking, Room, RoomStatus } from "../../api/client";
@@ -46,16 +36,15 @@ import { platform } from "../../platform/platform";
 import { appStore } from "../../state/app-store";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
-import { Disclosure } from "../../ui/controls";
 import { Card, EmptyState, Notice, Section, Skeleton, Stack } from "../../ui/layout";
 import { Segmented } from "../../ui/segmented";
 import { Sheet } from "../../ui/sheet";
 import { useLayoutTier } from "../../ui/tier";
 import { endBooking, extendBooking, quickUse } from "../booking/booking-actions";
-import { BookingDetailSheet, bookingHeading } from "../booking/booking-detail";
+import { BookingDetailSheet } from "../booking/booking-detail";
 import { PurposeField, TITLE_REQUIRED_MESSAGE } from "../booking/purpose-field";
 import { requestSession } from "../identity/identity";
-import { HeatmapGrid, type HeatmapRow } from "./heatmap";
+import { HeatmapGrid, type HeatmapDay } from "./heatmap";
 import { RoomCalendar } from "./room-calendar";
 import { useNow, useRoomBookings, useRoomDetail, useRoomHeatmap } from "./room-data";
 
@@ -67,8 +56,14 @@ const styles = stylex.create({
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.narrow]: "minmax(0, 1fr) minmax(0, 1fr)",
-      [media.wide]: "minmax(320px, 360px) minmax(0, 1fr)",
+      [media.wide]: "minmax(320px, 380px) minmax(0, 1fr)",
     },
+  },
+  workspace: {
+    alignItems: { default: "start", [media.narrow]: "stretch" },
+    flexGrow: 1,
+    gridTemplateRows: { default: "auto", [media.narrow]: "minmax(0, 1fr)" },
+    minHeight: 0,
   },
   calendarColumn: {
     backgroundColor: colors.surface,
@@ -76,24 +71,37 @@ const styles = stylex.create({
     borderRadius: radii.extraLarge,
     borderStyle: "solid",
     borderWidth: 1,
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
     minWidth: 0,
     padding: 16,
   },
   column: { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 },
+  scrollColumn: {
+    marginInline: -4,
+    minHeight: 0,
+    overflowY: { default: "visible", [media.narrow]: "auto" },
+    paddingBottom: 4,
+    paddingInline: 4,
+    scrollbarWidth: "thin",
+  },
+  grow: { flexGrow: 1 },
   hero: {
+    alignItems: "center",
     borderRadius: radii.extraLarge,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minHeight: 148,
-    paddingBlock: 22,
-    paddingInline: 22,
+    display: "grid",
+    columnGap: 14,
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    paddingBlock: 18,
+    paddingInline: 20,
+    rowGap: 2,
   },
   heroFree: { backgroundColor: colors.freeSoft },
   heroBusy: { backgroundColor: colors.busySoft },
   heroClosed: { backgroundColor: colors.surfaceMuted },
-  stateLine: { alignItems: "center", display: "flex", gap: 10 },
-  dot: { borderRadius: radii.pill, flexShrink: 0, height: 14, width: 14 },
+  dot: { borderRadius: radii.pill, gridRowEnd: "span 2", gridRowStart: "1", height: 14, width: 14 },
   dotFree: {
     backgroundColor: colors.free,
     boxShadow: `0 0 0 5px color-mix(in srgb, ${colors.free} 22%, transparent)`,
@@ -103,44 +111,40 @@ const styles = stylex.create({
     boxShadow: `0 0 0 5px color-mix(in srgb, ${colors.busy} 22%, transparent)`,
   },
   dotClosed: { backgroundColor: colors.textSubtle },
-  stateWord: { fontSize: fonts.sizeHero, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 },
+  heroMain: {
+    fontSize: fonts.sizeXxl,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 800,
+    letterSpacing: "-0.01em",
+    lineHeight: 1.25,
+    minWidth: 0,
+  },
   stateFree: { color: colors.freeStrong },
   stateBusy: { color: colors.busyStrong },
   stateClosed: { color: colors.textMuted },
-  heroMain: {
-    color: colors.text,
-    fontSize: fonts.sizeXl,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    lineHeight: 1.35,
-  },
   heroSub: {
     color: colors.text,
-    opacity: 0.8,
     fontSize: fonts.sizeMd,
     fontVariantNumeric: "tabular-nums",
     lineHeight: 1.5,
+    minWidth: 0,
+    opacity: 0.8,
   },
-  quickArea: { containerType: "inline-size" },
-  quickGrid: {
-    display: "grid",
-    gap: 10,
-    gridTemplateColumns: {
-      default: "repeat(2, minmax(0, 1fr))",
-      "@container (min-width: 480px)": "repeat(4, minmax(0, 1fr))",
-    },
-  },
-  quickButton: { flexDirection: "column", gap: 2, minHeight: 72, minWidth: 0, paddingInline: 8 },
-  quickLabel: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" },
+  cardHead: { alignItems: "center", display: "flex", gap: 8, justifyContent: "space-between", minHeight: 44 },
+  quickGrid: { display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  quickButton: { flexDirection: "column", gap: 0, minHeight: 56, minWidth: 0, paddingInline: 4 },
+  quickLabel: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   quickHint: {
-    fontSize: fonts.sizeSm,
+    fontSize: fonts.sizeXs,
     fontVariantNumeric: "tabular-nums",
     fontWeight: 500,
     maxWidth: "100%",
+    opacity: 0.85,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
-  extendRow: { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
+  ongoing: { display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  ongoingButton: { minWidth: 0, paddingInline: 4 },
   sectionLabel: {
     alignItems: "center",
     color: colors.text,
@@ -228,19 +232,17 @@ const styles = stylex.create({
     lineHeight: 1.6,
     whiteSpace: "pre-wrap",
   },
-  freeSummary: { color: colors.text, fontSize: fonts.sizeMd, lineHeight: 1.6 },
-  heatmapBody: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 },
-  heatmapData: { display: "flex", flexDirection: "column", gap: 12, transition: "opacity 160ms ease" },
+  heatmapHead: { alignItems: "center", display: "flex", gap: 4, minHeight: 44 },
+  heatmapTitle: { color: colors.text, flexGrow: 1, fontSize: fonts.sizeLg, fontWeight: 700, minWidth: 0 },
+  heatmapData: { display: "flex", flexDirection: "column", gap: 10, transition: "opacity 160ms ease" },
   heatmapLoading: { opacity: 0.55 },
-  weekBar: { alignItems: "center", display: "flex", gap: 6 },
-  weekLabel: {
-    color: colors.text,
-    flexGrow: 1,
-    fontSize: fonts.sizeMd,
+  heatmapSummary: {
+    color: colors.textMuted,
+    fontSize: fonts.sizeSm,
     fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    minWidth: 0,
+    lineHeight: 1.5,
   },
+  heatmapWeek: { color: colors.text, fontWeight: 700 },
 });
 
 /**
@@ -256,7 +258,7 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   const detail = useRoomDetail(slug);
   const today = now.toPlainDate().toString();
   const tier = useLayoutTier();
-  const bookings = useRoomBookings(slug, today, today, tier !== "wide");
+  const bookings = useRoomBookings(slug, today, today, tier === "mobile");
   const [selected, setSelected] = useState<Booking>();
   const [calendarDate, setCalendarDate] = useState<string>();
   const [calendarFocus, setCalendarFocus] = useState<string>();
@@ -275,14 +277,14 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
 
   if (detail.data === undefined) {
     return detail.isError ? (
-      <EmptyState title="暂时无法加载会议室">
+      <EmptyState title="会议室信息加载失败">
         <Button onClick={() => void detail.refetch()}>重试</Button>
       </EmptyState>
     ) : (
       <div {...stylex.props(styles.layout)}>
         <div {...stylex.props(styles.column)}>
-          <Skeleton height={148} />
-          <Skeleton height={160} />
+          <Skeleton height={88} />
+          <Skeleton height={140} />
         </div>
         <div {...stylex.props(styles.column)}>
           <Skeleton height={280} />
@@ -294,14 +296,14 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   const { room, status, announcements } = detail.data;
 
   /**
-   * Show a heatmap day or hour in the calendar: beside the page on wide windows, otherwise on the
-   * calendar tab.
+   * Show a heatmap day or hour in the calendar: beside the overview on PC windows, on the
+   * calendar tab on phones.
    *
    * @param date - The date.
    * @param clock - Optional `HH:MM` to scroll to.
    */
   function openInCalendar(date: string, clock?: string): void {
-    if (tier === "wide") {
+    if (tier !== "mobile") {
       setCalendarDate(date);
       setCalendarFocus(clock);
 
@@ -314,55 +316,64 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   const current = status.current;
   const isMineNow = current !== undefined && current.isMine && current.canEdit;
 
+  const overview = (
+    <>
+      <Announcements items={announcements ?? []} />
+      <StatusHero room={room} status={status} now={now} />
+      {isMineNow ? (
+        <OngoingControls booking={current} />
+      ) : (
+        <div ref={quickRef}>
+          <QuickUse room={room} status={status} now={now} />
+        </div>
+      )}
+      {status.next === undefined ? null : (
+        <Section title="下一场">
+          <AgendaBookingRow booking={status.next} now={now} isDayNamed onSelect={setSelected} />
+        </Section>
+      )}
+    </>
+  );
+
   return (
     <>
-      <div {...stylex.props(styles.layout)}>
+      {tier === "mobile" ? (
         <div {...stylex.props(styles.column)}>
-          <Announcements items={announcements ?? []} />
-          <StatusHero room={room} status={status} now={now} />
-          {isMineNow ? (
-            <OngoingControls booking={current} />
-          ) : (
-            <div ref={quickRef}>
-              <QuickUse room={room} status={status} now={now} />
-            </div>
-          )}
-          {status.next === undefined ? null : (
-            <Section title="下一场">
-              <AgendaBookingRow booking={status.next} now={now} isDayNamed onSelect={setSelected} />
-            </Section>
-          )}
-          {tier === "wide" ? <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} /> : null}
+          {overview}
+          <Section title="今天" aside={weekdayLabel(now.dayOfWeek)}>
+            {bookings.data === undefined ? (
+              <Stack gap="sm">
+                <Skeleton height={56} />
+                <Skeleton height={56} />
+                <Skeleton height={56} />
+              </Stack>
+            ) : (
+              <TodayAgenda room={room} bookings={bookings.data ?? []} now={now} onSelect={setSelected} />
+            )}
+          </Section>
+          <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} />
         </div>
-        {tier === "wide" ? (
+      ) : (
+        <div data-fill="viewport" {...stylex.props(styles.layout, styles.workspace)}>
+          <div {...stylex.props(styles.column, styles.scrollColumn)}>
+            {overview}
+            <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} isGrowing />
+          </div>
           <section aria-label="日程" {...stylex.props(styles.calendarColumn)}>
             <RoomCalendar
               slug={slug}
               anchorDate={calendarDate}
               focusClock={calendarFocus}
+              view={tier === "wide" ? "week" : "day"}
+              isFill
               onAnchorChange={(date) => {
                 setCalendarDate(date);
                 setCalendarFocus(undefined);
               }}
             />
           </section>
-        ) : (
-          <div {...stylex.props(styles.column)}>
-            <Section title="今天" aside={weekdayLabel(now.dayOfWeek)}>
-              {bookings.data === undefined ? (
-                <Stack gap="sm">
-                  <Skeleton height={56} />
-                  <Skeleton height={56} />
-                  <Skeleton height={56} />
-                </Stack>
-              ) : (
-                <TodayAgenda room={room} bookings={bookings.data ?? []} now={now} onSelect={setSelected} />
-              )}
-            </Section>
-            <MeetingHeatmap slug={slug} now={now} onOpen={openInCalendar} />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
       <BookingDetailSheet booking={selected} onClose={() => setSelected(undefined)} />
     </>
   );
@@ -394,19 +405,19 @@ function useTraySync(room: Room | undefined, status: RoomStatus | undefined, slu
  *
  * @param room - The room.
  * @param status - Live status.
- * @returns E.g. `空闲至 16:00` or `使用中：张三 到 15:30`.
+ * @returns E.g. `空闲到 16:00` or `张三在用，15:30 结束`.
  */
 export function statusSummary(room: Room, status: RoomStatus): string {
   if (status.state === "busy") {
-    const who = status.current?.person?.name ?? (status.current?.kind === "block" ? "不可预约" : "有人");
+    const who =
+      status.current?.kind === "block" ? "不可预约" : `${status.current?.person?.name ?? "有人"}在用`;
+
     const until = status.busyUntil ?? status.current?.end;
 
-    return until === undefined ? `使用中：${who}` : `使用中：${who} 到 ${formatClockWithDay(until)}`;
+    return until === undefined ? who : `${who}，${formatClockWithDay(until)} 结束`;
   }
 
-  if (status.freeUntil !== undefined) return `空闲至 ${formatClockWithDay(status.freeUntil)}`;
-
-  return `空闲至 ${room.rules.closeTime}`;
+  return `空闲到 ${status.freeUntil === undefined ? room.rules.closeTime : formatClockWithDay(status.freeUntil)}`;
 }
 
 /**
@@ -439,7 +450,8 @@ function Announcements({ items }: { items: readonly Announcement[] }) {
 }
 
 /**
- * Big status card.
+ * Status card: one headline that leads with the state and when it changes, and one supporting
+ * line.
  *
  * @param props - Hero props.
  * @param props.room - The room.
@@ -449,74 +461,69 @@ function Announcements({ items }: { items: readonly Announcement[] }) {
  */
 function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now: Temporal.ZonedDateTime }) {
   const nowMinutes = minutesOfDay(now);
+  const today = now.toPlainDate();
 
   const isClosed =
     status.state === "free" &&
     (nowMinutes < clockToMinutes(room.rules.openTime) || nowMinutes >= clockToMinutes(room.rules.closeTime));
 
+  let tone: "free" | "busy" | "closed";
+  let headline: string;
+  let detail: string;
+
   if (status.state === "busy") {
     const current = status.current;
     const until = status.busyUntil ?? current?.end;
+    const ends = until === undefined ? "" : `${formatClockWithDay(until, today)} 结束`;
 
-    const who =
-      current?.kind === "block"
-        ? bookingHeading(current)
-        : `${current?.person?.name ?? "有人"}${current?.isMine === true ? "（我）" : ""}`;
+    tone = "busy";
 
-    const purpose = current?.kind === "block" || current?.title === "" ? undefined : current?.title;
-
-    return (
-      <section aria-live="polite" aria-label="当前状态" {...stylex.props(styles.hero, styles.heroBusy)}>
-        <div {...stylex.props(styles.stateLine)}>
-          <span aria-hidden {...stylex.props(styles.dot, styles.dotBusy)} />
-          <span {...stylex.props(styles.stateWord, styles.stateBusy)}>使用中</span>
-        </div>
-        <p {...stylex.props(styles.heroMain)}>
-          {who}
-          {until === undefined ? "" : ` 到 ${formatClockWithDay(until, now.toPlainDate())}`}
-        </p>
-        <p {...stylex.props(styles.heroSub)}>
-          {purpose === undefined ? "" : `${purpose} · `}
-          {until === undefined ? "" : `还有 ${formatDuration(Math.max(0, minutesBetween(now, until)))}结束`}
-        </p>
-      </section>
-    );
+    if (current?.kind === "block") {
+      headline = "不可预约";
+      detail = [current.title, ends].filter((part) => part !== "").join(" · ");
+    } else {
+      headline = current?.isMine === true ? "你正在使用" : `${current?.person?.name ?? "有人"}正在使用`;
+      detail = [current?.title ?? "", ends].filter((part) => part !== "").join(" · ");
+    }
+  } else if (isClosed) {
+    tone = "closed";
+    headline = "未开放";
+    detail = `开放时间 ${room.rules.openTime}–${room.rules.closeTime}`;
+  } else if (status.freeUntil === undefined) {
+    tone = "free";
+    headline = "今天都空闲";
+    detail = `开放到 ${room.rules.closeTime}`;
+  } else {
+    tone = "free";
+    headline = `空闲到 ${formatClockWithDay(status.freeUntil, today)}`;
+    detail = `还能用 ${formatDuration(Math.max(0, minutesBetween(now, status.freeUntil)))}`;
   }
-
-  if (isClosed) {
-    return (
-      <section aria-live="polite" aria-label="当前状态" {...stylex.props(styles.hero, styles.heroClosed)}>
-        <div {...stylex.props(styles.stateLine)}>
-          <span aria-hidden {...stylex.props(styles.dot, styles.dotClosed)} />
-          <span {...stylex.props(styles.stateWord, styles.stateClosed)}>未开放</span>
-        </div>
-        <p {...stylex.props(styles.heroMain)}>
-          开放时间 {room.rules.openTime}–{room.rules.closeTime}
-        </p>
-        <p {...stylex.props(styles.heroSub)}>可以提前预约之后的时段</p>
-      </section>
-    );
-  }
-
-  const freeUntil = status.freeUntil;
-  const freeMinutes = freeUntil === undefined ? undefined : minutesBetween(now, freeUntil);
 
   return (
-    <section aria-live="polite" aria-label="当前状态" {...stylex.props(styles.hero, styles.heroFree)}>
-      <div {...stylex.props(styles.stateLine)}>
-        <span aria-hidden {...stylex.props(styles.dot, styles.dotFree)} />
-        <span {...stylex.props(styles.stateWord, styles.stateFree)}>空闲</span>
-      </div>
-      <p {...stylex.props(styles.heroMain)}>
-        {freeUntil === undefined
-          ? `今天剩余时间都空闲（至 ${room.rules.closeTime}）`
-          : `空闲至 ${formatClockWithDay(freeUntil, now.toPlainDate())}`}
+    <section
+      aria-live="polite"
+      aria-label="当前状态"
+      {...stylex.props(
+        styles.hero,
+        tone === "free" ? styles.heroFree : tone === "busy" ? styles.heroBusy : styles.heroClosed,
+      )}
+    >
+      <span
+        aria-hidden
+        {...stylex.props(
+          styles.dot,
+          tone === "free" ? styles.dotFree : tone === "busy" ? styles.dotBusy : styles.dotClosed,
+        )}
+      />
+      <p
+        {...stylex.props(
+          styles.heroMain,
+          tone === "free" ? styles.stateFree : tone === "busy" ? styles.stateBusy : styles.stateClosed,
+        )}
+      >
+        {headline}
       </p>
-      <p {...stylex.props(styles.heroSub)}>
-        {freeMinutes === undefined
-          ? "现在就可以使用"
-          : `还有 ${formatDuration(Math.max(0, freeMinutes))}${status.next?.person === undefined ? "" : `，之后是 ${status.next.person.name}`}`}
-      </p>
+      {detail === "" ? null : <p {...stylex.props(styles.heroSub)}>{detail}</p>}
     </section>
   );
 }
@@ -542,59 +549,60 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
   const canQuickUse = status.state === "free" && isOpenNow;
   const options = quickUseOptions(now, status.freeUntil, room.rules.closeTime);
 
+  const otherTime = (
+    <Button
+      render={<Link to="/r/$slug/book" params={{ slug: room.slug }} />}
+      nativeButton={false}
+      variant={canQuickUse ? "ghost" : "primary"}
+      size={canQuickUse ? "md" : "lg"}
+      isFullWidth={!canQuickUse}
+      icon={<CalendarPlus size={18} aria-hidden />}
+    >
+      {canQuickUse ? "其他时间" : "预约"}
+    </Button>
+  );
+
+  if (!canQuickUse) return otherTime;
+
   return (
     <Card as="section" ariaLabel="使用会议室">
-      {canQuickUse ? (
-        <>
-          <h2 {...stylex.props(styles.sectionLabel)}>
-            <Zap size={20} aria-hidden />
-            马上使用
-          </h2>
-          <div {...stylex.props(styles.quickArea)}>
-            <div {...stylex.props(styles.quickGrid)}>
-              {options.map((option) => (
-                <Button
-                  key={option.minutes}
-                  variant="success"
-                  size="lg"
-                  xstyle={styles.quickButton}
-                  disabled={!option.isEnabled || (pending !== undefined && pending !== option.minutes)}
-                  isLoading={pending === option.minutes}
-                  aria-label={`马上使用 ${formatDuration(option.minutes)}，到 ${option.endClock}`}
-                  onClick={() => {
-                    setPending(option.minutes);
-                    void requestSession(room.slug)
-                      .then((session) => {
-                        if (session !== undefined) setMinutes(option.minutes);
-                      })
-                      .finally(() => setPending(undefined));
-                  }}
-                >
-                  <span {...stylex.props(styles.quickLabel)}>{formatShortDuration(option.minutes)}</span>
-                  <span {...stylex.props(styles.quickHint)}>至 {option.endClock}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
-        </>
-      ) : null}
-      <Button
-        render={<Link to="/r/$slug/book" params={{ slug: room.slug }} />}
-        nativeButton={false}
-        variant={canQuickUse ? "secondary" : "primary"}
-        size="lg"
-        isFullWidth
-        icon={<CalendarPlus size={18} aria-hidden />}
-      >
-        {canQuickUse ? "预约其他时间" : "预约"}
-      </Button>
+      <div {...stylex.props(styles.cardHead)}>
+        <h2 {...stylex.props(styles.sectionLabel)}>
+          <Zap size={20} aria-hidden />
+          马上使用
+        </h2>
+        {otherTime}
+      </div>
+      <div {...stylex.props(styles.quickGrid)}>
+        {options.map((option) => (
+          <Button
+            key={option.minutes}
+            variant="success"
+            size="lg"
+            xstyle={styles.quickButton}
+            disabled={!option.isEnabled || (pending !== undefined && pending !== option.minutes)}
+            isLoading={pending === option.minutes}
+            aria-label={`马上使用 ${formatDuration(option.minutes)}，到 ${option.endClock}`}
+            onClick={() => {
+              setPending(option.minutes);
+              void requestSession(room.slug)
+                .then((session) => {
+                  if (session !== undefined) setMinutes(option.minutes);
+                })
+                .finally(() => setPending(undefined));
+            }}
+          >
+            <span {...stylex.props(styles.quickLabel)}>{formatShortDuration(option.minutes)}</span>
+            <span {...stylex.props(styles.quickHint)}>到 {option.endClock}</span>
+          </Button>
+        ))}
+      </div>
       <Sheet
         isOpen={minutes !== undefined}
         onOpenChange={(open) => {
           if (!open) setMinutes(undefined);
         }}
         title="马上使用"
-        description="填写用途后即可开始，用完可以提前结束。"
       >
         {minutes === undefined ? null : (
           <QuickUseForm
@@ -662,7 +670,7 @@ function QuickUseForm({
           options={options.map((option) => ({
             value: String(option.minutes),
             label: formatShortDuration(option.minutes),
-            hint: `至 ${option.endClock}`,
+            hint: `到 ${option.endClock}`,
             isDisabled: !option.isEnabled,
           }))}
           onValueChange={(value) => {
@@ -685,7 +693,7 @@ function QuickUseForm({
           isLoading={isSubmitting}
           icon={<Zap size={20} aria-hidden />}
         >
-          开始使用{chosen === undefined ? "" : `，至 ${chosen.endClock}`}
+          开始使用{chosen === undefined ? "" : `，到 ${chosen.endClock}`}
         </Button>
       </Stack>
     </form>
@@ -703,43 +711,39 @@ function OngoingControls({ booking }: { booking: Booking }) {
   const [pending, setPending] = useState<string>();
 
   return (
-    <Card as="section" ariaLabel="你正在使用">
-      <h2 {...stylex.props(styles.sectionLabel)}>
-        <Timer size={20} aria-hidden />
-        你正在使用，到 {formatClock(booking.end)}
-      </h2>
-      <div {...stylex.props(styles.extendRow)}>
+    <Card as="section" ariaLabel="续时或提前结束">
+      <div {...stylex.props(styles.ongoing)}>
         {([15, 30, 60] as const).map((minutes) => (
           <Button
             key={minutes}
             variant="soft"
             size="lg"
+            xstyle={styles.ongoingButton}
             isLoading={pending === `extend-${minutes}`}
             disabled={pending !== undefined}
-            aria-label={`续时 ${minutes} 分钟`}
+            aria-label={`续 ${minutes} 分钟`}
             onClick={() => {
               setPending(`extend-${minutes}`);
               void extendBooking(booking, minutes).finally(() => setPending(undefined));
             }}
           >
-            +{minutes} 分钟
+            +{minutes} 分
           </Button>
         ))}
+        <Button
+          variant="secondary"
+          size="lg"
+          xstyle={styles.ongoingButton}
+          isLoading={pending === "end"}
+          disabled={pending !== undefined}
+          onClick={() => {
+            setPending("end");
+            void endBooking(booking).finally(() => setPending(undefined));
+          }}
+        >
+          提前结束
+        </Button>
       </div>
-      <Button
-        variant="secondary"
-        size="lg"
-        isFullWidth
-        icon={<Square size={16} aria-hidden />}
-        isLoading={pending === "end"}
-        disabled={pending !== undefined}
-        onClick={() => {
-          setPending("end");
-          void endBooking(booking).finally(() => setPending(undefined));
-        }}
-      >
-        提前结束
-      </Button>
     </Card>
   );
 }
@@ -789,7 +793,7 @@ function AgendaBookingRow({
         </span>
         <span {...stylex.props(styles.agendaMeta)}>
           {booking.series === undefined ? null : <Repeat size={13} aria-label="周期预约" />}
-          {booking.title === "" ? (booking.kind === "block" ? "" : "未填写用途") : booking.title}
+          {booking.title === "" ? (booking.kind === "block" ? "" : "没写用途") : booking.title}
           {isNow ? " · 进行中" : ""}
         </span>
       </span>
@@ -822,7 +826,7 @@ function TodayAgenda({
   const date = now.toPlainDate().toString();
 
   if (entries.length === 0) {
-    return <Notice tone="info">今天已经没有可预约的时段了。</Notice>;
+    return <Notice tone="info">今天没有可约的时段了</Notice>;
   }
 
   return (
@@ -840,7 +844,7 @@ function TodayAgenda({
                 start: minutesToClock(ceilToGrid(entry.startMinutes)),
                 end: minutesToClock(Math.min(entry.endMinutes, ceilToGrid(entry.startMinutes) + 60)),
               }}
-              aria-label={`空闲 ${minutesToClock(entry.startMinutes)} 到 ${minutesToClock(entry.endMinutes)}，预约这个时段`}
+              aria-label={`${minutesToClock(entry.startMinutes)}–${minutesToClock(entry.endMinutes)} 空闲，点按预约`}
               {...stylex.props(styles.agendaRow, styles.agendaFree)}
             >
               <span {...stylex.props(styles.agendaTime)}>
@@ -861,23 +865,26 @@ function TodayAgenda({
 }
 
 /**
- * Collapsible "会议热力图": the booked share of every hour of one week, current week first, with
- * week navigation. A day or a cell opens the calendar there.
+ * "会议热力图": the booked share of every hour of one week (current week first), days as columns
+ * like the calendar, with week navigation. A day or a cell opens the calendar there.
  *
  * @param props - Panel props.
  * @param props.slug - Room slug.
  * @param props.now - Current time.
  * @param props.onOpen - Show a date (and an `HH:MM` time) in the calendar.
+ * @param props.isGrowing - Stretch to the bottom of a fixed-height column.
  * @returns The panel.
  */
 function MeetingHeatmap({
   slug,
   now,
   onOpen,
+  isGrowing = false,
 }: {
   slug: string;
   now: Temporal.ZonedDateTime;
   onOpen: (date: string, clock?: string) => void;
+  isGrowing?: boolean;
 }) {
   const today = now.toPlainDate();
   const thisWeek = startOfWeek(today);
@@ -890,76 +897,74 @@ function MeetingHeatmap({
   const summary = heatSummary(heatRows(heatmap.data?.cells, 7, hours));
   const isLoading = heatmap.isPlaceholderData;
 
-  const rows: HeatmapRow[] = days.map((date) => ({
+  const columns: HeatmapDay[] = days.map((date) => ({
     label: weekdayLabel(date.dayOfWeek).replace("周", ""),
     name: weekdayLabel(date.dayOfWeek),
-    actionLabel: `在日历中查看 ${formatDateLabel(date)}`,
+    actionLabel: `在日历中查看${formatDateLabel(date)}`,
     isHighlighted: date.equals(today),
   }));
 
   return (
-    <Card as="section" ariaLabel="会议热力图">
-      <Disclosure title="会议热力图" hint="一周各时段的预约">
-        <div {...stylex.props(styles.heatmapBody)}>
-          <div {...stylex.props(styles.weekBar)}>
-            <span aria-live="polite" {...stylex.props(styles.weekLabel)}>
-              {weekLabel}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={weekStart.equals(thisWeek)}
-              onClick={() => setWeek(thisWeek.toString())}
-            >
-              本周
-            </Button>
-            <Button
-              variant="ghost"
-              aria-label="上一周"
-              onClick={() => setWeek(weekStart.subtract({ weeks: 1 }).toString())}
-              icon={<ChevronLeft size={20} aria-hidden />}
-            />
-            <Button
-              variant="ghost"
-              aria-label="下一周"
-              onClick={() => setWeek(weekStart.add({ weeks: 1 }).toString())}
-              icon={<ChevronRight size={20} aria-hidden />}
-            />
-          </div>
-          {heatmap.data === undefined ? (
-            heatmap.isError ? (
-              <Notice tone="info">暂时无法加载热力图。</Notice>
-            ) : (
-              <Skeleton height={200} />
-            )
-          ) : (
-            <div
-              aria-busy={isLoading}
-              {...stylex.props(styles.heatmapData, isLoading && styles.heatmapLoading)}
-            >
-              <p {...stylex.props(styles.freeSummary)}>
-                {summary.busiestRow === undefined
-                  ? "这一周没有预约"
-                  : `共预约 ${formatDuration(summary.totalMinutes)}，最忙的是${weekdayLabel(summary.busiestRow + 1)}`}
-              </p>
-              <HeatmapGrid
-                matrix={heatmap.data.cells}
-                hours={hours}
-                rows={rows}
-                caption={`${weekLabel} 各时段的预约比例，颜色越深预约越满`}
-                valueLabel="已预约"
-                onSelect={(row, hour) => {
-                  const date = days[row];
+    <Card as="section" ariaLabel="会议热力图" xstyle={isGrowing ? styles.grow : undefined}>
+      <div {...stylex.props(styles.heatmapHead)}>
+        <h2 {...stylex.props(styles.heatmapTitle)}>会议热力图</h2>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={weekStart.equals(thisWeek)}
+          onClick={() => setWeek(thisWeek.toString())}
+        >
+          本周
+        </Button>
+        <Button
+          variant="ghost"
+          aria-label="上一周"
+          onClick={() => setWeek(weekStart.subtract({ weeks: 1 }).toString())}
+          icon={<ChevronLeft size={20} aria-hidden />}
+        />
+        <Button
+          variant="ghost"
+          aria-label="下一周"
+          onClick={() => setWeek(weekStart.add({ weeks: 1 }).toString())}
+          icon={<ChevronRight size={20} aria-hidden />}
+        />
+      </div>
+      <p aria-live="polite" {...stylex.props(styles.heatmapSummary)}>
+        <span {...stylex.props(styles.heatmapWeek)}>{weekLabel}</span>
+        {heatmap.data === undefined
+          ? ""
+          : summary.busiestRow === undefined
+            ? " · 没有预约"
+            : ` · 共 ${formatDuration(summary.totalMinutes)}，${weekdayLabel(summary.busiestRow + 1)}最忙`}
+      </p>
+      {heatmap.data === undefined ? (
+        heatmap.isError ? (
+          <Notice tone="info">热力图加载失败</Notice>
+        ) : (
+          <Skeleton height={320} />
+        )
+      ) : (
+        <div aria-busy={isLoading} {...stylex.props(styles.heatmapData, isLoading && styles.heatmapLoading)}>
+          <HeatmapGrid
+            matrix={heatmap.data.cells}
+            hours={hours}
+            days={columns}
+            dayAxis="columns"
+            maxCell={34}
+            caption={`${weekLabel}各时段的预约比例，颜色越深越满`}
+            valueLabel="已约"
+            lowLabel="空"
+            highLabel="满"
+            onSelect={(day, hour) => {
+              const date = days[day];
 
-                  if (date === undefined) return;
+              if (date === undefined) return;
 
-                  onOpen(date.toString(), hour === undefined ? undefined : minutesToClock(hour * 60));
-                }}
-              />
-            </div>
-          )}
+              onOpen(date.toString(), hour === undefined ? undefined : minutesToClock(hour * 60));
+            }}
+          />
         </div>
-      </Disclosure>
+      )}
     </Card>
   );
 }

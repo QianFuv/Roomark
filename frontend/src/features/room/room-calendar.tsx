@@ -34,13 +34,14 @@ import {
   formatDuration,
   minutesOfDay,
   minutesToClock,
+  nowZoned,
   parseDate,
   startOfWeek,
   weekdayLabel,
 } from "../../lib/time";
 import { colors, fonts, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
-import { Skeleton, Stack } from "../../ui/layout";
+import { Skeleton } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
 import { useLayoutTier, usePrefersReducedMotion } from "../../ui/tier";
 import { notify } from "../../ui/toast";
@@ -53,6 +54,9 @@ const DAY_HOUR_HEIGHT = 64;
 
 /** Pixel height of one hour in the week view. */
 const WEEK_HOUR_HEIGHT = 52;
+
+/** Smallest hour height when the calendar fills its container (day view, week view). */
+const FILL_MIN_HOUR = { day: 44, week: 34 } as const;
 
 /** Space above the first hour line so its label is not clipped. */
 const BODY_PADDING = 10;
@@ -137,7 +141,11 @@ const styles = stylex.create({
     touchAction: "pan-y",
   },
   gutterColumn: { display: "flex", flexDirection: "column" },
-  viewport: { minWidth: 0, overflow: "hidden", position: "relative" },
+  viewport: { minWidth: 0, overflow: "clip", position: "relative" },
+  root: { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 },
+  fillRoot: { flexGrow: 1, minHeight: 0 },
+  fillFrame: { alignItems: "start", flexGrow: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "thin" },
+  stickyHead: { position: "sticky", top: 0, zIndex: 6 },
   pane: { backgroundColor: colors.surface, display: "flex", flexDirection: "column" },
   head: {
     backgroundColor: colors.surface,
@@ -351,6 +359,13 @@ export interface RoomCalendarProps {
   /** `HH:MM` to scroll into view, e.g. after tapping a heatmap cell. */
   focusClock?: string;
   onAnchorChange: (date: string | undefined) => void;
+  /** Force the day or week view instead of choosing by layout tier. */
+  view?: "day" | "week";
+  /**
+   * Fill the parent's height: hours stretch to the available space and the time grid scrolls
+   * inside the frame when they reach their minimum height.
+   */
+  isFill?: boolean;
 }
 
 /**
@@ -359,9 +374,18 @@ export interface RoomCalendarProps {
  * @param props - Calendar props.
  * @returns The calendar.
  */
-export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: RoomCalendarProps) {
+export function RoomCalendar({
+  slug,
+  anchorDate,
+  focusClock,
+  onAnchorChange,
+  view,
+  isFill = false,
+}: RoomCalendarProps) {
   const tier = useLayoutTier();
-  const isDayView = tier === "mobile";
+  const isDayView = view === undefined ? tier === "mobile" : view === "day";
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameHeight, setFrameHeight] = useState(0);
   const now = useNow(30_000);
   const today = now.toPlainDate();
   const anchor = anchorDate === undefined ? today : parseDate(anchorDate);
@@ -396,6 +420,37 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
   }
 
   useEffect(() => {
+    const frame = frameRef.current;
+
+    if (!isFill || frame === null) return undefined;
+
+    const observer = new ResizeObserver(() => setFrameHeight(frame.clientHeight));
+
+    observer.observe(frame);
+
+    return () => observer.disconnect();
+  }, [isFill]);
+
+  const hasMeasured = frameHeight > 0;
+  const hasPositioned = useRef(false);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+
+    if (hasPositioned.current || !hasMeasured || openTime === undefined || closeTime === undefined) return;
+
+    hasPositioned.current = true;
+
+    if (focusClock !== undefined || frame === null || frame.scrollHeight <= frame.clientHeight) return;
+
+    const openMinutes = clockToMinutes(openTime);
+    const span = Math.max(clockToMinutes(closeTime) - openMinutes, GRID_MINUTES);
+    const ratio = Math.min(Math.max((minutesOfDay(nowZoned()) - openMinutes) / span, 0), 1);
+
+    frame.scrollTop = ratio * frame.scrollHeight - frame.clientHeight * 0.3;
+  }, [closeTime, focusClock, hasMeasured, openTime]);
+
+  useEffect(() => {
     const gutterElement = gutterRef.current;
 
     if (
@@ -411,11 +466,22 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
     const span = Math.max(clockToMinutes(closeTime) - openMinutes, GRID_MINUTES);
     const ratio = Math.min(Math.max((clockToMinutes(focusClock) - openMinutes) / span, 0), 1);
     const rect = gutterElement.getBoundingClientRect();
-    const top = window.scrollY + rect.top + ratio * rect.height - window.innerHeight * 0.3;
-    const isReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    const frame = frameRef.current;
 
-    window.scrollTo({ top: Math.max(0, top), behavior: isReduced ? "auto" : "smooth" });
-  }, [anchorDate, closeTime, focusClock, openTime]);
+    if (isFill && frame !== null) {
+      const frameRect = frame.getBoundingClientRect();
+      const offset = rect.top - frameRect.top + frame.scrollTop + ratio * rect.height;
+
+      frame.scrollTo({ top: Math.max(0, offset - frame.clientHeight * 0.3), behavior });
+
+      return;
+    }
+
+    const top = window.scrollY + rect.top + ratio * rect.height - window.innerHeight * 0.3;
+
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  }, [anchorDate, closeTime, focusClock, isFill, openTime]);
 
   /**
    * Move the view by days.
@@ -493,7 +559,15 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
   const openMinutes = clockToMinutes(room.rules.openTime);
   const closeMinutes = clockToMinutes(room.rules.closeTime);
   const span = Math.max(closeMinutes - openMinutes, GRID_MINUTES);
-  const hourHeight = isDayView ? DAY_HOUR_HEIGHT : WEEK_HOUR_HEIGHT;
+  const fittedHour = (frameHeight - (isDayView ? 0 : HEAD_HEIGHT) - BODY_PADDING * 2 - 2) / (span / 60);
+
+  const hourHeight =
+    isFill && frameHeight > 0
+      ? Math.max(FILL_MIN_HOUR[isDayView ? "day" : "week"], fittedHour)
+      : isDayView
+        ? DAY_HOUR_HEIGHT
+        : WEEK_HOUR_HEIGHT;
+
   const bodyHeight = (span / 60) * hourHeight;
   const gutter = isDayView ? 52 : 56;
   const firstLine = Math.ceil(openMinutes / 30) * 30;
@@ -528,7 +602,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
     const slot = proposeSlot(date, minutes, items, room.rules.closeTime, now);
 
     if (slot === undefined) {
-      notify("info", "这个时间不能预约", "已经过去或已被占用");
+      notify("info", "这个时间约不了", "已过去或已被预约");
 
       return;
     }
@@ -543,7 +617,10 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
   }
 
   return (
-    <Stack gap="md">
+    <div
+      data-fill={isFill ? "viewport" : undefined}
+      {...stylex.props(styles.root, isFill && styles.fillRoot)}
+    >
       <div {...stylex.props(styles.toolbar)}>
         <span aria-live="polite" {...stylex.props(styles.rangeLabel)}>
           {rangeLabel}
@@ -606,10 +683,11 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
           event.preventDefault();
           event.stopPropagation();
         }}
-        {...stylex.props(styles.frame, styles.gutterWidth(gutter))}
+        ref={frameRef}
+        {...stylex.props(styles.frame, styles.gutterWidth(gutter), isFill && styles.fillFrame)}
       >
         <div {...stylex.props(styles.gutterColumn)}>
-          {isDayView ? null : <span aria-hidden {...stylex.props(styles.head)} />}
+          {isDayView ? null : <span aria-hidden {...stylex.props(styles.head, styles.stickyHead)} />}
           <div {...stylex.props(styles.gutterBody)}>
             <div ref={gutterRef} aria-hidden {...stylex.props(styles.gutter, styles.height(bodyHeight))}>
               {lines
@@ -658,7 +736,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
               {...stylex.props(styles.pane)}
             >
               {isDayView ? null : (
-                <div {...stylex.props(styles.head, styles.columns(days.length))}>
+                <div {...stylex.props(styles.head, styles.stickyHead, styles.columns(days.length))}>
                   {days.map((date) => {
                     const isToday = date.equals(today);
 
@@ -700,9 +778,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
       </div>
 
       {visibleCount === 0 && hasFutureDay && bookings.data !== undefined ? (
-        <p {...stylex.props(styles.emptyLine)}>
-          {isDayView ? "这天还没有预约" : "这周还没有预约"}，点任意空闲时间即可预约。
-        </p>
+        <p {...stylex.props(styles.emptyLine)}>{isDayView ? "这天还没有预约" : "这周还没有预约"}</p>
       ) : null}
 
       <div aria-hidden {...stylex.props(styles.legend)}>
@@ -712,7 +788,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
         </span>
         <span {...stylex.props(styles.legendItem)}>
           <span {...stylex.props(styles.swatch, styles.swatchOther)} />
-          他人预约
+          别人的预约
         </span>
         <span {...stylex.props(styles.legendItem)}>
           <span {...stylex.props(styles.swatch, styles.swatchBlock)} />
@@ -720,7 +796,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
         </span>
         <span {...stylex.props(styles.legendItem)}>
           <span {...stylex.props(styles.swatch, styles.swatchFree)} />
-          空闲，点按预约
+          空闲
         </span>
       </div>
 
@@ -742,7 +818,7 @@ export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: R
           />
         )}
       </Sheet>
-    </Stack>
+    </div>
   );
 }
 

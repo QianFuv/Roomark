@@ -30,6 +30,7 @@ const styles = stylex.create({
     justifyContent: "space-between",
     minHeight: 32,
   },
+  sectionHeading: { alignItems: "center", display: "flex", gap: 4, minWidth: 0 },
   sectionTitle: { color: colors.text, fontSize: fonts.sizeLg, fontWeight: 700 },
   sectionAside: { color: colors.textMuted, fontSize: fonts.sizeSm },
   pageHeader: { display: "flex", flexDirection: "column", gap: 4, paddingBottom: 4 },
@@ -152,6 +153,7 @@ export function Card({
  *
  * @param props - Section props.
  * @param props.title - Heading.
+ * @param props.help - Shown right after the heading, e.g. a `HelpHint`.
  * @param props.aside - Content on the right of the heading.
  * @param props.children - Content.
  * @param props.xstyle - Extra styles.
@@ -159,11 +161,13 @@ export function Card({
  */
 export function Section({
   title,
+  help,
   aside,
   children,
   xstyle,
 }: {
   title: ReactNode;
+  help?: ReactNode;
   aside?: ReactNode;
   children: ReactNode;
   xstyle?: stylex.StyleXStyles;
@@ -171,7 +175,10 @@ export function Section({
   return (
     <section {...stylex.props(styles.section, xstyle)}>
       <div {...stylex.props(styles.sectionHeader)}>
-        <h2 {...stylex.props(styles.sectionTitle)}>{title}</h2>
+        <span {...stylex.props(styles.sectionHeading)}>
+          <h2 {...stylex.props(styles.sectionTitle)}>{title}</h2>
+          {help}
+        </span>
         {aside === undefined ? null : <div {...stylex.props(styles.sectionAside)}>{aside}</div>}
       </div>
       {children}

@@ -23,3 +23,13 @@ export function isString(value: unknown): value is string {
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
+
+/**
+ * Whether a value is a finite number.
+ *
+ * @param value - Anything.
+ * @returns `true` for finite numbers.
+ */
+export function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}

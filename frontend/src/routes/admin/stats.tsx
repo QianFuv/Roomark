@@ -13,7 +13,7 @@ import { useState, type ReactNode } from "react";
 
 import { api, authHeaders, errorMessage, serverUrl } from "../../api/client";
 import { HistogramChart, RankingChart, ShareChart, TrendChart } from "../../features/stats/charts";
-import { HeatmapGrid, type HeatmapRow } from "../../features/room/heatmap";
+import { HeatmapGrid, type HeatmapDay } from "../../features/room/heatmap";
 import {
   DURATION_LABELS,
   LEAD_TIME_LABELS,
@@ -38,6 +38,7 @@ import { platform } from "../../platform/platform";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure, TabView } from "../../ui/controls";
+import { HelpHint } from "../../ui/help-hint";
 import { DatePicker } from "../../ui/date-picker";
 import { SelectField } from "../../ui/field";
 import { Card, EmptyState, Notice, PageHeader, Row, Section, Skeleton, Stack } from "../../ui/layout";
@@ -49,7 +50,7 @@ export const Route = createFileRoute("/admin/stats")({ component: StatsPage });
 type Role = "all" | "teacher" | "student" | "other";
 
 /** Weekday rows of the statistics heatmap, Monday first. */
-const WEEKDAY_ROWS: readonly HeatmapRow[] = Array.from({ length: 7 }, (_unused, index) => ({
+const WEEKDAY_ROWS: readonly HeatmapDay[] = Array.from({ length: 7 }, (_unused, index) => ({
   label: weekdayLabel(index + 1).replace("周", ""),
   name: weekdayLabel(index + 1),
 }));
@@ -66,7 +67,6 @@ const styles = stylex.create({
     },
   },
   filterGroup: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-  filterLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
   customRange: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", maxWidth: 520 },
   caption: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
   kpis: {
@@ -86,8 +86,8 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: 6,
-    minHeight: 112,
-    padding: 16,
+    minHeight: 96,
+    padding: 14,
   },
   kpiLabel: { color: colors.textMuted, fontSize: fonts.sizeSm, fontWeight: 600 },
   kpiValue: {
@@ -110,8 +110,9 @@ const styles = stylex.create({
   deltaDown: { color: colors.busy },
   deltaFlat: { color: colors.textMuted },
   deltaPrevious: { color: colors.textSubtle, fontWeight: 500, marginInlineStart: 6 },
+  grow: { flexGrow: 1 },
   twoColumns: {
-    alignItems: "start",
+    alignItems: "stretch",
     display: "grid",
     gap: 16,
     gridTemplateColumns: { default: "minmax(0, 1fr)", [media.wide]: "repeat(2, minmax(0, 1fr))" },
@@ -208,7 +209,7 @@ function StatsPage() {
 
       if (result.saved) notify("success", "已导出 CSV", result.path);
     } catch {
-      notify("error", "导出失败", "请稍后重试");
+      notify("error", "导出失败", "请稍后再试");
     } finally {
       setIsExporting(false);
     }
@@ -240,7 +241,6 @@ function StatsPage() {
           onValueChange={setRoom}
         />
         <div {...stylex.props(styles.filterGroup)}>
-          <span {...stylex.props(styles.filterLabel)}>时间</span>
           <Segmented
             label="时间范围"
             value={preset}
@@ -257,7 +257,6 @@ function StatsPage() {
           />
         </div>
         <div {...stylex.props(styles.filterGroup)}>
-          <span {...stylex.props(styles.filterLabel)}>身份</span>
           <Segmented
             label="身份"
             value={role}
@@ -299,7 +298,7 @@ function StatsPage() {
         {rangeLabel(range)} · 对比上期 {rangeLabel(previous)}
       </p>
       {!isRangeValid ? (
-        <Notice tone="warning">开始日期需要早于结束日期</Notice>
+        <Notice tone="warning">开始日期要早于结束日期</Notice>
       ) : stats.data === undefined ? (
         stats.isError ? (
           <Notice tone="busy">{errorMessage(stats.error)}</Notice>
@@ -441,7 +440,7 @@ function StatsBody({ stats }: { stats: Stats }) {
   const total = habits.single + habits.recurring;
 
   if (overview.bookings === 0 && previous.bookings === 0) {
-    return <EmptyState title="这个范围内还没有预约">换一个时间范围或房间试试。</EmptyState>;
+    return <EmptyState title="这个范围内没有预约" />;
   }
 
   return (
@@ -515,11 +514,13 @@ function StatsBody({ stats }: { stats: Stats }) {
       </Card>
 
       <Card as="section" ariaLabel="时段热力图">
-        <Section title="时段热力图" aside="星期 × 小时的占用比例">
+        <Section title="时段热力图">
           <HeatmapGrid
             matrix={stats.heatmap}
             hours={STATS_HEATMAP_HOURS}
-            rows={WEEKDAY_ROWS}
+            days={WEEKDAY_ROWS}
+            dayAxis="rows"
+            maxCell={40}
             caption="各星期各小时的占用比例"
             valueLabel="占用"
             lowLabel="0%"
@@ -547,12 +548,17 @@ function StatsBody({ stats }: { stats: Stats }) {
         </Card>
         <Stack gap="lg">
           <Card as="section" ariaLabel="需求缺口">
-            <Section title="需求缺口" aside="想约却撞上已有预约">
+            <Section
+              title="需求缺口"
+              help={
+                <HelpHint topic="需求缺口">
+                  想约的时段已被别人约了的次数，以及其中有多少人改约了推荐的时段。
+                </HelpHint>
+              }
+            >
               <div {...stylex.props(styles.metricGrid)}>
                 <Metric label="冲突次数">{demandGap.conflictCount}</Metric>
-                <Metric label="冲突后采纳建议时段">
-                  {formatPercent(demandGap.suggestionAcceptanceRate)}
-                </Metric>
+                <Metric label="改约推荐时段">{formatPercent(demandGap.suggestionAcceptanceRate)}</Metric>
               </div>
               <span {...stylex.props(styles.subTitle)}>最常冲突的时段</span>
               {topSlots.length === 0 ? (
@@ -574,15 +580,15 @@ function StatsBody({ stats }: { stats: Stats }) {
               )}
             </Section>
           </Card>
-          <Card as="section" ariaLabel="取消与提前结束">
+          <Card as="section" ariaLabel="取消与提前结束" xstyle={styles.grow}>
             <Section title="取消与提前结束">
               <div {...stylex.props(styles.metricGrid)}>
                 <Metric label="取消率">{formatPercent(cancellations.cancelRate, true)}</Metric>
-                <Metric label="临时取消（开始前 1 小时内）">
+                <Metric label="开始前 1 小时内取消">
                   {formatPercent(cancellations.lastMinuteRate, true)}
                 </Metric>
                 <Metric label="提前结束次数">{cancellations.earlyEndCount}</Metric>
-                <Metric label="平均释放时长">
+                <Metric label="平均提前结束">
                   {Math.round(cancellations.averageReleasedMinutes)}
                   <span {...stylex.props(styles.kpiUnit)}>分钟</span>
                 </Metric>
@@ -593,7 +599,7 @@ function StatsBody({ stats }: { stats: Stats }) {
       </div>
 
       <Card as="section" ariaLabel="人员排行">
-        <Section title="人员排行" aside="前 10 名">
+        <Section title="人员排行（前 10 名）">
           <TabView
             label="排行依据"
             value={rankBy}

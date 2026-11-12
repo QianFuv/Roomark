@@ -1,6 +1,6 @@
 /**
- * Conflict suggestions: one calm conflict line, then the alternative windows as selectable cards
- * grouped into 当天 and 其他日期. The same card is used by the recurring preview.
+ * Conflict suggestions: one calm conflict line, then the alternative windows as compact one-line
+ * chips (same day first, other days named). The same chip is used by the recurring preview.
  *
  * @module
  */
@@ -14,7 +14,6 @@ import { suggestionLabel } from "../../lib/recurring";
 import {
   formatBookingWhen,
   formatClockRange,
-  formatDateLabel,
   formatDuration,
   formatRelativeDate,
   minutesBetween,
@@ -33,9 +32,9 @@ const styles = stylex.create({
     borderWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 14,
-    paddingBlock: 14,
-    paddingInline: { default: 14, [media.narrow]: 16 },
+    gap: 10,
+    paddingBlock: 12,
+    paddingInline: { default: 12, [media.narrow]: 14 },
   },
   conflictLine: {
     alignItems: "flex-start",
@@ -48,21 +47,10 @@ const styles = stylex.create({
   conflictIcon: { color: colors.warning, display: "inline-flex", flexShrink: 0, marginTop: 2 },
   conflictWhen: { fontVariantNumeric: "tabular-nums", fontWeight: 600 },
   conflictWho: { color: colors.textMuted },
-  heading: {
-    alignItems: "baseline",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "space-between",
-  },
-  headingText: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  headingHint: { color: colors.textMuted, fontSize: fonts.sizeXs },
-  group: { display: "flex", flexDirection: "column", gap: 6 },
-  groupLabel: { color: colors.textMuted, fontSize: fonts.sizeXs, fontWeight: 600, letterSpacing: "0.04em" },
   options: {
     display: "grid",
-    gap: 8,
-    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+    gap: 6,
+    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 148px), 1fr))",
   },
   option: {
     alignItems: "center",
@@ -78,15 +66,15 @@ const styles = stylex.create({
     boxShadow: { default: "none", '[aria-pressed="true"]': `inset 0 0 0 1px ${colors.primary}` },
     color: colors.text,
     cursor: { default: "pointer", ":disabled": "not-allowed" },
-    display: "grid",
+    display: "flex",
     fontFamily: fonts.sans,
-    gap: 10,
-    gridTemplateColumns: "18px minmax(0, 1fr) auto",
-    minHeight: 52,
+    gap: 8,
+    minHeight: 44,
+    minWidth: 0,
     opacity: { default: 1, ":disabled": 0.55 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 8,
-    paddingInline: 12,
+    paddingBlock: 4,
+    paddingInline: 10,
     textAlign: "start",
     transitionDuration: { default: "120ms", [media.reducedMotion]: "0ms" },
     transitionProperty: "background-color, border-color",
@@ -100,30 +88,34 @@ const styles = stylex.create({
     boxSizing: "border-box",
     color: colors.onPrimary,
     display: "inline-flex",
-    height: 18,
+    flexShrink: 0,
+    height: 16,
     justifyContent: "center",
-    width: 18,
+    width: 16,
   },
   indicatorOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  text: { display: "flex", flexDirection: "column", gap: 1, minWidth: 0 },
-  time: { fontSize: fonts.sizeMd, fontVariantNumeric: "tabular-nums", fontWeight: 700 },
-  detail: {
-    color: colors.textMuted,
-    fontSize: fonts.sizeXs,
+  text: {
+    fontSize: fonts.sizeSm,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 700,
+    minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  meta: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
-  selectedText: { color: colors.text },
+  day: { color: colors.textMuted, fontWeight: 500, marginInlineEnd: 4 },
+  daySelected: { color: colors.text },
   empty: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
 });
 
+/** Holder name the server reports for blocked time. */
+const BLOCK_HOLDER = "不可预约";
+
 /** Props of {@link SuggestionOption}. */
 export interface SuggestionOptionProps {
-  time: ReactNode;
-  detail?: ReactNode;
-  meta?: ReactNode;
+  /** Muted prefix such as `明天`. */
+  day?: string | undefined;
+  time: string;
   ariaLabel: string;
   isSelected: boolean;
   isDisabled?: boolean;
@@ -131,15 +123,14 @@ export interface SuggestionOptionProps {
 }
 
 /**
- * One selectable alternative: indicator, time with a caption, and a trailing meta (duration).
+ * One selectable alternative on a single line: indicator, optional day, time.
  *
  * @param props - Option props.
  * @returns The option button.
  */
 export function SuggestionOption({
+  day,
   time,
-  detail,
-  meta,
   ariaLabel,
   isSelected,
   isDisabled = false,
@@ -155,37 +146,20 @@ export function SuggestionOption({
       {...stylex.props(styles.option)}
     >
       <span aria-hidden {...stylex.props(styles.indicator, isSelected && styles.indicatorOn)}>
-        {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+        {isSelected ? <Check size={11} strokeWidth={3} /> : null}
       </span>
       <span {...stylex.props(styles.text)}>
-        <span {...stylex.props(styles.time)}>{time}</span>
-        {detail === undefined ? null : (
-          <span {...stylex.props(styles.detail, isSelected && styles.selectedText)}>{detail}</span>
+        {day === undefined ? null : (
+          <span {...stylex.props(styles.day, isSelected && styles.daySelected)}>{day}</span>
         )}
+        {time}
       </span>
-      {meta === undefined ? null : (
-        <span {...stylex.props(styles.meta, isSelected && styles.selectedText)}>{meta}</span>
-      )}
     </button>
   );
 }
 
 /**
- * Caption of a date: `明天 · 11月19日 周三`, or just `11月19日 周三` beyond 后天.
- *
- * @param date - The date.
- * @param today - Today.
- * @returns The caption.
- */
-function dayCaption(date: Temporal.PlainDate, today: Temporal.PlainDate): string {
-  const label = formatDateLabel(date);
-  const relative = formatRelativeDate(date, today);
-
-  return relative === label ? label : `${relative} · ${label}`;
-}
-
-/**
- * Accessible name of a suggestion: `当天 11:00–12:00，1 小时`.
+ * Accessible name of a suggestion: `明天 11:00–12:00，1 小时`.
  *
  * @param suggestion - The suggestion.
  * @returns The label.
@@ -197,15 +171,15 @@ function suggestionAriaLabel(suggestion: Suggestion): string {
 }
 
 /**
- * Card for one suggestion.
+ * Chip for one suggestion; other days are named (`明天`, `11月19日 周三`).
  *
- * @param props - Card props.
+ * @param props - Chip props.
  * @param props.suggestion - The suggested window.
  * @param props.today - Today.
  * @param props.isSelected - Whether it is the applied one.
  * @param props.isDisabled - Whether a request is in flight.
  * @param props.onSelect - Called on tap.
- * @returns The card.
+ * @returns The chip.
  */
 export function SuggestionCard({
   suggestion,
@@ -220,11 +194,12 @@ export function SuggestionCard({
   isDisabled?: boolean;
   onSelect: () => void;
 }) {
+  const date = parseZoned(suggestion.start).toPlainDate();
+
   return (
     <SuggestionOption
+      day={date.equals(today) && suggestion.kind === "same_day" ? undefined : formatRelativeDate(date, today)}
       time={formatClockRange(suggestion.start, suggestion.end)}
-      detail={dayCaption(parseZoned(suggestion.start).toPlainDate(), today)}
-      meta={formatDuration(minutesBetween(suggestion.start, suggestion.end))}
       ariaLabel={suggestionAriaLabel(suggestion)}
       isSelected={isSelected}
       isDisabled={isDisabled}
@@ -234,19 +209,20 @@ export function SuggestionCard({
 }
 
 /**
- * Who holds a conflicting slot: `李四「组会」`, `「消杀」` or an empty string.
+ * What holds a conflicting slot: `已被李四约了（组会）`, or `不可预约（消杀）` for blocked time.
  *
  * @param conflict - The conflict.
- * @returns The holder text.
+ * @returns The text after the time.
  */
 function holderText(conflict: Conflict): string {
   const { name, title } = conflict.conflictWith;
+  const purpose = title === "" ? "" : `（${title}）`;
 
-  return `${name}${title === "" ? "" : `「${title}」`}`;
+  return name === "" || name === BLOCK_HOLDER ? `不可预约${purpose}` : `已被${name}约了${purpose}`;
 }
 
 /**
- * The one-line conflict message: `明天 10:00–11:00 已被李四「组会」占用`.
+ * The one-line conflict message: `明天 10:00–11:00 已被李四约了（组会）`.
  *
  * @param props - Line props.
  * @param props.conflict - The conflict.
@@ -265,9 +241,7 @@ function ConflictLine({ conflict, today }: { conflict: Conflict; today: Temporal
         <span {...stylex.props(styles.conflictWhen)}>
           {formatBookingWhen(conflict.conflictWith.start, conflict.conflictWith.end, today)}
         </span>{" "}
-        已被
-        {holder === "" ? "" : <span {...stylex.props(styles.conflictWho)}>{holder}</span>}
-        占用
+        <span {...stylex.props(styles.conflictWho)}>{holder}</span>
       </span>
     </p>
   );
@@ -278,7 +252,6 @@ export interface ConflictSuggestionsProps {
   conflict: Conflict;
   today: Temporal.PlainDate;
   selectedIndex: number | undefined;
-  hint: string;
   isBusy: boolean;
   onTake: (index: number) => void;
   footer?: ReactNode;
@@ -294,49 +267,35 @@ export function ConflictSuggestions({
   conflict,
   today,
   selectedIndex,
-  hint,
   isBusy,
   onTake,
   footer,
 }: ConflictSuggestionsProps) {
-  const indexed = (conflict.suggestions ?? []).map((suggestion, index) => ({ suggestion, index }));
-
-  const groups = [
-    { label: "当天", items: indexed.filter((entry) => entry.suggestion.kind === "same_day") },
-    { label: "其他日期", items: indexed.filter((entry) => entry.suggestion.kind === "other_day") },
-  ].filter((group) => group.items.length > 0);
+  const indexed = (conflict.suggestions ?? [])
+    .map((suggestion, index) => ({ suggestion, index }))
+    .sort(
+      (left, right) =>
+        Number(left.suggestion.kind !== "same_day") - Number(right.suggestion.kind !== "same_day"),
+    );
 
   return (
     <section aria-label="时段冲突" {...stylex.props(styles.panel)}>
       <ConflictLine conflict={conflict} today={today} />
-      {groups.length === 0 ? (
-        <p {...stylex.props(styles.empty)}>附近没有同样长度的空闲时段，试试换一天或缩短时长。</p>
+      {indexed.length === 0 ? (
+        <p {...stylex.props(styles.empty)}>附近没有同样长的空档，换一天或缩短时长试试</p>
       ) : (
-        <>
-          <div {...stylex.props(styles.heading)}>
-            <span {...stylex.props(styles.headingText)}>换个时间</span>
-            <span {...stylex.props(styles.headingHint)}>{hint}</span>
-          </div>
-          {groups.map((group) => (
-            <div key={group.label} role="group" aria-label={group.label} {...stylex.props(styles.group)}>
-              <span aria-hidden {...stylex.props(styles.groupLabel)}>
-                {group.label}
-              </span>
-              <div {...stylex.props(styles.options)}>
-                {group.items.map(({ suggestion, index }) => (
-                  <SuggestionCard
-                    key={`${suggestion.start}-${suggestion.end}`}
-                    suggestion={suggestion}
-                    today={today}
-                    isSelected={selectedIndex === index}
-                    isDisabled={isBusy}
-                    onSelect={() => onTake(index)}
-                  />
-                ))}
-              </div>
-            </div>
+        <div role="group" aria-label="换个时间" {...stylex.props(styles.options)}>
+          {indexed.map(({ suggestion, index }) => (
+            <SuggestionCard
+              key={`${suggestion.start}-${suggestion.end}`}
+              suggestion={suggestion}
+              today={today}
+              isSelected={selectedIndex === index}
+              isDisabled={isBusy}
+              onSelect={() => onTake(index)}
+            />
           ))}
-        </>
+        </div>
       )}
       {footer}
     </section>

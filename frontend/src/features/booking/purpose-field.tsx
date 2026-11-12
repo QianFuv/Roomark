@@ -60,7 +60,7 @@ export function PurposeField({
   value,
   onValueChange,
   error,
-  placeholder = "例如：组会、答辩、面试",
+  placeholder = "如：组会、答辩、面试",
   isAutoFocus = false,
   inputRef,
 }: PurposeFieldProps) {
@@ -88,7 +88,7 @@ export function PurposeField({
             <button
               key={title}
               type="button"
-              aria-label={`用途填为「${title}」`}
+              aria-label={`用途：${title}`}
               onClick={() => onValueChange(title)}
               {...stylex.props(styles.chip)}
             >

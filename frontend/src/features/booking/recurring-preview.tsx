@@ -136,7 +136,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
   if (preview.isError && occurrences === undefined) {
     if (problemStatus(preview.error) === 401) {
       return (
-        <Notice tone="info" title="选择你的名字后即可查看每一次的安排">
+        <Notice tone="info" title="登录后查看每一次的安排">
           <Button
             variant="primary"
             onClick={() => {
@@ -145,7 +145,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
               });
             }}
           >
-            选择我的名字
+            登录
           </Button>
         </Notice>
       );
@@ -218,7 +218,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
                 ) : choice.action === "move" ? (
                   <span {...stylex.props(styles.status, styles.moved)}>
                     <Check size={16} aria-hidden />
-                    已改时间
+                    已换时间
                   </span>
                 ) : (
                   <span {...stylex.props(styles.status, styles.bad)}>
@@ -230,14 +230,13 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
               {occurrence.status === "conflict" && occurrence.conflict !== undefined ? (
                 <>
                   <span {...stylex.props(styles.detail)}>
-                    {occurrence.conflict.conflictWith.name}{" "}
                     {formatClockRange(
                       occurrence.conflict.conflictWith.start,
                       occurrence.conflict.conflictWith.end,
                     )}{" "}
-                    已占用
+                    已被{occurrence.conflict.conflictWith.name}约了
                   </span>
-                  <SuggestionGrid ariaLabel={`${formatDateLabel(occurrence.date)} 的处理方式`}>
+                  <SuggestionGrid ariaLabel={`${formatDateLabel(occurrence.date)}怎么处理`}>
                     {(occurrence.conflict.suggestions ?? []).map((suggestion) => (
                       <SuggestionCard
                         key={`${suggestion.start}-${suggestion.end}`}
@@ -259,8 +258,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
                     ))}
                     <SuggestionOption
                       time="跳过这次"
-                      detail="这一次不预约"
-                      ariaLabel={`跳过 ${formatDateLabel(occurrence.date)} 这次`}
+                      ariaLabel={`跳过${formatDateLabel(occurrence.date)}这次`}
                       isSelected={isSkipped}
                       onSelect={() => choose(occurrence.date, { action: "skip" })}
                     />

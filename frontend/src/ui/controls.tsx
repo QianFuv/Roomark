@@ -55,6 +55,7 @@ const styles = stylex.create({
     minHeight: 48,
   },
   switchText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
+  switchLabelRow: { alignItems: "center", display: "flex", gap: 4 },
   switchLabel: { color: colors.text, cursor: "pointer", fontSize: fonts.sizeMd, fontWeight: 600 },
   switchHint: { color: colors.textMuted, fontSize: fonts.sizeXs, lineHeight: 1.5 },
   switchRoot: {
@@ -137,6 +138,8 @@ const styles = stylex.create({
 /** Props of {@link SwitchRow}. */
 export interface SwitchRowProps {
   label: ReactNode;
+  /** Shown right after the label, e.g. a `HelpHint`. */
+  help?: ReactNode;
   hint?: ReactNode;
   isChecked: boolean;
   onCheckedChange: (isChecked: boolean) => void;
@@ -149,11 +152,21 @@ export interface SwitchRowProps {
  * @param props - Row props.
  * @returns The row.
  */
-export function SwitchRow({ label, hint, isChecked, onCheckedChange, isDisabled = false }: SwitchRowProps) {
+export function SwitchRow({
+  label,
+  help,
+  hint,
+  isChecked,
+  onCheckedChange,
+  isDisabled = false,
+}: SwitchRowProps) {
   return (
     <Field.Root disabled={isDisabled} {...stylex.props(styles.switchRow)}>
       <div {...stylex.props(styles.switchText)}>
-        <Field.Label {...stylex.props(styles.switchLabel)}>{label}</Field.Label>
+        <span {...stylex.props(styles.switchLabelRow)}>
+          <Field.Label {...stylex.props(styles.switchLabel)}>{label}</Field.Label>
+          {help}
+        </span>
         {hint === undefined ? null : (
           <Field.Description {...stylex.props(styles.switchHint)}>{hint}</Field.Description>
         )}

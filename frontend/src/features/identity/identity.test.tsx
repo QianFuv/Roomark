@@ -33,9 +33,9 @@ describe("identity sheet", () => {
     await screen.getByRole("button", { name: /张三/ }).click();
     await expect.element(screen.getByText("设置 6 位数字口令")).toBeVisible();
     await userEvent.keyboard("135724");
-    await expect.element(screen.getByText("再输入一次确认")).toBeVisible();
+    await expect.element(screen.getByText("再输一次确认")).toBeVisible();
     await userEvent.keyboard("135725");
-    await expect.element(screen.getByText("两次输入不一致，请重新设置")).toBeVisible();
+    await expect.element(screen.getByText("两次不一致，请重新设置")).toBeVisible();
     await userEvent.keyboard("135724");
     await userEvent.keyboard("135724");
 
@@ -50,7 +50,7 @@ describe("identity sheet", () => {
 
     await screen.getByRole("searchbox", { name: "搜索姓名" }).fill("李");
     await screen.getByRole("button", { name: /李四/ }).click();
-    await expect.element(screen.getByText("输入你的 6 位口令")).toBeVisible();
+    await expect.element(screen.getByText("输入 6 位口令")).toBeVisible();
     await userEvent.keyboard(MOCK_PASSCODE);
 
     expect((await pending)?.person.name).toBe("李四");
@@ -61,6 +61,6 @@ describe("identity sheet", () => {
 
     await screen.getByRole("button", { name: /赵六/ }).click();
     await userEvent.keyboard("000000");
-    await expect.element(screen.getByText(/已暂时锁定。请在 10:15 后再试/)).toBeVisible();
+    await expect.element(screen.getByText(/口令错太多次，10:15 后再试/)).toBeVisible();
   });
 });

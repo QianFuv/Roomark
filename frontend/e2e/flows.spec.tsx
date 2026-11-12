@@ -43,10 +43,10 @@ async function openRoom(page: Page): Promise<void> {
  * @param passcode - 6-digit passcode.
  */
 async function identifyWithPasscode(page: Page, name: string, passcode: string): Promise<void> {
-  const sheet = page.getByRole("dialog", { name: "你是谁？" });
+  const sheet = page.getByRole("dialog", { name: "登录" });
 
   await sheet.getByRole("button", { name: new RegExp(name) }).click();
-  await expect(sheet.getByText("输入你的 6 位口令")).toBeVisible();
+  await expect(sheet.getByText("输入 6 位口令")).toBeVisible();
   await sheet.getByRole("textbox").first().pressSequentially(passcode);
   await expect(sheet).toBeHidden();
 }
@@ -71,7 +71,7 @@ test("given a QR link when the room opens then the token leaves the address bar 
 }) => {
   await openRoom(page);
   await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
-  await expect(page.getByRole("region", { name: "当前状态" })).toContainText(/空闲|使用中/);
+  await expect(page.getByRole("region", { name: "当前状态" })).toContainText(/空闲|正在使用|不可预约|未开放/);
   await expectAccessible(page);
 });
 
@@ -85,7 +85,6 @@ test("given tomorrow's booking when the room home opens then 下一场 names the
   const thisWeek = heatmap.getByRole("button", { name: "本周" });
   const weekLabel = heatmap.locator("[aria-live=polite]");
 
-  await heatmap.getByRole("button", { name: /会议热力图/ }).click();
   await expect(thisWeek).toBeDisabled();
 
   const currentLabel = (await weekLabel.textContent()) ?? "";
@@ -102,7 +101,7 @@ test("given tomorrow's booking when the room home opens then 下一场 names the
 
   if (weekday === 1) await heatmap.getByRole("button", { name: "下一周" }).click();
 
-  const cellText = `${["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday]} 10:00 已预约 100%`;
+  const cellText = `${["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday]} 10:00，已约 100%`;
 
   await expect(heatmap.getByText(cellText, { exact: true })).toBeAttached();
   await heatmap.locator(`td[title="${cellText}"]`).click();
@@ -166,6 +165,87 @@ test("given the calendar when paging then the content slides to the new range an
   await expectAccessible(page);
 });
 
+/**
+ * Swipe the calendar content horizontally with touch events.
+ *
+ * @param page - The page.
+ * @param direction - `1` for the next page (finger moves left), `-1` for the previous one.
+ */
+async function swipeCalendar(page: Page, direction: 1 | -1): Promise<void> {
+  const box = await page.getByRole("region", { name: /的预约$/ }).boundingBox();
+  const cdp = await page.context().newCDPSession(page);
+  const y = Math.max((box?.y ?? 0) + 40, 200);
+  const startX = (box?.x ?? 0) + (box?.width ?? 0) * (direction === 1 ? 0.85 : 0.3);
+
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: startX, y }] });
+
+  for (let step = 1; step <= 10; step += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: startX - direction * step * 18, y }],
+    });
+  }
+
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/**
+ * Vertical scroll offset of whatever scrolls the calendar: its own time grid when it fills the
+ * window (PC tiers), otherwise the page.
+ *
+ * @param page - The page.
+ * @returns `scrollTop` in pixels.
+ */
+async function calendarScrollTop(page: Page): Promise<number> {
+  return page.getByRole("region", { name: /的预约$/ }).evaluate((region) => {
+    const isOwnScroller =
+      region.scrollHeight > region.clientHeight + 1 && getComputedStyle(region).overflowY !== "visible";
+
+    return isOwnScroller ? region.scrollTop : window.scrollY;
+  });
+}
+
+test("given a calendar scrolled to 14:00 when paging forward twice and back once then the vertical position stays put", async ({
+  page,
+}, testInfo) => {
+  const isMobile = testInfo.project.name === "mobile";
+
+  await openRoom(page);
+  await page.getByRole("link", { name: "日历" }).click();
+
+  const region = page.getByRole("region", { name: /的预约$/ });
+
+  await expect(page.getByRole("group", { name: /，\d+ 个预约$/ }).first()).toBeVisible();
+  await page.waitForTimeout(400);
+  await region.evaluate((element) => {
+    const isOwnScroller =
+      element.scrollHeight > element.clientHeight + 1 && getComputedStyle(element).overflowY !== "visible";
+
+    const label = [...element.querySelectorAll("span")].find((span) => span.textContent === "14:00");
+    const offset = label === undefined ? 0 : label.getBoundingClientRect().top - 80;
+
+    if (isOwnScroller) element.scrollTop += offset - element.getBoundingClientRect().top;
+    else window.scrollBy(0, offset);
+  });
+
+  const before = await calendarScrollTop(page);
+
+  expect(before).toBeGreaterThan(100);
+
+  for (const direction of [1, 1, -1] as const) {
+    const label = (await region.getAttribute("aria-label")) ?? "";
+
+    if (isMobile) await swipeCalendar(page, direction);
+    else await page.getByRole("button", { name: direction === 1 ? "下一周" : "上一周" }).click();
+
+    await expect(region).not.toHaveAttribute("aria-label", label);
+    expect(Math.abs((await calendarScrollTop(page)) - before)).toBeLessThanOrEqual(4);
+    await page.waitForTimeout(700);
+    expect(Math.abs((await calendarScrollTop(page)) - before)).toBeLessThanOrEqual(4);
+  }
+});
+
 test("given a free room when a first-time user taps quick use then they claim a name, give a purpose and the room becomes busy", async ({
   page,
 }, testInfo) => {
@@ -174,7 +254,7 @@ test("given a free room when a first-time user taps quick use then they claim a 
   await openRoom(page);
   await page.getByRole("button", { name: /马上使用 30 分钟/ }).click();
 
-  const identity = page.getByRole("dialog", { name: "你是谁？" });
+  const identity = page.getByRole("dialog", { name: "登录" });
 
   await expect(identity).toBeVisible();
   await identity.getByRole("searchbox", { name: "搜索姓名" }).fill(visitor.slice(0, 2));
@@ -183,7 +263,7 @@ test("given a free room when a first-time user taps quick use then they claim a 
   if (await identity.getByText("设置 6 位数字口令").isVisible()) {
     await expectAccessible(page);
     await identity.getByRole("textbox").first().pressSequentially("135724");
-    await expect(identity.getByText("再输入一次确认")).toBeVisible();
+    await expect(identity.getByText("再输一次确认")).toBeVisible();
     await identity.getByRole("textbox").first().pressSequentially("135724");
   } else {
     await identity.getByRole("textbox").first().pressSequentially("135724");
@@ -192,8 +272,8 @@ test("given a free room when a first-time user taps quick use then they claim a 
   await expect(identity).toBeHidden();
   await expectAccessible(page);
   await startQuickUse(page, "临时讨论");
-  await expect(page.getByRole("region", { name: "当前状态" })).toContainText("使用中");
-  await expect(page.getByRole("heading", { name: /你正在使用/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "当前状态" })).toContainText("你正在使用");
+  await expect(page.getByRole("region", { name: "续时或提前结束" })).toBeVisible();
   await page.getByRole("button", { name: "提前结束" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "提前结束" }).click();
   await expect(page.getByRole("region", { name: "当前状态" })).toContainText("空闲");
@@ -237,7 +317,7 @@ test("given a taken slot when a suggestion is tapped then only the time changes 
 
   const panel = page.getByRole("region", { name: "时段冲突" });
 
-  await expect(panel).toContainText("10:00–11:00 已被李四「组会」占用");
+  await expect(panel).toContainText("10:00–11:00 已被李四约了（组会）");
   await expectAccessible(page);
 
   const suggestion = panel.getByRole("button", { name: /^当天 / }).first();
@@ -247,7 +327,7 @@ test("given a taken slot when a suggestion is tapped then only the time changes 
 
   await suggestion.click();
   await expect(suggestion).toHaveAttribute("aria-pressed", "true");
-  await expect(panel.getByText(`已改到`)).toContainText(`${range}，可以预约`);
+  await expect(panel.getByText(`已换到`)).toContainText(`${range}，可以约`);
   await expect(page.getByText(range).first()).toBeVisible();
   expect(bookingPosts).toEqual([]);
 
@@ -275,7 +355,7 @@ test("given a weekly rule when a week conflicts then it defaults to skip and a s
   await openRoom(page);
   await page.goto(`/r/${ROOM_SLUG}/book?date=${tomorrow()}&start=10:00&end=11:00&repeat=true`);
 
-  await page.getByRole("button", { name: "选择我的名字" }).click();
+  await page.getByRole("main").getByRole("button", { name: "登录" }).click();
   await identifyWithPasscode(page, "李四", LISI_PASSCODE);
 
   const preview = page.getByRole("region", { name: "重复预约预览" });
