@@ -32,6 +32,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
@@ -60,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int FILE_PICKER_REQUEST = 7001;
 
     private WebView webView;
+    private OnBackPressedCallback backNavigationCallback;
     private Uri devServer;
     private WailsBridge bridge;
     // Battery: system-event receivers are registered only while the activity is
@@ -113,6 +115,18 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         webView = findViewById(R.id.webview);
         bridge.setWebView(webView);
+        backNavigationCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, backNavigationCallback);
 
         // Configure WebView settings
         WebSettings settings = webView.getSettings();
@@ -137,6 +151,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Set up WebView client to intercept requests
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                super.doUpdateVisitedHistory(view, url, isReload);
+                backNavigationCallback.setEnabled(view.canGoBack());
+            }
+
             @Nullable
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -932,15 +952,6 @@ public class MainActivity extends AppCompatActivity {
         }
         if (webView != null) {
             webView.destroy();
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
         }
     }
 }
