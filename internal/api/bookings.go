@@ -414,11 +414,11 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.roomAccess(ctx, q, room.Slug, r, person); err != nil {
-		return nil, err
-	}
 	if person.IsAdmin == 0 && (!row.PersonID.Valid || row.PersonID.Int64 != person.ID) {
 		return nil, problem(403, "not_owner", "只能修改自己的预约")
+	}
+	if person.IsAdmin == 0 && room.ArchivedAt.Valid {
+		return nil, problem(403, "room_token_invalid", "会议室二维码已失效")
 	}
 	now := s.now().Truncate(time.Minute)
 	if row.Status != "confirmed" || row.EndAt <= now.Unix() {

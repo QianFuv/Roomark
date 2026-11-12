@@ -378,6 +378,19 @@ func TestCheckExcludesEditedBooking(t *testing.T) {
 	}
 }
 
+// TestOwnerManagesBookingWithoutRoomToken lets people manage their bookings from a device that never scanned the room code.
+func TestOwnerManagesBookingWithoutRoomToken(t *testing.T) {
+	c := newTestClient(t)
+	c.session = ""
+	var owner domain.Session
+	c.call("POST", "/api/people", SelfPerson{Passcode: Passcode{Passcode: "1234"}, Name: "预约人"}, 201, &owner)
+	c.session = owner.Token
+	var booking domain.Booking
+	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &booking)
+	c.roomToken = ""
+	c.call("POST", fmt.Sprintf("/api/bookings/%d/cancel", booking.ID), Scope{}, 200, nil)
+}
+
 // TestClientIPTrustsOnlyConfiguredProxies keeps per-client throttling behind a reverse proxy without letting direct clients spoof X-Real-IP.
 func TestClientIPTrustsOnlyConfiguredProxies(t *testing.T) {
 	proxies, err := ParseTrustedProxies("172.20.0.0/16, 10.0.0.5")
