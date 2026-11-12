@@ -7,64 +7,29 @@ import { Collapsible } from "@animate-ui/react/primitives/base-ui/collapsible";
 import * as stylex from "@stylexjs/stylex";
 import { keepPreviousData } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  CalendarX2,
-  ChevronDown,
-  Copy,
-  KeyRound,
-  LogOut,
-  Repeat,
-  ShieldCheck,
-  UserRoundCog,
-} from "lucide-react";
+import { CalendarX2, ChevronDown, Copy, Repeat, UserRoundCog } from "lucide-react";
 import { useState } from "react";
 
-import { api, errorMessage, fetchClient, serverUrl, type Booking } from "../api/client";
+import { api, errorMessage, serverUrl, type Booking } from "../api/client";
 import { cancelBooking } from "../features/booking/booking-actions";
 import { BookingDetailSheet } from "../features/booking/booking-detail";
-import { NewPasscode, logout, requestSession } from "../features/identity/identity";
+import { requestSession } from "../features/identity/identity";
 import type { components } from "../api/schema";
 import { formatBookingWhen, formatMonthDay, nowZoned, parseZoned } from "../lib/time";
-import { useRememberedRooms, useSession, type StoredSession } from "../state/app-store";
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { useRememberedRooms, useSession } from "../state/app-store";
+import { colors, fonts, radii } from "../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { TabView } from "../ui/controls";
-import { Badge, Card, EmptyState, Notice, PageHeader, Row, Section, Skeleton, Stack } from "../ui/layout";
-import { PASSCODE_LENGTH, PasscodeInput } from "../ui/passcode";
-import { Sheet } from "../ui/sheet";
+import { HelpHint } from "../ui/help-hint";
+import { Badge, Card, EmptyState, Notice, PageHeader, Section, Skeleton, Stack } from "../ui/layout";
 import { notify } from "../ui/toast";
 
 export const Route = createFileRoute("/me")({ component: MePage });
 
 type MySeries = components["schemas"]["MySeries"];
 
-const ROLE_LABELS = { teacher: "老师", student: "学生", other: "其他" } as const;
-
 const styles = stylex.create({
-  layout: {
-    alignItems: "start",
-    display: "grid",
-    gap: 16,
-    gridTemplateColumns: {
-      default: "minmax(0, 1fr)",
-      [media.narrow]: "minmax(0, 1.4fr) minmax(300px, 1fr)",
-      [media.wide]: "minmax(0, 1.8fr) minmax(360px, 1fr)",
-    },
-  },
-  name: { fontSize: fonts.sizeXl, fontWeight: 800 },
-  aside: {
-    gridColumnStart: { default: "auto", [media.narrow]: 2 },
-    gridRowStart: { default: "auto", [media.narrow]: 1 },
-    minWidth: 0,
-  },
-  mainColumn: {
-    gridColumnStart: { default: "auto", [media.narrow]: 1 },
-    gridRowStart: { default: "auto", [media.narrow]: 1 },
-    minWidth: 0,
-  },
-  wideOnly: { display: { default: "none", [media.narrow]: "block" } },
-  narrowOnly: { display: { default: "block", [media.narrow]: "none" } },
-  identityActions: { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
+  page: { marginInline: "auto", maxWidth: 880, width: "100%" },
   list: { display: "flex", flexDirection: "column", gap: 8 },
   item: {
     alignItems: "center",
@@ -171,7 +136,6 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  hint: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.6 },
 });
 
 /**
@@ -184,148 +148,20 @@ function MePage() {
 
   if (session === undefined) {
     return (
-      <EmptyState icon={<UserRoundCog size={40} aria-hidden />} title="还不知道你是谁">
-        <p {...stylex.props(styles.hint)}>选择你的名字并输入口令后，可以在这里管理自己的预约。</p>
+      <EmptyState icon={<UserRoundCog size={40} aria-hidden />} title="登录后查看你的预约">
         <Button variant="primary" size="lg" onClick={() => void requestSession()}>
-          选择我的名字
+          登录
         </Button>
       </EmptyState>
     );
   }
 
   return (
-    <Stack gap="lg">
-      <PageHeader title="我的" />
-      <div {...stylex.props(styles.layout)}>
-        <div {...stylex.props(styles.aside)}>
-          <Stack gap="lg">
-            <IdentityCard session={session} />
-            <div {...stylex.props(styles.wideOnly)}>
-              <Feeds />
-            </div>
-          </Stack>
-        </div>
-        <div {...stylex.props(styles.mainColumn)}>
-          <MyBookings />
-        </div>
-        <div {...stylex.props(styles.narrowOnly)}>
-          <Feeds />
-        </div>
-      </div>
+    <Stack gap="lg" xstyle={styles.page}>
+      <PageHeader title="我的预约" />
+      <MyBookings />
+      <Feeds />
     </Stack>
-  );
-}
-
-/**
- * Identity card with switch, logout and passcode change.
- *
- * @param props - Card props.
- * @param props.session - The session.
- * @returns The card.
- */
-function IdentityCard({ session }: { session: StoredSession }) {
-  const [isChangingPasscode, setIsChangingPasscode] = useState(false);
-
-  return (
-    <Card as="section" ariaLabel="身份">
-      <Row gap="sm">
-        <span {...stylex.props(styles.name)}>{session.person.name}</span>
-        <Badge>{ROLE_LABELS[session.person.role]}</Badge>
-        {session.person.isAdmin ? (
-          <Badge tone="info">
-            <ShieldCheck size={12} aria-hidden />
-            管理员
-          </Badge>
-        ) : null}
-      </Row>
-      <div {...stylex.props(styles.identityActions)}>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<UserRoundCog size={16} aria-hidden />}
-          onClick={() => {
-            void logout().then(() => requestSession());
-          }}
-        >
-          切换身份
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<KeyRound size={16} aria-hidden />}
-          onClick={() => setIsChangingPasscode(true)}
-        >
-          修改口令
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<LogOut size={16} aria-hidden />}
-          onClick={() => {
-            void logout().then(() => notify("info", "已退出"));
-          }}
-        >
-          退出
-        </Button>
-      </div>
-      <Sheet isOpen={isChangingPasscode} onOpenChange={setIsChangingPasscode} title="修改口令">
-        {isChangingPasscode ? <ChangePasscode onDone={() => setIsChangingPasscode(false)} /> : null}
-      </Sheet>
-    </Card>
-  );
-}
-
-/**
- * Passcode change: current passcode, then the new one twice.
- *
- * @param props - Component props.
- * @param props.onDone - Close the sheet.
- * @returns The form.
- */
-function ChangePasscode({ onDone }: { onDone: () => void }) {
-  const [current, setCurrent] = useState("");
-  const [isCurrentEntered, setIsCurrentEntered] = useState(false);
-  const [error, setError] = useState<string>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  if (!isCurrentEntered) {
-    return (
-      <PasscodeInput
-        label={`输入当前的 ${PASSCODE_LENGTH} 位口令`}
-        value={current}
-        onValueChange={setCurrent}
-        onComplete={() => {
-          setError(undefined);
-          setIsCurrentEntered(true);
-        }}
-        error={error}
-        isAutoFocus
-      />
-    );
-  }
-
-  return (
-    <NewPasscode
-      isSubmitting={isSubmitting}
-      submitError={error}
-      onSubmit={(next) => {
-        setIsSubmitting(true);
-        void fetchClient.PUT("/api/me/passcode", { body: { current, next } }).then((result) => {
-          setIsSubmitting(false);
-
-          if (result.data !== undefined) {
-            notify("success", "口令已修改");
-            onDone();
-
-            return;
-          }
-
-          setError(errorMessage(result.error));
-          setCurrent("");
-          setIsCurrentEntered(false);
-        });
-      }}
-    />
   );
 }
 
@@ -339,7 +175,7 @@ function MyBookings() {
   const [selected, setSelected] = useState<Booking>();
 
   return (
-    <Section title="我的预约">
+    <Stack gap="md">
       <TabView
         label="预约时间"
         value={tab}
@@ -354,7 +190,7 @@ function MyBookings() {
         ]}
       />
       <BookingDetailSheet booking={selected} onClose={() => setSelected(undefined)} />
-    </Section>
+    </Stack>
   );
 }
 
@@ -397,9 +233,7 @@ function BookingList({ isPast, onSelect }: { isPast: boolean; onSelect: (booking
       <EmptyState
         icon={<CalendarX2 size={32} aria-hidden />}
         title={isPast ? "还没有已结束的预约" : "没有即将开始的预约"}
-      >
-        {isPast ? null : <p {...stylex.props(styles.hint)}>扫描会议室门口的二维码就能预约。</p>}
-      </EmptyState>
+      ></EmptyState>
     );
   }
 
@@ -501,7 +335,7 @@ function SeriesCard({
                 void cancelBooking(nextOccurrence);
               }}
             >
-              取消预约（下一次 {formatMonthDay(parseZoned(nextOccurrence.start).toPlainDate())} 起）
+              从 {formatMonthDay(parseZoned(nextOccurrence.start).toPlainDate())} 起取消
             </Button>
           )}
         </div>
@@ -522,10 +356,14 @@ function Feeds() {
 
   return (
     <Card as="section" ariaLabel="日历订阅">
-      <Section title="日历订阅">
-        <p {...stylex.props(styles.hint)}>
-          把下面的链接添加到手机或电脑的日历应用（订阅日历 / iCal），预约会自动同步。
-        </p>
+      <Section
+        title="日历订阅"
+        help={
+          <HelpHint topic="日历订阅">
+            把链接添加到手机或电脑日历的「订阅日历」（iCal），预约会自动同步过去。
+          </HelpHint>
+        }
+      >
         {feeds.data === undefined ? (
           <Skeleton height={48} />
         ) : (

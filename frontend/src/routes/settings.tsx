@@ -26,7 +26,7 @@ const serverUrlSchema = z.object({
   url: z
     .string()
     .trim()
-    .refine((value) => /^https?:\/\/[^\s/]+/.test(value), "请输入以 http:// 或 https:// 开头的地址"),
+    .refine((value) => /^https?:\/\/[^\s/]+/.test(value), "地址要以 http:// 或 https:// 开头"),
 });
 
 const styles = stylex.create({
@@ -42,11 +42,7 @@ function SettingsPage() {
   const host = platform();
 
   if (!host.isApp) {
-    return (
-      <EmptyState icon={<Server size={36} aria-hidden />} title="网页版无需设置">
-        <p>服务器地址和开机自启只在电脑版和安卓版中可用。</p>
-      </EmptyState>
-    );
+    return <EmptyState icon={<Server size={36} aria-hidden />} title="网页版没有设置项" />;
   }
 
   return (
@@ -140,7 +136,6 @@ function AutostartCard() {
     <Card>
       <SwitchRow
         label="开机自启"
-        hint="登录电脑后自动在托盘中运行，随时查看会议室状态"
         isChecked={enabled.data === true}
         isDisabled={enabled.data === undefined}
         onCheckedChange={(isEnabled) => {

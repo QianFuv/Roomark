@@ -10,6 +10,7 @@ import { ChevronDown, Clock } from "lucide-react";
 import { useId, useState } from "react";
 
 import { clockToMinutes, minutesToClock } from "../lib/time";
+import { useOverlayHistory } from "../app/overlay-history";
 import { colors, fonts, radii } from "../styles/tokens.stylex";
 
 const HOURS = Array.from({ length: 24 }, (_unused, hour) => hour);
@@ -97,6 +98,8 @@ export interface ClockPickerProps {
 export function ClockPicker({ label, value, onValueChange, step = 15 }: ClockPickerProps) {
   const labelId = useId();
   const [isOpen, setIsOpen] = useState(false);
+
+  useOverlayHistory(isOpen, () => setIsOpen(false));
   const total = value === "" ? undefined : clockToMinutes(value);
   const selectedHour = total === undefined ? undefined : Math.floor(total / 60);
   const selectedMinute = total === undefined ? undefined : total % 60;

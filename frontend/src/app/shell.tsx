@@ -16,16 +16,18 @@ import {
   Megaphone,
   Monitor,
   Moon,
+  Plus,
   Settings,
-  ShieldCheck,
   Sun,
-  UserRound,
   Users,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, type ReactNode } from "react";
 
 import { IdentitySheet } from "../features/identity/identity";
+import { AccountMenu } from "./account-menu";
+import { BackButton, WideBack } from "./back";
+import { ThemeResync } from "./theme-resync";
 import { platform } from "../platform/platform";
 import { appStore, useRememberedRooms, useSession } from "../state/app-store";
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
@@ -47,10 +49,9 @@ const styles = stylex.create({
     backgroundColor: colors.canvas,
     color: colors.text,
     display: "flex",
-    flexDirection: "column",
+    flexDirection: { default: "column", [media.wide]: "row" },
     fontFamily: fonts.sans,
     minHeight: "100dvh",
-    paddingInlineStart: { default: 0, [media.wide]: SIDEBAR_WIDTH },
   },
   bar: {
     backdropFilter: "saturate(1.4) blur(12px)",
@@ -124,22 +125,28 @@ const styles = stylex.create({
     textDecoration: "none",
   },
   navLabel: { display: { default: "none", [media.narrow]: "inline" } },
-  sidebar: {
+  sidebarRail: {
     backgroundColor: colors.sidebar,
     borderInlineEndColor: colors.border,
     borderInlineEndStyle: "solid",
     borderInlineEndWidth: 1,
-    display: { default: "none", [media.wide]: "flex" },
+    boxSizing: "border-box",
+    display: { default: "none", [media.wide]: "block" },
+    flexShrink: 0,
+    width: SIDEBAR_WIDTH,
+    zIndex: 20,
+  },
+  sidebar: {
+    boxSizing: "border-box",
+    display: "flex",
     flexDirection: "column",
     gap: 18,
-    insetBlock: 0,
-    insetInlineStart: 0,
+    height: "100dvh",
     overflowY: "auto",
     paddingBlock: 16,
     paddingInline: 12,
-    position: "fixed",
-    width: SIDEBAR_WIDTH,
-    zIndex: 20,
+    position: "sticky",
+    top: 0,
   },
   sideGroup: { display: "flex", flexDirection: "column", gap: 2 },
   sideHeading: {
@@ -181,6 +188,7 @@ const styles = stylex.create({
     flexGrow: 1,
     gap: 16,
     marginInline: "auto",
+    minWidth: 0,
     maxWidth: { default: 1040, [media.wide]: 1480 },
     paddingBottom: "max(32px, env(safe-area-inset-bottom))",
     paddingInline: { default: 16, [media.narrow]: 24, [media.wide]: 36 },
@@ -302,14 +310,14 @@ function Sidebar() {
   const isAdmin = session?.person.isAdmin === true;
 
   return (
-    <nav aria-label="侧边导航" {...stylex.props(styles.sidebar)}>
-      <Link to="/" {...stylex.props(styles.brand)}>
-        <span aria-hidden {...stylex.props(styles.logo)}>
-          R
-        </span>
-        会议室
-      </Link>
-      {rooms.length === 0 ? null : (
+    <div {...stylex.props(styles.sidebarRail)}>
+      <nav aria-label="侧边导航" {...stylex.props(styles.sidebar)}>
+        <Link to="/" {...stylex.props(styles.brand)}>
+          <span aria-hidden {...stylex.props(styles.logo)}>
+            R
+          </span>
+          会议室
+        </Link>
         <div {...stylex.props(styles.sideGroup)}>
           <span {...stylex.props(styles.sideHeading)}>会议室</span>
           {rooms.map((room) => (
@@ -323,41 +331,44 @@ function Sidebar() {
               <span {...stylex.props(styles.sideItemText)}>{room.name ?? room.slug}</span>
             </Link>
           ))}
-        </div>
-      )}
-      <div {...stylex.props(styles.sideGroup)}>
-        <span {...stylex.props(styles.sideHeading)}>个人</span>
-        <Link to="/me" {...stylex.props(styles.sideItem)}>
-          <UserRound size={18} aria-hidden />
-          <span {...stylex.props(styles.sideItemText)}>
-            {session === undefined ? "我的" : `我的 · ${session.person.name}`}
-          </span>
-        </Link>
-        {platform().isApp ? (
-          <Link to="/settings" {...stylex.props(styles.sideItem)}>
-            <Settings size={18} aria-hidden />
-            设置
+          <Link
+            to="/"
+            search={{ add: true }}
+            activeOptions={{ includeSearch: true }}
+            {...stylex.props(styles.sideItem)}
+          >
+            <Plus size={18} aria-hidden />
+            添加会议室
           </Link>
+        </div>
+        {isAdmin ? (
+          <div {...stylex.props(styles.sideGroup)}>
+            <span {...stylex.props(styles.sideHeading)}>管理</span>
+            {ADMIN_SECTIONS.map((section) => (
+              <Link key={section.to} to={section.to} {...stylex.props(styles.sideItem)}>
+                {section.icon}
+                {section.label}
+              </Link>
+            ))}
+          </div>
         ) : null}
-      </div>
-      {isAdmin ? (
-        <div {...stylex.props(styles.sideGroup)}>
-          <span {...stylex.props(styles.sideHeading)}>管理</span>
-          {ADMIN_SECTIONS.map((section) => (
-            <Link key={section.to} to={section.to} {...stylex.props(styles.sideItem)}>
-              {section.icon}
-              {section.label}
+        <div {...stylex.props(styles.sideFooter)}>
+          {platform().isApp ? (
+            <Link to="/settings" {...stylex.props(styles.sideItem)}>
+              <Settings size={18} aria-hidden />
+              设置
             </Link>
-          ))}
+          ) : null}
+          {session === undefined ? (
+            <div {...stylex.props(styles.themeRow)}>
+              <span {...stylex.props(styles.themeLabel)}>主题</span>
+              <ThemeMenu />
+            </div>
+          ) : null}
+          <AccountMenu isWide />
         </div>
-      ) : null}
-      <div {...stylex.props(styles.sideFooter)}>
-        <div {...stylex.props(styles.themeRow)}>
-          <span {...stylex.props(styles.themeLabel)}>主题</span>
-          <ThemeMenu />
-        </div>
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }
 
@@ -370,7 +381,6 @@ function Sidebar() {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
-  const isAdmin = session?.person.isAdmin === true;
   const isApp = platform().isApp;
 
   useTrayNavigation();
@@ -379,41 +389,31 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div {...stylex.props(styles.page)}>
       <header {...stylex.props(styles.bar)}>
         <nav aria-label="主导航" {...stylex.props(styles.barInner)}>
+          <BackButton />
           <Link to="/" {...stylex.props(styles.brand)}>
             <span aria-hidden {...stylex.props(styles.logo)}>
               R
             </span>
             会议室
           </Link>
-          <Link
-            to="/me"
-            aria-label={session === undefined ? "我的" : `我的（${session.person.name}）`}
-            {...stylex.props(styles.navItem)}
-          >
-            <UserRound size={20} aria-hidden />
-            <span {...stylex.props(styles.navLabel)}>
-              {session === undefined ? "我的" : session.person.name}
-            </span>
-          </Link>
-          {isAdmin ? (
-            <Link to="/admin" aria-label="管理" {...stylex.props(styles.navItem)}>
-              <ShieldCheck size={20} aria-hidden />
-              <span {...stylex.props(styles.navLabel)}>管理</span>
-            </Link>
-          ) : null}
           {isApp ? (
             <Link to="/settings" aria-label="设置" {...stylex.props(styles.navItem)}>
               <Settings size={20} aria-hidden />
               <span {...stylex.props(styles.navLabel)}>设置</span>
             </Link>
           ) : null}
-          <ThemeMenu />
+          {session === undefined ? <ThemeMenu /> : null}
+          <AccountMenu />
         </nav>
       </header>
       <Sidebar />
-      <main {...stylex.props(styles.main)}>{children}</main>
+      <main {...stylex.props(styles.main)}>
+        <WideBack />
+        {children}
+      </main>
       <IdentitySheet />
       <DialogHost />
+      <ThemeResync />
     </div>
   );
 }

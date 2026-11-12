@@ -8,7 +8,7 @@ import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
 
 import { ADMIN_SECTIONS } from "../../app/shell";
-import { ManualLogin, logout, requestSession } from "../../features/identity/identity";
+import { ManualLogin, switchIdentity } from "../../features/identity/identity";
 import { useSession } from "../../state/app-store";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
@@ -59,7 +59,7 @@ function AdminLayout() {
     return (
       <div {...stylex.props(styles.login)}>
         <Stack gap="lg">
-          <PageHeader title="管理员登录" subtitle="输入管理员的姓名和个人口令" />
+          <PageHeader title="管理员登录" />
           <Card>
             <ManualLogin onSuccess={(next) => notify("success", `你好，${next.person.name}`)} />
           </Card>
@@ -71,11 +71,11 @@ function AdminLayout() {
   if (!session.person.isAdmin) {
     return (
       <EmptyState icon={<ShieldAlert size={40} aria-hidden />} title="需要管理员权限">
-        <p>当前身份「{session.person.name}」不是管理员。</p>
+        <p>{session.person.name}不是管理员</p>
         <Button
           variant="primary"
           onClick={() => {
-            void logout().then(() => requestSession());
+            void switchIdentity();
           }}
         >
           切换身份

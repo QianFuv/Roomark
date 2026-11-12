@@ -1,22 +1,27 @@
 /**
- * Home route: scan prompt, redirect to the only room, or cards for several rooms.
+ * Home route: room-code entry when no room is bound (or with `?add`), redirect to the only room,
+ * or cards for several rooms.
  *
  * @module
  */
 import * as stylex from "@stylexjs/stylex";
 import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
-import { ChevronRight, QrCode } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
+import { useEffect } from "react";
+import { z } from "zod";
 
 import { isRoomTokenError } from "../api/client";
 import { statusSummary } from "../features/room/room-home";
 import { ScanRoomActions } from "../features/room/scan-room";
 import { useRoomDetail } from "../features/room/room-data";
-import { platform } from "../platform/platform";
-import { useRememberedRooms } from "../state/app-store";
+import { forgetRoom, useRememberedRooms } from "../state/app-store";
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
-import { EmptyState, PageHeader, Skeleton, Stack } from "../ui/layout";
+import { PageHeader, Skeleton, Stack } from "../ui/layout";
 
-export const Route = createFileRoute("/")({ component: HomePage });
+export const Route = createFileRoute("/")({
+  validateSearch: z.object({ add: z.boolean().optional() }),
+  component: HomePage,
+});
 
 const styles = stylex.create({
   grid: {
@@ -54,7 +59,8 @@ const styles = stylex.create({
   summaryFree: { color: colors.free, fontWeight: 600 },
   summaryBusy: { color: colors.busy, fontWeight: 600 },
   chevron: { color: colors.textSubtle, flexShrink: 0 },
-  hint: { color: colors.textMuted, fontSize: fonts.sizeMd, lineHeight: 1.7, maxWidth: 420 },
+  addCard: { borderStyle: "dashed", color: colors.primaryText, fontWeight: 600, justifyContent: "center" },
+  bind: { alignItems: "center", display: "flex", flexDirection: "column", gap: 20, paddingBlock: 24 },
 });
 
 /**
@@ -64,34 +70,37 @@ const styles = stylex.create({
  */
 function HomePage() {
   const rooms = useRememberedRooms();
+  const { add } = Route.useSearch();
   const [onlyRoom] = rooms;
+
+  if (rooms.length === 0 || add === true) {
+    return (
+      <div {...stylex.props(styles.bind)}>
+        <PageHeader title={rooms.length === 0 ? "绑定会议室" : "添加会议室"} />
+        <ScanRoomActions isAutoFocus />
+      </div>
+    );
+  }
 
   if (rooms.length === 1 && onlyRoom !== undefined) {
     return <Navigate to="/r/$slug" params={{ slug: onlyRoom.slug }} replace />;
   }
 
-  if (rooms.length === 0) {
-    return (
-      <EmptyState icon={<QrCode size={48} aria-hidden />} title="请扫描会议室门口的二维码">
-        <p {...stylex.props(styles.hint)}>
-          {platform().isApp
-            ? "扫码绑定会议室后，就能在这里查看空闲情况并预约。"
-            : "用手机相机扫描门口的二维码，就能查看会议室是否空闲并预约。"}
-        </p>
-        {platform().isApp ? <ScanRoomActions /> : null}
-      </EmptyState>
-    );
-  }
-
   return (
     <Stack gap="lg">
-      <PageHeader title="会议室" subtitle="这台设备上扫过的会议室" />
+      <PageHeader title="会议室" />
       <ul aria-label="会议室列表" {...stylex.props(styles.grid)}>
         {rooms.map((room) => (
           <li key={room.slug}>
             <RoomCard slug={room.slug} fallbackName={room.name ?? room.slug} />
           </li>
         ))}
+        <li>
+          <Link to="/" search={{ add: true }} {...stylex.props(styles.card, styles.addCard)}>
+            <Plus size={20} aria-hidden />
+            添加会议室
+          </Link>
+        </li>
       </ul>
     </Stack>
   );
@@ -109,6 +118,11 @@ function RoomCard({ slug, fallbackName }: { slug: string; fallbackName: string }
   const detail = useRoomDetail(slug);
   const data = detail.data;
   const state = data?.status.state;
+  const isTokenRejected = detail.isError && isRoomTokenError(detail.error);
+
+  useEffect(() => {
+    if (isTokenRejected) forgetRoom(slug);
+  }, [isTokenRejected, slug]);
 
   return (
     <Link to="/r/$slug" params={{ slug }} {...stylex.props(styles.card)}>
@@ -123,9 +137,7 @@ function RoomCard({ slug, fallbackName }: { slug: string; fallbackName: string }
         <span {...stylex.props(styles.name)}>{data?.room.name ?? fallbackName}</span>
         {data === undefined ? (
           detail.isError ? (
-            <span {...stylex.props(styles.summary)}>
-              {isRoomTokenError(detail.error) ? "二维码已更新，请重新扫描" : "暂时无法获取状态"}
-            </span>
+            <span {...stylex.props(styles.summary)}>{isTokenRejected ? "房间码已失效" : "状态加载失败"}</span>
           ) : (
             <Skeleton height={16} width="60%" />
           )

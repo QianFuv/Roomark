@@ -9,6 +9,7 @@ import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useOverlayHistory } from "../app/overlay-history";
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
 
 /** Props of {@link Sheet}. */
@@ -123,6 +124,8 @@ export function Sheet({
   footer,
   isWide = false,
 }: SheetProps) {
+  useOverlayHistory(isOpen, () => onOpenChange(false));
+
   return (
     <Drawer.Root open={isOpen} onOpenChange={(open) => onOpenChange(open)} swipeDirection="down">
       <Drawer.Portal>

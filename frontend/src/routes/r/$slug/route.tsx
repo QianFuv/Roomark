@@ -4,12 +4,13 @@
  * @module
  */
 import * as stylex from "@stylexjs/stylex";
-import { Link, Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, redirect, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, CirclePlus, House, QrCode, Users } from "lucide-react";
 import { useEffect } from "react";
+import { useSelector } from "@tanstack/react-store";
 import { z } from "zod";
 
-import { isRoomTokenError } from "../../../api/client";
+import { isRoomTokenError, queryClient } from "../../../api/client";
 import { ScanRoomActions } from "../../../features/room/scan-room";
 import { useRoomDetail } from "../../../features/room/room-data";
 import {
@@ -17,7 +18,7 @@ import {
   markLastRoom,
   rememberRoom,
   rememberRoomName,
-  roomToken,
+  appStore,
   useSession,
 } from "../../../state/app-store";
 import { colors, fonts, media, radii } from "../../../styles/tokens.stylex";
@@ -39,7 +40,18 @@ export const Route = createFileRoute("/r/$slug")({
   component: RoomLayout,
 });
 
+/** Height left for a room page under the top bar (narrow) or beside the side navigation (wide). */
+const VIEWPORT_HEIGHT = {
+  narrow: "calc(100dvh - 57px - env(safe-area-inset-top) - 24px - max(32px, env(safe-area-inset-bottom)))",
+  wide: "calc(100dvh - 32px - max(32px, env(safe-area-inset-bottom)))",
+} as const;
+
 const styles = stylex.create({
+  page: { flexGrow: 1 },
+  fillNarrow: {
+    height: { default: "auto", [media.narrow]: VIEWPORT_HEIGHT.narrow, [media.wide]: VIEWPORT_HEIGHT.wide },
+    minHeight: { default: "auto", [media.narrow]: 520 },
+  },
   top: {
     alignItems: { default: "stretch", [media.narrow]: "flex-end" },
     display: "flex",
@@ -93,14 +105,13 @@ const styles = stylex.create({
 function RoomLayout() {
   const { slug } = Route.useParams();
   const session = useSession();
-  const hasToken = roomToken(slug) !== undefined;
+  const hasToken = useSelector(appStore, (state) => state.rooms[slug]?.token) !== undefined;
   const canView = hasToken || session?.person.isAdmin === true;
 
   if (!canView) {
     return (
-      <EmptyState icon={<QrCode size={40} aria-hidden />} title="请扫描会议室门口的二维码">
-        <p>为了保护预约信息，需要先扫描门口的二维码才能查看这间会议室。</p>
-        <ScanRoomActions />
+      <EmptyState icon={<QrCode size={40} aria-hidden />} title="输入房间码">
+        <ScanRoomActions isAutoFocus />
       </EmptyState>
     );
   }
@@ -117,6 +128,9 @@ function RoomLayout() {
  */
 function RoomFrame({ slug }: { slug: string }) {
   const detail = useRoomDetail(slug);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const page = pathname.replace(/\/+$/, "").split("/").at(-1);
+  const isWorkspace = page === slug || page === "calendar";
   const isTokenRejected = detail.isError && isRoomTokenError(detail.error);
   const room = detail.data?.room;
 
@@ -129,20 +143,24 @@ function RoomFrame({ slug }: { slug: string }) {
   }, [room, slug]);
 
   useEffect(() => {
-    if (isTokenRejected) forgetRoom(slug);
+    if (!isTokenRejected) return;
+
+    forgetRoom(slug);
+    queryClient.removeQueries({
+      predicate: (query) => String(query.queryKey[1]).startsWith("/api/rooms/{slug}"),
+    });
   }, [isTokenRejected, slug]);
 
   if (isTokenRejected) {
     return (
-      <EmptyState icon={<QrCode size={40} aria-hidden />} title="二维码已更新">
-        <p>这间会议室的二维码已经更换，请重新扫描门口的新二维码。</p>
-        <ScanRoomActions />
+      <EmptyState icon={<QrCode size={40} aria-hidden />} title="输入房间码">
+        <ScanRoomActions isAutoFocus />
       </EmptyState>
     );
   }
 
   return (
-    <Stack gap="lg">
+    <Stack gap="lg" xstyle={[styles.page, isWorkspace && styles.fillNarrow]}>
       <div {...stylex.props(styles.top)}>
         <header {...stylex.props(styles.header)}>
           {room === undefined ? (

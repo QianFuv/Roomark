@@ -16,6 +16,7 @@ import { useId, useState } from "react";
 
 import { isString } from "../lib/guards";
 import { formatDateLabel, formatRelativeDate, parseDate } from "../lib/time";
+import { useOverlayHistory } from "../app/overlay-history";
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
 
 const WEEKDAY_HEADS = ["一", "二", "三", "四", "五", "六", "日"] as const;
@@ -214,6 +215,8 @@ export function DatePicker({
 }: DatePickerProps) {
   const labelId = useId();
   const [isOpen, setIsOpen] = useState(false);
+
+  useOverlayHistory(isOpen, () => setIsOpen(false));
   const selected = value === "" ? undefined : parseDate(value);
   const tomorrow = today.add({ days: 1 });
   const chosenLabel = selected === undefined ? "选择日期" : formatDateLabel(selected);

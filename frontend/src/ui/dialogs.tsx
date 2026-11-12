@@ -10,6 +10,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createStore, useSelector } from "@tanstack/react-store";
 import type { ReactNode } from "react";
 
+import { useOverlayHistory } from "../app/overlay-history";
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
 import { Button, type ButtonVariant } from "./button";
 
@@ -27,6 +28,8 @@ interface DialogRequest {
   description?: ReactNode;
   options: ChoiceOption<string>[];
   cancelLabel: string;
+  /** Give the dialog its own history entry so back closes it (off while a navigation waits on it). */
+  isHistoryEntry: boolean;
   resolve: (value: string | undefined) => void;
 }
 
@@ -38,12 +41,14 @@ const dialogStore = createStore<{ request?: DialogRequest | undefined }>({});
  * @param title - Dialog title.
  * @param options - Choices (first is the primary action).
  * @param description - Extra explanation.
+ * @param isHistoryEntry - Let back close the dialog; turn off when a navigation waits on the answer.
  * @returns The chosen value, or `undefined` if cancelled.
  */
 export function chooseAction<Value extends string>(
   title: string,
   options: ChoiceOption<Value>[],
   description?: ReactNode,
+  isHistoryEntry = true,
 ): Promise<Value | undefined> {
   return new Promise((resolve) => {
     dialogStore.state.request?.resolve(undefined);
@@ -53,6 +58,7 @@ export function chooseAction<Value extends string>(
         description,
         options,
         cancelLabel: "取消",
+        isHistoryEntry,
         resolve: (value) => resolve(options.find((option) => option.value === value)?.value),
       },
     }));
@@ -66,6 +72,7 @@ export function chooseAction<Value extends string>(
  * @param confirmLabel - Label of the confirming button.
  * @param description - Extra explanation.
  * @param isDestructive - Style the confirm button as dangerous.
+ * @param isHistoryEntry - Let back close the dialog; turn off when a navigation waits on the answer.
  * @returns `true` when confirmed.
  */
 export async function confirmAction(
@@ -73,11 +80,13 @@ export async function confirmAction(
   confirmLabel: string,
   description?: ReactNode,
   isDestructive = true,
+  isHistoryEntry = true,
 ): Promise<boolean> {
   const choice = await chooseAction(
     title,
     [{ value: "confirm", label: confirmLabel, variant: isDestructive ? "danger" : "primary" }],
     description,
+    isHistoryEntry,
   );
 
   return choice === "confirm";
@@ -120,6 +129,8 @@ const styles = stylex.create({
  */
 export function DialogHost() {
   const request = useSelector(dialogStore, (state) => state.request);
+
+  useOverlayHistory(request !== undefined && request.isHistoryEntry, () => settle(undefined));
 
   /**
    * Close the dialog and settle its promise.

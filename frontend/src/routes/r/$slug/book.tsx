@@ -23,7 +23,7 @@ import {
   parseZoned,
 } from "../../../lib/time";
 import { colors, media, radii } from "../../../styles/tokens.stylex";
-import { EmptyState, Notice, Skeleton, Stack } from "../../../ui/layout";
+import { EmptyState, Skeleton, Stack } from "../../../ui/layout";
 
 const styles = stylex.create({
   frame: {
@@ -180,7 +180,7 @@ function BookPage() {
     editing = (bookings.data ?? []).find((booking) => booking.id === search.edit);
 
     if (editing === undefined) {
-      return <EmptyState title="找不到这条预约">它可能已经被取消或已结束。</EmptyState>;
+      return <EmptyState title="找不到这条预约">可能已取消或已结束</EmptyState>;
     }
   }
 
@@ -203,11 +203,6 @@ function BookPage() {
 
   return (
     <Stack gap="md" xstyle={styles.frame}>
-      {editing?.series === undefined ? null : (
-        <Notice tone="info" title="这是周期预约中的一次">
-          保存时可以选择只改这一次，或这次及以后全部。
-        </Notice>
-      )}
       <BookingForm
         key={`${editing?.id ?? "new"}-${draft.date}-${draft.start}-${draft.end}-${String(draft.isRepeat)}-${search.mode ?? ""}`}
         room={room}

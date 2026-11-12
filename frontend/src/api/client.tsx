@@ -126,7 +126,8 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 10_000,
       refetchOnWindowFocus: true,
-      retry: (failureCount, error) => failureCount < 2 && problemStatus(error) === undefined,
+      retry: (failureCount, error) =>
+        failureCount < 2 && (problemStatus(error) === undefined || isSessionExpired(error)),
     },
   },
 });
@@ -176,11 +177,22 @@ export function errorMessage(error: unknown): string {
     return problem.violations.map((violation) => violation.message).join("；");
   }
 
-  if (problem?.status === 403) return "没有权限执行此操作";
+  if (problem?.status === 403) return "没有权限";
 
-  if (problem !== undefined) return "操作失败，请稍后重试";
+  if (problem !== undefined) return "操作失败，请稍后再试";
 
-  return "网络连接失败，请检查网络后重试";
+  return "网络连接失败，请检查网络";
+}
+
+/**
+ * Whether an error means the stored session expired or was signed out elsewhere. The session is
+ * dropped on that response, so retrying the request succeeds for public data.
+ *
+ * @param error - Anything thrown.
+ * @returns `true` for `session_invalid`.
+ */
+function isSessionExpired(error: unknown): boolean {
+  return asProblem(error)?.code === "session_invalid";
 }
 
 /**
