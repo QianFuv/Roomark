@@ -13,12 +13,14 @@ import { z } from "zod";
 
 import { queryClient, setServerBaseUrl } from "../api/client";
 import { platform } from "../platform/platform";
-import { colors, fonts } from "../styles/tokens.stylex";
+import { colors } from "../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { SwitchRow } from "../ui/controls";
 import { TextField } from "../ui/field";
+import { ICON_SIZE } from "../ui/icon";
 import { Card, EmptyState, PageHeader, Section, Stack } from "../ui/layout";
 import { notify } from "../ui/toast";
+import { text } from "../ui/typography";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -30,7 +32,7 @@ const serverUrlSchema = z.object({
 });
 
 const styles = stylex.create({
-  version: { color: colors.textSubtle, fontSize: fonts.sizeSm },
+  version: { color: colors.textSubtle },
 });
 
 /**
@@ -42,7 +44,7 @@ function SettingsPage() {
   const host = platform();
 
   if (!host.isApp) {
-    return <EmptyState icon={<Server size={36} aria-hidden />} title="网页版没有设置项" />;
+    return <EmptyState icon={<Server size={ICON_SIZE.empty} aria-hidden />} title="网页版没有设置项" />;
   }
 
   return (
@@ -50,7 +52,7 @@ function SettingsPage() {
       <PageHeader title="设置" />
       <ServerUrlForm initialUrl={host.serverUrl} />
       {host.hasAutostart ? <AutostartCard /> : null}
-      <p {...stylex.props(styles.version)}>
+      <p {...stylex.props(text.meta, styles.version)}>
         Roomark {host.kind === "desktop" ? "电脑版" : "安卓版"} {host.version}
       </p>
     </Stack>

@@ -14,9 +14,10 @@ import * as stylex from "@stylexjs/stylex";
 
 import { formatPercent, type TrendRow } from "../../lib/stats";
 import { colors, fonts } from "../../styles/tokens.stylex";
+import { text } from "../../ui/typography";
 
 const styles = stylex.create({
-  frame: { color: colors.textMuted, fontFamily: fonts.sans, fontSize: fonts.sizeXs, minWidth: 0 },
+  frame: { color: colors.textMuted, fontFamily: fonts.sans, minWidth: 0 },
 });
 
 /**
@@ -57,7 +58,7 @@ export function TrendChart({ rows }: { rows: readonly TrendRow[] }) {
   });
 
   return (
-    <div {...stylex.props(styles.frame)}>
+    <div {...stylex.props(text.meta, styles.frame)}>
       <Chart
         definition={definition}
         height={260}
@@ -128,7 +129,7 @@ export function HistogramChart({
   });
 
   return (
-    <div {...stylex.props(styles.frame)}>
+    <div {...stylex.props(text.meta, styles.frame)}>
       <Chart
         definition={definition}
         height={220}
@@ -173,7 +174,7 @@ export function ShareChart({ single, recurring }: { single: number; recurring: n
   });
 
   return (
-    <div {...stylex.props(styles.frame)}>
+    <div {...stylex.props(text.meta, styles.frame)}>
       <Chart
         definition={definition}
         height={96}
@@ -222,7 +223,7 @@ export function RankingChart({
   });
 
   return (
-    <div {...stylex.props(styles.frame)}>
+    <div {...stylex.props(text.meta, styles.frame)}>
       <Chart
         definition={definition}
         height={Math.max(140, rows.length * 34 + 40)}

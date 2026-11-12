@@ -6,7 +6,7 @@
  */
 import type { Temporal } from "@js-temporal/polyfill";
 import * as stylex from "@stylexjs/stylex";
-import { Check, CircleAlert } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Conflict, Suggestion } from "../../api/client";
@@ -19,7 +19,8 @@ import {
   minutesBetween,
   parseZoned,
 } from "../../lib/time";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, lineHeights, media, radii, sizes, space } from "../../styles/tokens.stylex";
+import { text } from "../../ui/typography";
 
 const styles = stylex.create({
   panel: {
@@ -32,24 +33,27 @@ const styles = stylex.create({
     borderWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
-    paddingBlock: 12,
-    paddingInline: { default: 12, [media.narrow]: 14 },
+    gap: space.sm,
+    paddingBlock: space.md,
+    paddingInline: space.md,
   },
   conflictLine: {
     alignItems: "flex-start",
     color: colors.text,
     display: "flex",
-    fontSize: fonts.sizeMd,
-    gap: 8,
-    lineHeight: 1.5,
+    gap: space.sm,
   },
-  conflictIcon: { color: colors.warning, display: "inline-flex", flexShrink: 0, marginTop: 2 },
-  conflictWhen: { fontVariantNumeric: "tabular-nums", fontWeight: 600 },
+  conflictIcon: {
+    alignItems: "center",
+    color: colors.warning,
+    display: "inline-flex",
+    flexShrink: 0,
+    height: lineHeights.body,
+  },
   conflictWho: { color: colors.textMuted },
   options: {
     display: "grid",
-    gap: 6,
+    gap: space.sm,
     gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 148px), 1fr))",
   },
   option: {
@@ -68,13 +72,13 @@ const styles = stylex.create({
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 8,
-    minHeight: 44,
+    gap: space.sm,
+    minHeight: sizes.control,
     minWidth: 0,
     opacity: { default: 1, ":disabled": 0.55 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 4,
-    paddingInline: 10,
+    paddingBlock: space.xs,
+    paddingInline: space.sm,
     textAlign: "start",
     transitionDuration: { default: "120ms", [media.reducedMotion]: "0ms" },
     transitionProperty: "background-color, border-color",
@@ -86,26 +90,30 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: 2,
     boxSizing: "border-box",
-    color: colors.onPrimary,
     display: "inline-flex",
     flexShrink: 0,
     height: 16,
     justifyContent: "center",
     width: 16,
   },
-  indicatorOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  indicatorOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    boxShadow: `inset 0 0 0 3px ${colors.surfaceRaised}`,
+  },
   text: {
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
+    display: "flex",
+    flexDirection: "column",
     minWidth: 0,
+  },
+  time: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  day: { color: colors.textMuted, fontWeight: 500, marginInlineEnd: 4 },
+  day: { color: colors.textMuted },
   daySelected: { color: colors.text },
-  empty: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
+  empty: { color: colors.textMuted },
 });
 
 /** Holder name the server reports for blocked time. */
@@ -123,7 +131,8 @@ export interface SuggestionOptionProps {
 }
 
 /**
- * One selectable alternative on a single line: indicator, optional day, time.
+ * One selectable alternative: a radio-style indicator, then the time with the optional day as a
+ * muted line above it, so day-prefixed options fit the same column width.
  *
  * @param props - Option props.
  * @returns The option button.
@@ -145,14 +154,12 @@ export function SuggestionOption({
       onClick={onSelect}
       {...stylex.props(styles.option)}
     >
-      <span aria-hidden {...stylex.props(styles.indicator, isSelected && styles.indicatorOn)}>
-        {isSelected ? <Check size={11} strokeWidth={3} /> : null}
-      </span>
+      <span aria-hidden {...stylex.props(styles.indicator, isSelected && styles.indicatorOn)} />
       <span {...stylex.props(styles.text)}>
         {day === undefined ? null : (
-          <span {...stylex.props(styles.day, isSelected && styles.daySelected)}>{day}</span>
+          <span {...stylex.props(text.meta, styles.day, isSelected && styles.daySelected)}>{day}</span>
         )}
-        {time}
+        <span {...stylex.props(text.label, styles.time)}>{time}</span>
       </span>
     </button>
   );
@@ -233,12 +240,12 @@ function ConflictLine({ conflict, today }: { conflict: Conflict; today: Temporal
   const holder = holderText(conflict);
 
   return (
-    <p {...stylex.props(styles.conflictLine)}>
+    <p {...stylex.props(text.body, styles.conflictLine)}>
       <span {...stylex.props(styles.conflictIcon)}>
-        <CircleAlert size={18} aria-hidden />
+        <CircleAlert aria-hidden />
       </span>
       <span>
-        <span {...stylex.props(styles.conflictWhen)}>
+        <span {...stylex.props(text.label)}>
           {formatBookingWhen(conflict.conflictWith.start, conflict.conflictWith.end, today)}
         </span>{" "}
         <span {...stylex.props(styles.conflictWho)}>{holder}</span>
@@ -282,7 +289,7 @@ export function ConflictSuggestions({
     <section aria-label="时段冲突" {...stylex.props(styles.panel)}>
       <ConflictLine conflict={conflict} today={today} />
       {indexed.length === 0 ? (
-        <p {...stylex.props(styles.empty)}>附近没有同样长的空档，换一天或缩短时长试试</p>
+        <p {...stylex.props(text.meta, styles.empty)}>附近没有同样长的空档，换一天或缩短时长试试</p>
       ) : (
         <div role="group" aria-label="换个时间" {...stylex.props(styles.options)}>
           {indexed.map(({ suggestion, index }) => (

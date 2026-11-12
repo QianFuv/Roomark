@@ -12,14 +12,15 @@ import * as stylex from "@stylexjs/stylex";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 /** Shared field styles, also used by other inputs. */
 const fieldStyles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-  label: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  description: { color: colors.textMuted, fontSize: fonts.sizeXs, lineHeight: 1.5 },
-  error: { color: colors.busy, fontSize: fonts.sizeXs, lineHeight: 1.5 },
+  root: { display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 },
+  label: { color: colors.text },
+  description: { color: colors.textMuted },
+  error: { color: colors.busy },
   control: {
     backgroundColor: colors.surface,
     borderColor: { default: colors.borderStrong, ":focus": colors.primary, "[data-invalid]": colors.busy },
@@ -28,13 +29,12 @@ const fieldStyles = stylex.create({
     borderWidth: 1,
     color: colors.text,
     fontFamily: fonts.sans,
-    fontSize: 16,
-    minHeight: 46,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.md,
     width: "100%",
   },
-  textarea: { lineHeight: 1.5, minHeight: 96, paddingBlock: 10, resize: "vertical" },
+  textarea: { minHeight: 96, paddingBlock: space.sm, resize: "vertical" },
 });
 
 /** Props of {@link TextField}. */
@@ -57,17 +57,19 @@ export interface TextFieldProps extends Omit<
 export function TextField({ label, description, error, onValueChange, ...inputProps }: TextFieldProps) {
   return (
     <Field.Root invalid={error !== undefined} {...stylex.props(fieldStyles.root)}>
-      <Field.Label {...stylex.props(fieldStyles.label)}>{label}</Field.Label>
+      <Field.Label {...stylex.props(text.label, fieldStyles.label)}>{label}</Field.Label>
       <Input
         {...inputProps}
         onValueChange={(value) => onValueChange?.(value)}
-        {...stylex.props(fieldStyles.control)}
+        {...stylex.props(text.input, fieldStyles.control)}
       />
       {description === undefined ? null : (
-        <Field.Description {...stylex.props(fieldStyles.description)}>{description}</Field.Description>
+        <Field.Description {...stylex.props(text.meta, fieldStyles.description)}>
+          {description}
+        </Field.Description>
       )}
       {error === undefined ? null : (
-        <Field.Error match {...stylex.props(fieldStyles.error)}>
+        <Field.Error match {...stylex.props(text.meta, fieldStyles.error)}>
           {error}
         </Field.Error>
       )}
@@ -103,17 +105,19 @@ export function TextAreaField({
 }: TextAreaFieldProps) {
   return (
     <Field.Root {...stylex.props(fieldStyles.root)}>
-      <Field.Label {...stylex.props(fieldStyles.label)}>{label}</Field.Label>
+      <Field.Label {...stylex.props(text.label, fieldStyles.label)}>{label}</Field.Label>
       <Field.Control
         render={<textarea rows={rows} />}
         name={name}
         value={value}
         placeholder={placeholder}
         onValueChange={(next) => onValueChange(next)}
-        {...stylex.props(fieldStyles.control, fieldStyles.textarea)}
+        {...stylex.props(text.input, fieldStyles.control, fieldStyles.textarea)}
       />
       {description === undefined ? null : (
-        <Field.Description {...stylex.props(fieldStyles.description)}>{description}</Field.Description>
+        <Field.Description {...stylex.props(text.meta, fieldStyles.description)}>
+          {description}
+        </Field.Description>
       )}
     </Field.Root>
   );
@@ -144,12 +148,11 @@ const selectStyles = stylex.create({
     alignItems: "center",
     cursor: "pointer",
     display: "flex",
-    gap: 8,
+    gap: space.sm,
     justifyContent: "space-between",
     textAlign: "start",
   },
   value: {
-    fontVariantNumeric: "tabular-nums",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -171,22 +174,20 @@ const selectStyles = stylex.create({
   list: {
     maxHeight: "min(320px, var(--available-height))",
     overflowY: "auto",
-    paddingBlock: 4,
-    scrollPaddingBlock: 8,
+    paddingBlock: space.xs,
+    scrollPaddingBlock: space.sm,
   },
   item: {
     alignItems: "center",
     backgroundColor: { default: "transparent", "[data-highlighted]": colors.surfaceHover },
     cursor: "pointer",
     display: "grid",
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    gap: 8,
-    gridTemplateColumns: "18px 1fr",
-    minHeight: 40,
+    gap: space.sm,
+    gridTemplateColumns: "16px 1fr",
+    minHeight: sizes.control,
     opacity: { default: 1, "[data-disabled]": 0.4 },
     outline: "none",
-    paddingInline: 10,
+    paddingInline: space.md,
   },
   indicator: { color: colors.primary, display: "inline-flex", gridColumnStart: 1 },
   itemText: { gridColumnStart: 2 },
@@ -220,13 +221,13 @@ export function SelectField<Value extends string>({
         }}
         disabled={isDisabled}
       >
-        <Select.Label {...stylex.props(fieldStyles.label)}>{label}</Select.Label>
-        <Select.Trigger {...stylex.props(fieldStyles.control, selectStyles.trigger)}>
+        <Select.Label {...stylex.props(text.label, fieldStyles.label)}>{label}</Select.Label>
+        <Select.Trigger {...stylex.props(text.body, fieldStyles.control, selectStyles.trigger)}>
           <Select.Value {...stylex.props(selectStyles.value)}>
             {isValueCompact ? (selected: string) => selected : undefined}
           </Select.Value>
           <Select.Icon {...stylex.props(selectStyles.icon)}>
-            <ChevronsUpDown size={16} aria-hidden />
+            <ChevronsUpDown aria-hidden />
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
@@ -242,10 +243,10 @@ export function SelectField<Value extends string>({
                     key={option.value}
                     value={option.value}
                     disabled={option.isDisabled === true}
-                    {...stylex.props(selectStyles.item)}
+                    {...stylex.props(text.body, selectStyles.item)}
                   >
                     <Select.ItemIndicator {...stylex.props(selectStyles.indicator)}>
-                      <Check size={16} aria-hidden />
+                      <Check aria-hidden />
                     </Select.ItemIndicator>
                     <Select.ItemText {...stylex.props(selectStyles.itemText)}>{option.label}</Select.ItemText>
                   </Select.Item>
@@ -256,7 +257,9 @@ export function SelectField<Value extends string>({
         </Select.Portal>
       </Select.Root>
       {description === undefined ? null : (
-        <Field.Description {...stylex.props(fieldStyles.description)}>{description}</Field.Description>
+        <Field.Description {...stylex.props(text.meta, fieldStyles.description)}>
+          {description}
+        </Field.Description>
       )}
     </Field.Root>
   );
@@ -271,10 +274,10 @@ const comboboxStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: 1,
     display: "flex",
-    gap: 8,
-    minHeight: 46,
+    gap: space.sm,
+    minHeight: sizes.control,
     outline: { default: "none", ":has(input:focus-visible)": `3px solid ${colors.focusRing}` },
-    paddingInlineStart: 12,
+    paddingInlineStart: space.md,
   },
   searchIcon: { color: colors.textSubtle, display: "inline-flex", flexShrink: 0 },
   input: {
@@ -283,8 +286,7 @@ const comboboxStyles = stylex.create({
     color: colors.text,
     flexGrow: 1,
     fontFamily: fonts.sans,
-    fontSize: 16,
-    minHeight: 44,
+    minHeight: sizes.control,
     minWidth: 0,
     outline: "none",
     padding: 0,
@@ -297,16 +299,15 @@ const comboboxStyles = stylex.create({
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: 0,
-    height: 44,
+    height: sizes.control,
     justifyContent: "center",
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    width: 40,
+    width: sizes.control,
   },
   empty: {
     color: colors.textMuted,
-    fontSize: fonts.sizeSm,
-    paddingBlock: { default: 0, ":not(:empty)": 12 },
-    paddingInline: 12,
+    paddingBlock: { default: 0, ":not(:empty)": space.md },
+    paddingInline: space.md,
   },
 });
 
@@ -338,7 +339,7 @@ export function ComboboxField<Value extends string>({
 
   return (
     <Field.Root {...stylex.props(fieldStyles.root)}>
-      <Field.Label {...stylex.props(fieldStyles.label)}>{label}</Field.Label>
+      <Field.Label {...stylex.props(text.label, fieldStyles.label)}>{label}</Field.Label>
       <Combobox.Root
         items={options}
         value={selected}
@@ -352,27 +353,27 @@ export function ComboboxField<Value extends string>({
       >
         <Combobox.InputGroup {...stylex.props(comboboxStyles.group)}>
           <span aria-hidden {...stylex.props(comboboxStyles.searchIcon)}>
-            <Search size={16} />
+            <Search />
           </span>
-          <Combobox.Input placeholder={placeholder} {...stylex.props(comboboxStyles.input)} />
+          <Combobox.Input placeholder={placeholder} {...stylex.props(text.input, comboboxStyles.input)} />
           <Combobox.Trigger aria-label="展开列表" {...stylex.props(comboboxStyles.trigger)}>
-            <ChevronsUpDown size={16} aria-hidden />
+            <ChevronsUpDown aria-hidden />
           </Combobox.Trigger>
         </Combobox.InputGroup>
         <Combobox.Portal>
           <Combobox.Positioner sideOffset={6} {...stylex.props(selectStyles.positioner)}>
             <Combobox.Popup {...stylex.props(selectStyles.popup)}>
-              <Combobox.Empty {...stylex.props(comboboxStyles.empty)}>{emptyText}</Combobox.Empty>
+              <Combobox.Empty {...stylex.props(text.body, comboboxStyles.empty)}>{emptyText}</Combobox.Empty>
               <Combobox.List {...stylex.props(selectStyles.list)}>
                 {(option: SelectOption<Value>) => (
                   <Combobox.Item
                     key={option.value}
                     value={option}
                     disabled={option.isDisabled === true}
-                    {...stylex.props(selectStyles.item)}
+                    {...stylex.props(text.body, selectStyles.item)}
                   >
                     <Combobox.ItemIndicator {...stylex.props(selectStyles.indicator)}>
-                      <Check size={16} aria-hidden />
+                      <Check aria-hidden />
                     </Combobox.ItemIndicator>
                     <span {...stylex.props(selectStyles.itemText)}>{option.label}</span>
                   </Combobox.Item>

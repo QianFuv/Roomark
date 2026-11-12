@@ -7,7 +7,8 @@ import * as stylex from "@stylexjs/stylex";
 import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, lineHeights, media, radii, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 const styles = stylex.create({
   card: {
@@ -18,39 +19,31 @@ const styles = stylex.create({
     borderWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: space.cardGap,
     minWidth: 0,
-    padding: { default: 16, [media.narrow]: 20 },
+    padding: space.cardPadding,
   },
-  section: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
+  section: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
   sectionHeader: {
     alignItems: "center",
     display: "flex",
-    gap: 8,
+    gap: space.sm,
     justifyContent: "space-between",
     minHeight: 32,
   },
-  sectionHeading: { alignItems: "center", display: "flex", gap: 4, minWidth: 0 },
-  sectionTitle: { color: colors.text, fontSize: fonts.sizeLg, fontWeight: 700 },
-  sectionAside: { color: colors.textMuted, fontSize: fonts.sizeSm },
-  pageHeader: { display: "flex", flexDirection: "column", gap: 4, paddingBottom: 4 },
-  pageTitle: {
-    color: colors.text,
-    fontSize: { default: fonts.sizeXxl, [media.narrow]: 30 },
-    fontWeight: 800,
-    lineHeight: 1.2,
-  },
-  pageSubtitle: { color: colors.textMuted, fontSize: fonts.sizeMd, lineHeight: 1.5 },
+  sectionHeading: { alignItems: "center", display: "flex", gap: space.xs, minWidth: 0 },
+  sectionTitle: { color: colors.text },
+  sectionAside: { color: colors.textMuted },
+  pageHeader: { display: "flex", flexDirection: "column", gap: space.xs },
+  pageTitle: { color: colors.text },
+  pageSubtitle: { color: colors.textMuted },
   badge: {
     alignItems: "center",
     borderRadius: radii.pill,
     display: "inline-flex",
-    fontSize: fonts.sizeXs,
-    fontWeight: 600,
-    gap: 4,
-    lineHeight: 1,
-    paddingBlock: 4,
-    paddingInline: 8,
+    gap: space.xs,
+    paddingBlock: space.xxs,
+    paddingInline: space.sm,
     whiteSpace: "nowrap",
   },
   neutral: { backgroundColor: colors.surfaceMuted, color: colors.textMuted },
@@ -62,15 +55,12 @@ const styles = stylex.create({
     alignItems: "flex-start",
     borderRadius: radii.medium,
     display: "flex",
-    fontSize: fonts.sizeSm,
-    gap: 10,
-    lineHeight: 1.55,
-    paddingBlock: 10,
-    paddingInline: 12,
+    gap: space.sm,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
-  noticeIcon: { display: "inline-flex", flexShrink: 0, marginTop: 1 },
-  noticeBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, minWidth: 0 },
-  noticeTitle: { fontWeight: 700 },
+  noticeIcon: { alignItems: "center", display: "inline-flex", flexShrink: 0, height: lineHeights.body },
+  noticeBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: space.xs, minWidth: 0 },
   noticeText: { color: colors.text },
   skeleton: {
     animationDirection: "alternate",
@@ -86,24 +76,22 @@ const styles = stylex.create({
     color: colors.textMuted,
     display: "flex",
     flexDirection: "column",
-    fontSize: fonts.sizeMd,
-    gap: 10,
-    lineHeight: 1.6,
-    paddingBlock: 28,
-    paddingInline: 16,
+    gap: space.md,
+    paddingBlock: space.xxl,
+    paddingInline: space.lg,
     textAlign: "center",
   },
-  emptyIcon: { color: colors.textSubtle },
-  emptyTitle: { color: colors.text, fontSize: fonts.sizeLg, fontWeight: 700 },
+  emptyIcon: { color: colors.textSubtle, display: "inline-flex" },
+  emptyTitle: { color: colors.text },
   stack: { display: "flex", flexDirection: "column", minWidth: 0 },
   row: { alignItems: "center", display: "flex", flexWrap: "wrap", minWidth: 0 },
   spread: { justifyContent: "space-between" },
   noWrap: { flexWrap: "nowrap" },
-  gapXs: { gap: 4 },
-  gapSm: { gap: 8 },
-  gapMd: { gap: 12 },
-  gapLg: { gap: 16 },
-  gapXl: { gap: 24 },
+  gapXs: { gap: space.xs },
+  gapSm: { gap: space.sm },
+  gapMd: { gap: space.md },
+  gapLg: { gap: space.lg },
+  gapXl: { gap: space.xl },
 });
 
 /** Tone of badges and notices. */
@@ -176,10 +164,10 @@ export function Section({
     <section {...stylex.props(styles.section, xstyle)}>
       <div {...stylex.props(styles.sectionHeader)}>
         <span {...stylex.props(styles.sectionHeading)}>
-          <h2 {...stylex.props(styles.sectionTitle)}>{title}</h2>
+          <h2 {...stylex.props(text.title, styles.sectionTitle)}>{title}</h2>
           {help}
         </span>
-        {aside === undefined ? null : <div {...stylex.props(styles.sectionAside)}>{aside}</div>}
+        {aside === undefined ? null : <div {...stylex.props(text.meta, styles.sectionAside)}>{aside}</div>}
       </div>
       {children}
     </section>
@@ -197,8 +185,8 @@ export function Section({
 export function PageHeader({ title, subtitle }: { title: ReactNode; subtitle?: ReactNode }) {
   return (
     <header {...stylex.props(styles.pageHeader)}>
-      <h1 {...stylex.props(styles.pageTitle)}>{title}</h1>
-      {subtitle === undefined ? null : <p {...stylex.props(styles.pageSubtitle)}>{subtitle}</p>}
+      <h1 {...stylex.props(text.display, styles.pageTitle)}>{title}</h1>
+      {subtitle === undefined ? null : <p {...stylex.props(text.body, styles.pageSubtitle)}>{subtitle}</p>}
     </header>
   );
 }
@@ -212,7 +200,7 @@ export function PageHeader({ title, subtitle }: { title: ReactNode; subtitle?: R
  * @returns The badge.
  */
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
-  return <span {...stylex.props(styles.badge, styles[tone])}>{children}</span>;
+  return <span {...stylex.props(text.meta, styles.badge, styles[tone])}>{children}</span>;
 }
 
 /**
@@ -238,18 +226,18 @@ export function Notice({
 }) {
   const icon =
     tone === "busy" ? (
-      <CircleAlert size={18} aria-hidden />
+      <CircleAlert aria-hidden />
     ) : tone === "warning" ? (
-      <TriangleAlert size={18} aria-hidden />
+      <TriangleAlert aria-hidden />
     ) : (
-      <Info size={18} aria-hidden />
+      <Info aria-hidden />
     );
 
   return (
-    <div role={isLive ? "status" : undefined} {...stylex.props(styles.notice, styles[tone])}>
+    <div role={isLive ? "status" : undefined} {...stylex.props(text.body, styles.notice, styles[tone])}>
       <span {...stylex.props(styles.noticeIcon)}>{icon}</span>
       <div {...stylex.props(styles.noticeBody)}>
-        {title === undefined ? null : <span {...stylex.props(styles.noticeTitle)}>{title}</span>}
+        {title === undefined ? null : <span {...stylex.props(text.label)}>{title}</span>}
         {children === undefined ? null : <div {...stylex.props(styles.noticeText)}>{children}</div>}
       </div>
     </div>
@@ -272,7 +260,7 @@ export function Skeleton({ height, width = "100%" }: { height: number; width?: s
  * Empty or error state.
  *
  * @param props - Empty state props.
- * @param props.icon - Illustration icon.
+ * @param props.icon - Illustration icon, `ICON_SIZE.empty`.
  * @param props.title - Title.
  * @param props.children - Explanation and actions.
  * @returns The state.
@@ -287,9 +275,9 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div {...stylex.props(styles.empty)}>
+    <div {...stylex.props(text.body, styles.empty)}>
       {icon === undefined ? null : <span {...stylex.props(styles.emptyIcon)}>{icon}</span>}
-      <p {...stylex.props(styles.emptyTitle)}>{title}</p>
+      <p {...stylex.props(text.title, styles.emptyTitle)}>{title}</p>
       {children}
     </div>
   );

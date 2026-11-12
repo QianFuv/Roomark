@@ -5,16 +5,17 @@
  */
 import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
-import { CalendarClock, Pencil, Repeat, Square, Timer, Trash2, UserRound } from "lucide-react";
+import { CalendarClock, Pencil, Repeat, Square, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import type { Booking } from "../../api/client";
 import { isFinished, isOngoing } from "../../lib/schedule";
 import { formatClock, formatDuration, formatRelativeDate, minutesBetween, parseZoned } from "../../lib/time";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, lineHeights, radii, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Badge, Row, Stack } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
+import { text } from "../../ui/typography";
 import { useNow } from "../room/room-data";
 import { cancelBooking, endBooking, extendBooking } from "./booking-actions";
 
@@ -24,14 +25,19 @@ const styles = stylex.create({
     borderRadius: radii.medium,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
-    padding: 14,
+    gap: space.sm,
+    padding: space.md,
   },
-  fact: { alignItems: "center", color: colors.text, display: "flex", fontSize: fonts.sizeMd, gap: 10 },
-  factIcon: { color: colors.textSubtle, display: "inline-flex", flexShrink: 0 },
+  fact: { alignItems: "flex-start", color: colors.text, display: "flex", gap: space.sm },
+  factIcon: {
+    alignItems: "center",
+    color: colors.textSubtle,
+    display: "inline-flex",
+    flexShrink: 0,
+    height: lineHeights.body,
+  },
   muted: { color: colors.textMuted },
-  time: { fontVariantNumeric: "tabular-nums", fontWeight: 700 },
-  actionsLabel: { color: colors.textMuted, fontSize: fonts.sizeSm, fontWeight: 600 },
+  actionsLabel: { color: colors.textMuted },
 });
 
 /** Props of {@link BookingDetailSheet}. */
@@ -91,13 +97,13 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
   return (
     <Stack gap="lg">
       <div {...stylex.props(styles.facts)}>
-        <div {...stylex.props(styles.fact)}>
+        <div {...stylex.props(text.body, styles.fact)}>
           <span {...stylex.props(styles.factIcon)}>
-            <CalendarClock size={18} aria-hidden />
+            <CalendarClock aria-hidden />
           </span>
           <span>
             {formatRelativeDate(start.toPlainDate())}{" "}
-            <span {...stylex.props(styles.time)}>
+            <span {...stylex.props(text.label)}>
               {formatClock(booking.start)}–{formatClock(booking.end)}
             </span>{" "}
             <span {...stylex.props(styles.muted)}>
@@ -106,9 +112,9 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
           </span>
         </div>
         {booking.person === undefined ? null : (
-          <div {...stylex.props(styles.fact)}>
+          <div {...stylex.props(text.body, styles.fact)}>
             <span {...stylex.props(styles.factIcon)}>
-              <UserRound size={18} aria-hidden />
+              <UserRound aria-hidden />
             </span>
             <span>
               {booking.person.name}
@@ -117,9 +123,9 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
           </div>
         )}
         {booking.series === undefined ? null : (
-          <div {...stylex.props(styles.fact)}>
+          <div {...stylex.props(text.body, styles.fact)}>
             <span {...stylex.props(styles.factIcon)}>
-              <Repeat size={18} aria-hidden />
+              <Repeat aria-hidden />
             </span>
             <span>
               {booking.series.ruleSummary} ·{" "}
@@ -142,13 +148,12 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
         <Stack gap="sm">
           {isNow ? (
             <>
-              <span {...stylex.props(styles.actionsLabel)}>续时</span>
+              <span {...stylex.props(text.label, styles.actionsLabel)}>续时</span>
               <Row gap="sm">
                 {([15, 30, 60] as const).map((minutes) => (
                   <Button
                     key={minutes}
                     variant="soft"
-                    icon={<Timer size={16} aria-hidden />}
                     onClick={() => {
                       void extendBooking(booking, minutes).then((updated) => {
                         if (updated !== undefined) setBooking(updated);
@@ -163,7 +168,7 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
                 variant="secondary"
                 size="lg"
                 isFullWidth
-                icon={<Square size={16} aria-hidden />}
+                icon={<Square aria-hidden />}
                 onClick={() => {
                   void endBooking(booking).then((hasEnded) => {
                     if (hasEnded) onClose();
@@ -179,7 +184,7 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
                 variant="secondary"
                 size="lg"
                 isFullWidth
-                icon={<Pencil size={16} aria-hidden />}
+                icon={<Pencil aria-hidden />}
                 onClick={() => {
                   onClose();
                   void navigate({
@@ -195,7 +200,8 @@ function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClos
                 variant="danger"
                 size="lg"
                 isFullWidth
-                icon={<Trash2 size={16} aria-hidden />}
+                icon={<Trash2 aria-hidden />}
+
                 onClick={() => {
                   void cancelBooking(booking).then((isCancelled) => {
                     if (isCancelled) onClose();

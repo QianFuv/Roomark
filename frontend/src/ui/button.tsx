@@ -8,13 +8,14 @@ import * as stylex from "@stylexjs/stylex";
 import { LoaderCircle } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, fonts, media, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 /** Visual emphasis of a button. */
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success" | "soft";
 
 /** Button height. */
-type ButtonSize = "sm" | "md" | "lg" | "xl";
+type ButtonSize = "sm" | "md" | "lg";
 
 /** Props of {@link Button}. */
 export interface ButtonProps extends Omit<ComponentProps<typeof BaseButton>, "className" | "style"> {
@@ -44,10 +45,8 @@ const styles = stylex.create({
     display: "inline-flex",
     flexShrink: 0,
     fontFamily: fonts.sans,
-    fontWeight: 600,
-    gap: 8,
+    gap: space.sm,
     justifyContent: "center",
-    lineHeight: 1.2,
     opacity: { default: 1, ":disabled": 0.45 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     outlineOffset: 2,
@@ -60,10 +59,9 @@ const styles = stylex.create({
     WebkitTapHighlightColor: "transparent",
     whiteSpace: "nowrap",
   },
-  sm: { fontSize: fonts.sizeSm, minHeight: 36, paddingInline: 12 },
-  md: { fontSize: fonts.sizeMd, minHeight: 44, paddingInline: 16 },
-  lg: { fontSize: fonts.sizeLg, minHeight: 52, paddingInline: 20, borderRadius: radii.large },
-  xl: { fontSize: fonts.sizeXl, minHeight: 64, paddingInline: 24, borderRadius: radii.large },
+  sm: { minHeight: sizes.controlSmall, paddingInline: space.md },
+  md: { minHeight: sizes.control, paddingInline: space.lg },
+  lg: { minHeight: sizes.controlLarge, paddingInline: space.lg },
   fullWidth: { width: "100%" },
   primary: {
     backgroundColor: { default: colors.primary, ":hover:not(:disabled)": colors.primaryHover },
@@ -122,9 +120,16 @@ export function Button({
       disabled={disabled === true || isLoading}
       focusableWhenDisabled={isLoading}
       aria-busy={isLoading || undefined}
-      {...stylex.props(styles.base, styles[size], styles[variant], isFullWidth && styles.fullWidth, xstyle)}
+      {...stylex.props(
+        text.label,
+        styles.base,
+        styles[size],
+        styles[variant],
+        isFullWidth && styles.fullWidth,
+        xstyle,
+      )}
     >
-      {isLoading ? <LoaderCircle size={18} aria-hidden {...stylex.props(styles.spinner)} /> : icon}
+      {isLoading ? <LoaderCircle aria-hidden {...stylex.props(styles.spinner)} /> : icon}
       {children}
       {trailingIcon}
     </BaseButton>

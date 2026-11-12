@@ -21,8 +21,10 @@ import {
   appStore,
   useSession,
 } from "../../../state/app-store";
-import { colors, fonts, media, radii } from "../../../styles/tokens.stylex";
+import { colors, media, radii, sizes, space } from "../../../styles/tokens.stylex";
+import { ICON_SIZE } from "../../../ui/icon";
 import { EmptyState, Skeleton, Stack } from "../../../ui/layout";
+import { text } from "../../../ui/typography";
 
 const searchSchema = z.object({
   k: z.string().optional(),
@@ -40,43 +42,40 @@ export const Route = createFileRoute("/r/$slug")({
   component: RoomLayout,
 });
 
-/** Height left for a room page under the top bar (narrow) or beside the side navigation (wide). */
-const VIEWPORT_HEIGHT = {
-  narrow: "calc(100dvh - 57px - env(safe-area-inset-top) - 24px - max(32px, env(safe-area-inset-bottom)))",
-  wide: "calc(100dvh - 32px - max(32px, env(safe-area-inset-bottom)))",
-} as const;
-
 const styles = stylex.create({
   page: { flexGrow: 1 },
+  /** Height left for a room page under the top bar (narrow) or beside the side navigation (wide). */
   fillNarrow: {
-    height: { default: "auto", [media.narrow]: VIEWPORT_HEIGHT.narrow, [media.wide]: VIEWPORT_HEIGHT.wide },
+    height: {
+      default: "auto",
+      [media.narrow]: `calc(100dvh - 57px - env(safe-area-inset-top) - ${space.pagePaddingNarrow} - max(${space.xxl}, env(safe-area-inset-bottom)))`,
+      [media.wide]: `calc(100dvh - ${space.pagePaddingWide} - max(${space.xxl}, env(safe-area-inset-bottom)))`,
+    },
     minHeight: { default: "auto", [media.narrow]: 520 },
   },
   top: {
     alignItems: { default: "stretch", [media.narrow]: "flex-end" },
     display: "flex",
     flexDirection: { default: "column", [media.narrow]: "row" },
-    gap: { default: 14, [media.narrow]: 24 },
+    gap: { default: space.md, [media.narrow]: space.xl },
     justifyContent: "space-between",
   },
-  header: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 },
-  name: { fontSize: { default: fonts.sizeXxl, [media.narrow]: 30 }, fontWeight: 800, lineHeight: 1.2 },
+  header: { display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 },
   meta: {
     alignItems: "center",
     color: colors.textMuted,
+    columnGap: space.md,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: fonts.sizeSm,
-    gap: 12,
   },
-  metaItem: { alignItems: "center", display: "inline-flex", gap: 4 },
+  metaItem: { alignItems: "center", display: "inline-flex", gap: space.xs },
   tabs: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     display: "flex",
     flexShrink: 0,
-    gap: 2,
-    padding: 3,
+    gap: space.xxs,
+    padding: space.xxs,
     width: { default: "100%", [media.narrow]: 360 },
   },
   tab: {
@@ -87,11 +86,9 @@ const styles = stylex.create({
     color: { default: colors.textMuted, '[data-status="active"]': colors.primaryText },
     display: "flex",
     flexGrow: 1,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
-    gap: 6,
+    gap: space.sm,
     justifyContent: "center",
-    minHeight: 42,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     textDecoration: "none",
   },
@@ -110,7 +107,7 @@ function RoomLayout() {
 
   if (!canView) {
     return (
-      <EmptyState icon={<QrCode size={40} aria-hidden />} title="输入房间码">
+      <EmptyState icon={<QrCode size={ICON_SIZE.empty} aria-hidden />} title="输入房间码">
         <ScanRoomActions isAutoFocus />
       </EmptyState>
     );
@@ -153,7 +150,7 @@ function RoomFrame({ slug }: { slug: string }) {
 
   if (isTokenRejected) {
     return (
-      <EmptyState icon={<QrCode size={40} aria-hidden />} title="输入房间码">
+      <EmptyState icon={<QrCode size={ICON_SIZE.empty} aria-hidden />} title="输入房间码">
         <ScanRoomActions isAutoFocus />
       </EmptyState>
     );
@@ -164,15 +161,15 @@ function RoomFrame({ slug }: { slug: string }) {
       <div {...stylex.props(styles.top)}>
         <header {...stylex.props(styles.header)}>
           {room === undefined ? (
-            <Skeleton height={36} width="50%" />
+            <Skeleton height={32} width="50%" />
           ) : (
             <>
-              <h1 {...stylex.props(styles.name)}>{room.name}</h1>
-              <div {...stylex.props(styles.meta)}>
+              <h1 {...stylex.props(text.display)}>{room.name}</h1>
+              <div {...stylex.props(text.meta, styles.meta)}>
                 {room.location === "" ? null : <span>{room.location}</span>}
                 {room.capacity > 0 ? (
                   <span {...stylex.props(styles.metaItem)}>
-                    <Users size={14} aria-hidden />
+                    <Users size={ICON_SIZE.meta} aria-hidden />
                     可容纳 {room.capacity} 人
                   </span>
                 ) : null}
@@ -185,27 +182,27 @@ function RoomFrame({ slug }: { slug: string }) {
             to="/r/$slug"
             params={{ slug }}
             activeOptions={{ exact: true, includeSearch: false }}
-            {...stylex.props(styles.tab)}
+            {...stylex.props(text.label, styles.tab)}
           >
-            <House size={18} aria-hidden />
+            <House size={ICON_SIZE.nav} aria-hidden />
             概况
           </Link>
           <Link
             to="/r/$slug/book"
             params={{ slug }}
             activeOptions={{ includeSearch: false }}
-            {...stylex.props(styles.tab)}
+            {...stylex.props(text.label, styles.tab)}
           >
-            <CirclePlus size={18} aria-hidden />
+            <CirclePlus size={ICON_SIZE.nav} aria-hidden />
             预约
           </Link>
           <Link
             to="/r/$slug/calendar"
             params={{ slug }}
             activeOptions={{ includeSearch: false }}
-            {...stylex.props(styles.tab)}
+            {...stylex.props(text.label, styles.tab)}
           >
-            <CalendarDays size={18} aria-hidden />
+            <CalendarDays size={ICON_SIZE.nav} aria-hidden />
             日历
           </Link>
         </nav>

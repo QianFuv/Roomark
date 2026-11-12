@@ -22,7 +22,7 @@ import {
   parseDate,
   parseZoned,
 } from "../../../lib/time";
-import { colors, media, radii } from "../../../styles/tokens.stylex";
+import { colors, media, radii, space } from "../../../styles/tokens.stylex";
 import { EmptyState, Skeleton, Stack } from "../../../ui/layout";
 
 const styles = stylex.create({
@@ -33,7 +33,7 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: { default: 0, [media.narrow]: 1 },
     maxWidth: 1000,
-    padding: { default: 0, [media.narrow]: 24, [media.wide]: 32 },
+    padding: { default: 0, [media.narrow]: space.xl },
     width: "100%",
   },
 });

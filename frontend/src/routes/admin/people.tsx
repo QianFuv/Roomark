@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { api, errorMessage, fetchClient, type Person } from "../../api/client";
 import { useSession } from "../../state/app-store";
-import { colors, fonts } from "../../styles/tokens.stylex";
+import { colors, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { SwitchRow } from "../../ui/controls";
 import { CORE_FEATURES, DataTable } from "../../ui/data-table";
@@ -22,6 +22,7 @@ import { SelectField, TextAreaField, TextField } from "../../ui/field";
 import { Badge, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/people")({ component: AdminPeoplePage });
 
@@ -58,15 +59,12 @@ const styles = stylex.create({
     alignItems: "flex-end",
     display: "flex",
     flexWrap: "wrap",
-    gap: 12,
+    gap: space.md,
     justifyContent: "space-between",
   },
   search: { flexGrow: 1, maxWidth: 360, minWidth: 200 },
-  name: { fontWeight: 600 },
   previewList: {
     color: colors.text,
-    fontSize: fonts.sizeSm,
-    lineHeight: 1.8,
     maxHeight: 200,
     overflowY: "auto",
   },
@@ -153,7 +151,7 @@ function AdminPeoplePage() {
   const columns = columnHelper.columns([
     columnHelper.accessor("name", {
       header: "姓名",
-      cell: (info) => <span {...stylex.props(styles.name)}>{info.getValue()}</span>,
+      cell: (info) => <span {...stylex.props(text.label)}>{info.getValue()}</span>,
     }),
     columnHelper.accessor("role", { header: "身份", cell: (info) => ROLE_LABELS[info.getValue()] }),
     columnHelper.accessor("isAdmin", {
@@ -176,7 +174,7 @@ function AdminPeoplePage() {
               size="sm"
               variant="ghost"
               aria-label={`编辑${person.name}`}
-              icon={<Pencil size={16} aria-hidden />}
+              icon={<Pencil aria-hidden />}
               onClick={() => setEditing(person)}
             />
             <Button
@@ -184,7 +182,7 @@ function AdminPeoplePage() {
               variant="ghost"
               aria-label={`重置${person.name}的口令`}
               disabled={!person.hasPasscode}
-              icon={<KeyRound size={16} aria-hidden />}
+              icon={<KeyRound aria-hidden />}
               onClick={() => void resetPasscode(person)}
             />
             <Button
@@ -192,7 +190,7 @@ function AdminPeoplePage() {
               variant="ghost"
               aria-label={`删除${person.name}`}
               disabled={person.id === session?.person.id}
-              icon={<Trash2 size={16} aria-hidden />}
+              icon={<Trash2 aria-hidden />}
               onClick={() => void remove(person)}
             />
           </Row>
@@ -211,14 +209,10 @@ function AdminPeoplePage() {
           <TextField label="搜索" type="search" value={query} onValueChange={setQuery} placeholder="姓名" />
         </div>
         <Row gap="sm">
-          <Button icon={<FileUp size={18} aria-hidden />} onClick={() => setIsImporting(true)}>
+          <Button icon={<FileUp aria-hidden />} onClick={() => setIsImporting(true)}>
             批量导入
           </Button>
-          <Button
-            variant="primary"
-            icon={<UserPlus size={18} aria-hidden />}
-            onClick={() => setEditing("new")}
-          >
+          <Button variant="primary" icon={<UserPlus aria-hidden />} onClick={() => setEditing("new")}>
             添加
           </Button>
         </Row>

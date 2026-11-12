@@ -34,12 +34,14 @@ import {
 } from "../../lib/time";
 import { platform } from "../../platform/platform";
 import { appStore } from "../../state/app-store";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, lineHeights, media, radii, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ICON_SIZE } from "../../ui/icon";
 import { Card, EmptyState, Notice, Section, Skeleton, Stack } from "../../ui/layout";
 import { Segmented } from "../../ui/segmented";
 import { Sheet } from "../../ui/sheet";
 import { useLayoutTier } from "../../ui/tier";
+import { text } from "../../ui/typography";
 import { endBooking, extendBooking, quickUse } from "../booking/booking-actions";
 import { BookingDetailSheet } from "../booking/booking-detail";
 import { PurposeField, TITLE_REQUIRED_MESSAGE } from "../booking/purpose-field";
@@ -52,7 +54,7 @@ const styles = stylex.create({
   layout: {
     alignItems: "start",
     display: "grid",
-    gap: { default: 16, [media.wide]: 24 },
+    gap: { default: space.sectionGap, [media.wide]: space.sectionGapWide },
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.narrow]: "minmax(0, 1fr) minmax(0, 1fr)",
@@ -76,84 +78,70 @@ const styles = stylex.create({
     flexDirection: "column",
     minHeight: 0,
     minWidth: 0,
-    padding: 16,
+    padding: space.cardPadding,
   },
-  column: { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 },
+  column: { display: "flex", flexDirection: "column", gap: space.sectionGap, minWidth: 0 },
   scrollColumn: {
-    marginInline: -4,
+    marginInline: `calc(-1 * ${space.xs})`,
     minHeight: 0,
     overflowY: { default: "visible", [media.narrow]: "auto" },
-    paddingBottom: 4,
-    paddingInline: 4,
+    paddingBottom: space.xs,
+    paddingInline: space.xs,
     scrollbarWidth: "thin",
   },
   grow: { flexGrow: 1 },
+  bookButton: { alignSelf: "flex-start" },
+
   hero: {
     alignItems: "center",
-    borderRadius: radii.extraLarge,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.large,
+    borderStyle: "solid",
+    borderWidth: 1,
+    columnGap: space.md,
     display: "grid",
-    columnGap: 14,
     gridTemplateColumns: "auto minmax(0, 1fr)",
-    paddingBlock: 18,
-    paddingInline: 20,
-    rowGap: 2,
+    padding: space.cardPadding,
   },
-  heroFree: { backgroundColor: colors.freeSoft },
-  heroBusy: { backgroundColor: colors.busySoft },
-  heroClosed: { backgroundColor: colors.surfaceMuted },
-  dot: { borderRadius: radii.pill, gridRowEnd: "span 2", gridRowStart: "1", height: 14, width: 14 },
+  dotCell: { alignItems: "center", display: "flex", gridRowStart: "1", height: lineHeights.title },
+  dot: { borderRadius: radii.pill, height: 10, width: 10 },
   dotFree: {
     backgroundColor: colors.free,
-    boxShadow: `0 0 0 5px color-mix(in srgb, ${colors.free} 22%, transparent)`,
+    boxShadow: `0 0 0 4px color-mix(in srgb, ${colors.free} 22%, transparent)`,
   },
   dotBusy: {
-    backgroundColor: colors.busy,
-    boxShadow: `0 0 0 5px color-mix(in srgb, ${colors.busy} 22%, transparent)`,
+    backgroundColor: colors.busySolid,
+    boxShadow: `0 0 0 4px color-mix(in srgb, ${colors.busySolid} 22%, transparent)`,
   },
   dotClosed: { backgroundColor: colors.textSubtle },
-  heroMain: {
-    fontSize: fonts.sizeXxl,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 800,
-    letterSpacing: "-0.01em",
-    lineHeight: 1.25,
-    minWidth: 0,
+  heroMain: { color: colors.text, minWidth: 0 },
+  heroSub: { color: colors.textMuted, gridColumnStart: "2", minWidth: 0 },
+  cardHead: {
+    alignItems: "center",
+    display: "flex",
+    gap: space.controlGap,
+    justifyContent: "space-between",
+    minHeight: sizes.control,
   },
-  stateFree: { color: colors.freeStrong },
-  stateBusy: { color: colors.busyStrong },
-  stateClosed: { color: colors.textMuted },
-  heroSub: {
-    color: colors.text,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    lineHeight: 1.5,
-    minWidth: 0,
-    opacity: 0.8,
-  },
-  cardHead: { alignItems: "center", display: "flex", gap: 8, justifyContent: "space-between", minHeight: 44 },
-  quickGrid: { display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
-  quickButton: { flexDirection: "column", gap: 0, minHeight: 56, minWidth: 0, paddingInline: 4 },
+  quickGrid: { display: "grid", gap: space.controlGap, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  quickButton: { flexDirection: "column", gap: 0, minWidth: 0, paddingInline: space.xs },
   quickLabel: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   quickHint: {
-    fontSize: fonts.sizeXs,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 500,
     maxWidth: "100%",
     opacity: 0.85,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
-  ongoing: { display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
-  ongoingButton: { minWidth: 0, paddingInline: 4 },
+  ongoing: { display: "grid", gap: space.controlGap, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  ongoingButton: { minWidth: 0, paddingInline: space.xs },
   sectionLabel: {
     alignItems: "center",
     color: colors.text,
     display: "flex",
-    fontSize: fonts.sizeLg,
-    fontWeight: 700,
-    gap: 8,
+    gap: space.sm,
   },
-  agenda: { display: "flex", flexDirection: "column", gap: 6 },
+  agenda: { display: "flex", flexDirection: "column", gap: space.sm },
   agendaRow: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, ":hover": colors.surfaceHover },
@@ -165,11 +153,11 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 12,
-    minHeight: 56,
+    gap: space.md,
+    minHeight: sizes.controlLarge,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 8,
-    paddingInline: 12,
+    paddingBlock: space.rowPaddingBlock,
+    paddingInline: space.rowPaddingInline,
     textAlign: "start",
     textDecoration: "none",
     width: "100%",
@@ -184,24 +172,18 @@ const styles = stylex.create({
   agendaTime: {
     color: colors.textMuted,
     flexShrink: 0,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
     width: 92,
   },
   agendaTimeDated: {
     display: "flex",
     flexDirection: "column",
-    gap: 2,
     minWidth: 92,
     whiteSpace: "nowrap",
     width: "auto",
   },
-  agendaDay: { color: colors.primaryText, fontWeight: 700 },
-  agendaBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2, minWidth: 0 },
+  agendaDay: { color: colors.primaryText },
+  agendaBody: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 },
   agendaTitle: {
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -210,39 +192,36 @@ const styles = stylex.create({
     alignItems: "center",
     color: colors.textMuted,
     display: "flex",
-    fontSize: fonts.sizeSm,
-    gap: 4,
+    gap: space.xs,
   },
-  freeText: { color: colors.free, fontSize: fonts.sizeMd, fontWeight: 600 },
-  freeAction: { color: colors.primaryText, flexShrink: 0, fontSize: fonts.sizeSm, fontWeight: 600 },
+  freeText: { color: colors.free },
+  freeAction: { color: colors.primaryText, flexShrink: 0 },
   announcement: {
     backgroundColor: colors.warningSoft,
     borderRadius: radii.medium,
     color: colors.text,
     display: "flex",
-    gap: 10,
-    paddingBlock: 12,
-    paddingInline: 14,
+    gap: space.sm,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
-  announcementIcon: { color: colors.warning, flexShrink: 0, marginTop: 2 },
-  announcementTitle: { fontSize: fonts.sizeMd, fontWeight: 700 },
+  announcementIcon: {
+    alignItems: "center",
+    color: colors.warning,
+    display: "inline-flex",
+    flexShrink: 0,
+    height: lineHeights.control,
+  },
   announcementBody: {
     color: colors.textMuted,
-    fontSize: fonts.sizeSm,
-    lineHeight: 1.6,
     whiteSpace: "pre-wrap",
   },
-  heatmapHead: { alignItems: "center", display: "flex", gap: 4, minHeight: 44 },
-  heatmapTitle: { color: colors.text, flexGrow: 1, fontSize: fonts.sizeLg, fontWeight: 700, minWidth: 0 },
-  heatmapData: { display: "flex", flexDirection: "column", gap: 10, transition: "opacity 160ms ease" },
+  heatmapHead: { alignItems: "center", display: "flex", gap: space.xs, minHeight: sizes.control },
+  heatmapTitle: { color: colors.text, flexGrow: 1, minWidth: 0 },
+  heatmapData: { display: "flex", flexDirection: "column", gap: space.sm, transition: "opacity 160ms ease" },
   heatmapLoading: { opacity: 0.55 },
-  heatmapSummary: {
-    color: colors.textMuted,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    lineHeight: 1.5,
-  },
-  heatmapWeek: { color: colors.text, fontWeight: 700 },
+  heatmapSummary: { color: colors.textMuted },
+  heatmapWeek: { color: colors.text },
 });
 
 /**
@@ -437,11 +416,13 @@ function Announcements({ items }: { items: readonly Announcement[] }) {
       {sorted.map((item) => (
         <aside key={item.id} aria-label={`公告：${item.title}`} {...stylex.props(styles.announcement)}>
           <span {...stylex.props(styles.announcementIcon)}>
-            {item.pinned ? <Pin size={18} aria-hidden /> : <Megaphone size={18} aria-hidden />}
+            {item.pinned ? <Pin aria-hidden /> : <Megaphone aria-hidden />}
           </span>
           <div>
-            <p {...stylex.props(styles.announcementTitle)}>{item.title}</p>
-            {item.body === "" ? null : <p {...stylex.props(styles.announcementBody)}>{item.body}</p>}
+            <p {...stylex.props(text.label)}>{item.title}</p>
+            {item.body === "" ? null : (
+              <p {...stylex.props(text.body, styles.announcementBody)}>{item.body}</p>
+            )}
           </div>
         </aside>
       ))}
@@ -450,8 +431,9 @@ function Announcements({ items }: { items: readonly Announcement[] }) {
 }
 
 /**
- * Status card: one headline that leads with the state and when it changes, and one supporting
- * line.
+ * Status card: a colored dot carries the state; the headline (title role, plain text color) leads
+ * with what is happening and when it changes, and one muted supporting line follows. It never
+ * outweighs the page title.
  *
  * @param props - Hero props.
  * @param props.room - The room.
@@ -500,30 +482,17 @@ function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now
   }
 
   return (
-    <section
-      aria-live="polite"
-      aria-label="当前状态"
-      {...stylex.props(
-        styles.hero,
-        tone === "free" ? styles.heroFree : tone === "busy" ? styles.heroBusy : styles.heroClosed,
-      )}
-    >
-      <span
-        aria-hidden
-        {...stylex.props(
-          styles.dot,
-          tone === "free" ? styles.dotFree : tone === "busy" ? styles.dotBusy : styles.dotClosed,
-        )}
-      />
-      <p
-        {...stylex.props(
-          styles.heroMain,
-          tone === "free" ? styles.stateFree : tone === "busy" ? styles.stateBusy : styles.stateClosed,
-        )}
-      >
-        {headline}
-      </p>
-      {detail === "" ? null : <p {...stylex.props(styles.heroSub)}>{detail}</p>}
+    <section aria-live="polite" aria-label="当前状态" {...stylex.props(styles.hero)}>
+      <span aria-hidden {...stylex.props(styles.dotCell)}>
+        <span
+          {...stylex.props(
+            styles.dot,
+            tone === "free" ? styles.dotFree : tone === "busy" ? styles.dotBusy : styles.dotClosed,
+          )}
+        />
+      </span>
+      <p {...stylex.props(text.title, styles.heroMain)}>{headline}</p>
+      {detail === "" ? null : <p {...stylex.props(text.body, styles.heroSub)}>{detail}</p>}
     </section>
   );
 }
@@ -554,9 +523,8 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
       render={<Link to="/r/$slug/book" params={{ slug: room.slug }} />}
       nativeButton={false}
       variant={canQuickUse ? "ghost" : "primary"}
-      size={canQuickUse ? "md" : "lg"}
-      isFullWidth={!canQuickUse}
-      icon={<CalendarPlus size={18} aria-hidden />}
+      xstyle={canQuickUse ? undefined : styles.bookButton}
+      icon={<CalendarPlus aria-hidden />}
     >
       {canQuickUse ? "其他时间" : "预约"}
     </Button>
@@ -567,10 +535,7 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
   return (
     <Card as="section" ariaLabel="使用会议室">
       <div {...stylex.props(styles.cardHead)}>
-        <h2 {...stylex.props(styles.sectionLabel)}>
-          <Zap size={20} aria-hidden />
-          马上使用
-        </h2>
+        <h2 {...stylex.props(text.title, styles.sectionLabel)}>马上使用</h2>
         {otherTime}
       </div>
       <div {...stylex.props(styles.quickGrid)}>
@@ -593,7 +558,7 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
             }}
           >
             <span {...stylex.props(styles.quickLabel)}>{formatShortDuration(option.minutes)}</span>
-            <span {...stylex.props(styles.quickHint)}>到 {option.endClock}</span>
+            <span {...stylex.props(text.meta, styles.quickHint)}>到 {option.endClock}</span>
           </Button>
         ))}
       </div>
@@ -688,10 +653,10 @@ function QuickUseForm({
         <Button
           type="submit"
           variant="primary"
-          size="xl"
+          size="lg"
           isFullWidth
           isLoading={isSubmitting}
-          icon={<Zap size={20} aria-hidden />}
+          icon={<Zap aria-hidden />}
         >
           开始使用{chosen === undefined ? "" : `，到 ${chosen.endClock}`}
         </Button>
@@ -717,7 +682,6 @@ function OngoingControls({ booking }: { booking: Booking }) {
           <Button
             key={minutes}
             variant="soft"
-            size="lg"
             xstyle={styles.ongoingButton}
             isLoading={pending === `extend-${minutes}`}
             disabled={pending !== undefined}
@@ -732,7 +696,6 @@ function OngoingControls({ booking }: { booking: Booking }) {
         ))}
         <Button
           variant="secondary"
-          size="lg"
           xstyle={styles.ongoingButton}
           isLoading={pending === "end"}
           disabled={pending !== undefined}
@@ -778,21 +741,21 @@ function AgendaBookingRow({
     <button
       type="button"
       onClick={() => onSelect(booking)}
-      {...stylex.props(styles.agendaRow, isNow && styles.agendaNow, isPast && styles.agendaPast)}
+      {...stylex.props(text.body, styles.agendaRow, isNow && styles.agendaNow, isPast && styles.agendaPast)}
     >
-      <span {...stylex.props(styles.agendaTime, day !== "" && styles.agendaTimeDated)}>
+      <span {...stylex.props(text.meta, styles.agendaTime, day !== "" && styles.agendaTimeDated)}>
         {day === "" ? null : <span {...stylex.props(styles.agendaDay)}>{day}</span>}
         <span>
           {formatClock(booking.start)}–{formatClock(booking.end)}
         </span>
       </span>
       <span {...stylex.props(styles.agendaBody)}>
-        <span {...stylex.props(styles.agendaTitle)}>
+        <span {...stylex.props(text.label, styles.agendaTitle)}>
           {who}
           {booking.isMine ? "（我）" : ""}
         </span>
-        <span {...stylex.props(styles.agendaMeta)}>
-          {booking.series === undefined ? null : <Repeat size={13} aria-label="周期预约" />}
+        <span {...stylex.props(text.meta, styles.agendaMeta)}>
+          {booking.series === undefined ? null : <Repeat size={ICON_SIZE.meta} aria-label="周期预约" />}
           {booking.title === "" ? (booking.kind === "block" ? "" : "没写用途") : booking.title}
           {isNow ? " · 进行中" : ""}
         </span>
@@ -845,17 +808,17 @@ function TodayAgenda({
                 end: minutesToClock(Math.min(entry.endMinutes, ceilToGrid(entry.startMinutes) + 60)),
               }}
               aria-label={`${minutesToClock(entry.startMinutes)}–${minutesToClock(entry.endMinutes)} 空闲，点按预约`}
-              {...stylex.props(styles.agendaRow, styles.agendaFree)}
+              {...stylex.props(text.body, styles.agendaRow, styles.agendaFree)}
             >
-              <span {...stylex.props(styles.agendaTime)}>
+              <span {...stylex.props(text.meta, styles.agendaTime)}>
                 {minutesToClock(entry.startMinutes)}–{minutesToClock(entry.endMinutes)}
               </span>
               <span {...stylex.props(styles.agendaBody)}>
-                <span {...stylex.props(styles.freeText)}>
+                <span {...stylex.props(text.label, styles.freeText)}>
                   空闲 {formatDuration(entry.endMinutes - entry.startMinutes)}
                 </span>
               </span>
-              <span {...stylex.props(styles.freeAction)}>预约</span>
+              <span {...stylex.props(text.label, styles.freeAction)}>预约</span>
             </Link>
           )}
         </li>
@@ -907,7 +870,7 @@ function MeetingHeatmap({
   return (
     <Card as="section" ariaLabel="会议热力图" xstyle={isGrowing ? styles.grow : undefined}>
       <div {...stylex.props(styles.heatmapHead)}>
-        <h2 {...stylex.props(styles.heatmapTitle)}>会议热力图</h2>
+        <h2 {...stylex.props(text.title, styles.heatmapTitle)}>会议热力图</h2>
         <Button
           variant="secondary"
           size="sm"
@@ -920,16 +883,16 @@ function MeetingHeatmap({
           variant="ghost"
           aria-label="上一周"
           onClick={() => setWeek(weekStart.subtract({ weeks: 1 }).toString())}
-          icon={<ChevronLeft size={20} aria-hidden />}
+          icon={<ChevronLeft aria-hidden />}
         />
         <Button
           variant="ghost"
           aria-label="下一周"
           onClick={() => setWeek(weekStart.add({ weeks: 1 }).toString())}
-          icon={<ChevronRight size={20} aria-hidden />}
+          icon={<ChevronRight aria-hidden />}
         />
       </div>
-      <p aria-live="polite" {...stylex.props(styles.heatmapSummary)}>
+      <p aria-live="polite" {...stylex.props(text.meta, styles.heatmapSummary)}>
         <span {...stylex.props(styles.heatmapWeek)}>{weekLabel}</span>
         {heatmap.data === undefined
           ? ""

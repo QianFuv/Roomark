@@ -11,8 +11,9 @@ import { createStore, useSelector } from "@tanstack/react-store";
 import type { ReactNode } from "react";
 
 import { useOverlayHistory } from "../app/overlay-history";
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, fonts, media, radii, space } from "../styles/tokens.stylex";
 import { Button, type ButtonVariant } from "./button";
+import { text } from "./typography";
 
 /** One button of a choice dialog. */
 export interface ChoiceOption<Value extends string> {
@@ -97,29 +98,28 @@ const styles = stylex.create({
   popup: {
     backgroundColor: colors.surface,
     borderRadius: radii.extraLarge,
-    bottom: { default: 12, [media.narrow]: "auto" },
+    bottom: { default: space.md, [media.narrow]: "auto" },
     boxShadow: `0 20px 60px ${colors.shadowStrong}`,
     color: colors.text,
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    gap: 12,
-    insetInline: { default: 12, [media.narrow]: "auto" },
+    gap: space.cardGap,
+    insetInline: { default: space.md, [media.narrow]: "auto" },
     left: { default: null, [media.narrow]: "50%" },
     maxWidth: { default: null, [media.narrow]: 440 },
     outline: "none",
-    padding: 20,
+    padding: space.cardPadding,
     position: "fixed",
     top: { default: "auto", [media.narrow]: "30%" },
     translate: { default: null, [media.narrow]: "-50% 0" },
     width: { default: "auto", [media.narrow]: "100%" },
     zIndex: 60,
   },
-  title: { fontSize: fonts.sizeLg, fontWeight: 700, lineHeight: 1.4 },
-  description: { color: colors.textMuted, fontSize: fonts.sizeMd, lineHeight: 1.6 },
-  actions: { display: "flex", flexDirection: "column", gap: 8, marginTop: 4 },
-  optionHint: { color: colors.textMuted, fontSize: fonts.sizeXs, fontWeight: 400 },
-  optionLabel: { alignItems: "center", display: "flex", flexDirection: "column", gap: 2 },
+  description: { color: colors.textMuted },
+  actions: { display: "flex", flexDirection: "column", gap: space.controlGap, marginTop: space.xs },
+  optionHint: { color: colors.textMuted },
+  optionLabel: { alignItems: "center", display: "flex", flexDirection: "column" },
 });
 
 /**
@@ -152,9 +152,9 @@ export function DialogHost() {
       <AlertDialog.Portal>
         <AlertDialog.Backdrop {...stylex.props(styles.backdrop)} />
         <AlertDialog.Popup from="bottom" {...stylex.props(styles.popup)}>
-          <AlertDialog.Title {...stylex.props(styles.title)}>{request?.title}</AlertDialog.Title>
+          <AlertDialog.Title {...stylex.props(text.title)}>{request?.title}</AlertDialog.Title>
           {request?.description === undefined ? null : (
-            <AlertDialog.Description {...stylex.props(styles.description)}>
+            <AlertDialog.Description {...stylex.props(text.body, styles.description)}>
               {request.description}
             </AlertDialog.Description>
           )}
@@ -170,7 +170,7 @@ export function DialogHost() {
                 <span {...stylex.props(styles.optionLabel)}>
                   {option.label}
                   {option.description === undefined ? null : (
-                    <span {...stylex.props(styles.optionHint)}>{option.description}</span>
+                    <span {...stylex.props(text.meta, styles.optionHint)}>{option.description}</span>
                   )}
                 </span>
               </Button>

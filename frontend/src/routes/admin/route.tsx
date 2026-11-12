@@ -10,10 +10,12 @@ import { ShieldAlert } from "lucide-react";
 import { ADMIN_SECTIONS } from "../../app/shell";
 import { ManualLogin, switchIdentity } from "../../features/identity/identity";
 import { useSession } from "../../state/app-store";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, media, radii, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ICON_SIZE } from "../../ui/icon";
 import { Card, EmptyState, PageHeader, Stack } from "../../ui/layout";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin")({ component: AdminLayout });
 
@@ -22,8 +24,8 @@ const styles = stylex.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     display: { default: "flex", [media.wide]: "none" },
-    gap: 2,
-    padding: 3,
+    gap: space.xxs,
+    padding: space.xxs,
   },
   tab: {
     alignItems: "center",
@@ -34,13 +36,11 @@ const styles = stylex.create({
     display: "flex",
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: { default: fonts.sizeSm, [media.narrow]: fonts.sizeMd },
-    fontWeight: 600,
-    gap: 6,
+    gap: space.sm,
     justifyContent: "center",
-    minHeight: 42,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: { default: 8, [media.narrow]: 12 },
+    paddingInline: { default: space.sm, [media.narrow]: space.md },
     textDecoration: "none",
   },
   icon: { display: { default: "none", [media.narrow]: "inline-flex" } },
@@ -70,7 +70,7 @@ function AdminLayout() {
 
   if (!session.person.isAdmin) {
     return (
-      <EmptyState icon={<ShieldAlert size={40} aria-hidden />} title="需要管理员权限">
+      <EmptyState icon={<ShieldAlert size={ICON_SIZE.empty} aria-hidden />} title="需要管理员权限">
         <p>{session.person.name}不是管理员</p>
         <Button
           variant="primary"
@@ -88,7 +88,7 @@ function AdminLayout() {
     <Stack gap="lg">
       <nav aria-label="管理" {...stylex.props(styles.nav)}>
         {ADMIN_SECTIONS.map((section) => (
-          <Link key={section.to} to={section.to} {...stylex.props(styles.tab)}>
+          <Link key={section.to} to={section.to} {...stylex.props(text.label, styles.tab)}>
             <span {...stylex.props(styles.icon)}>{section.icon}</span>
             {section.label}
           </Link>

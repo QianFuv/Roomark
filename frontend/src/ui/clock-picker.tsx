@@ -11,13 +11,14 @@ import { useId, useState } from "react";
 
 import { clockToMinutes, minutesToClock } from "../lib/time";
 import { useOverlayHistory } from "../app/overlay-history";
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 const HOURS = Array.from({ length: 24 }, (_unused, hour) => hour);
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-  label: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
+  root: { display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 },
+  label: { color: colors.text },
   trigger: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, ":hover": colors.surfaceHover },
@@ -29,12 +30,10 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    gap: 8,
-    minHeight: 46,
+    gap: space.sm,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.md,
     textAlign: "start",
     width: "100%",
   },
@@ -52,14 +51,14 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    gap: 10,
+    gap: space.sm,
     outline: "none",
-    padding: 12,
-    width: "min(300px, calc(100vw - 24px))",
+    padding: space.md,
+    width: `min(300px, calc(100vw - ${space.xl}))`,
   },
-  caption: { color: colors.textMuted, fontSize: fonts.sizeXs, fontWeight: 600 },
-  hours: { display: "grid", gap: 4, gridTemplateColumns: "repeat(6, minmax(0, 1fr))" },
-  minutes: { display: "grid", gap: 4, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  caption: { color: colors.textMuted },
+  hours: { display: "grid", gap: space.xs, gridTemplateColumns: "repeat(6, minmax(0, 1fr))" },
+  minutes: { display: "grid", gap: space.xs, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
   cell: {
     backgroundColor: {
       default: "transparent",
@@ -71,10 +70,7 @@ const styles = stylex.create({
     color: { default: colors.text, '[aria-pressed="true"]': colors.onPrimary },
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
-    minHeight: 36,
+    minHeight: sizes.controlSmall,
     opacity: { default: 1, ":disabled": 0.35 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
   },
@@ -107,26 +103,26 @@ export function ClockPicker({ label, value, onValueChange, step = 15 }: ClockPic
 
   return (
     <div {...stylex.props(styles.root)}>
-      <span id={labelId} {...stylex.props(styles.label)}>
+      <span id={labelId} {...stylex.props(text.label, styles.label)}>
         {label}
       </span>
       <Popover.Root open={isOpen} onOpenChange={(open) => setIsOpen(open)}>
         <Popover.Trigger
           aria-label={`${label}：${value === "" ? "未选择" : value}，选择时间`}
-          {...stylex.props(styles.trigger)}
+          {...stylex.props(text.body, styles.trigger)}
         >
           <span aria-hidden {...stylex.props(styles.icon)}>
-            <Clock size={16} />
+            <Clock />
           </span>
           <span {...stylex.props(styles.value)}>{value === "" ? "选择时间" : value}</span>
           <span aria-hidden {...stylex.props(styles.icon)}>
-            <ChevronDown size={16} />
+            <ChevronDown />
           </span>
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Positioner sideOffset={6} align="start" {...stylex.props(styles.positioner)}>
             <Popover.Popup aria-labelledby={labelId} {...stylex.props(styles.popup)}>
-              <span {...stylex.props(styles.caption)}>时</span>
+              <span {...stylex.props(text.meta, styles.caption)}>时</span>
               <div role="group" aria-label={`${label}，小时`} {...stylex.props(styles.hours)}>
                 {HOURS.map((hour) => (
                   <button
@@ -135,13 +131,13 @@ export function ClockPicker({ label, value, onValueChange, step = 15 }: ClockPic
                     aria-pressed={hour === selectedHour}
                     aria-label={`${hour} 点`}
                     onClick={() => onValueChange(minutesToClock(hour * 60 + (selectedMinute ?? 0)))}
-                    {...stylex.props(styles.cell)}
+                    {...stylex.props(text.label, styles.cell)}
                   >
                     {String(hour).padStart(2, "0")}
                   </button>
                 ))}
               </div>
-              <span {...stylex.props(styles.caption)}>分</span>
+              <span {...stylex.props(text.meta, styles.caption)}>分</span>
               <div role="group" aria-label={`${label}，分钟`} {...stylex.props(styles.minutes)}>
                 {minutes.map((minute) => (
                   <button
@@ -153,7 +149,7 @@ export function ClockPicker({ label, value, onValueChange, step = 15 }: ClockPic
                       onValueChange(minutesToClock((selectedHour ?? 0) * 60 + minute));
                       setIsOpen(false);
                     }}
-                    {...stylex.props(styles.cell)}
+                    {...stylex.props(text.label, styles.cell)}
                   >
                     :{String(minute).padStart(2, "0")}
                   </button>

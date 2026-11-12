@@ -12,12 +12,13 @@ import * as stylex from "@stylexjs/stylex";
 import { ChevronDown, Minus, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, fonts, media, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 const styles = stylex.create({
-  stepperRoot: { alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between" },
-  stepperLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  stepperGroup: { alignItems: "center", display: "flex", gap: 6 },
+  stepperRoot: { alignItems: "center", display: "flex", gap: space.md, justifyContent: "space-between" },
+  stepperLabel: { color: colors.text },
+  stepperGroup: { alignItems: "center", display: "flex", gap: space.xs },
   stepperButton: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, ":hover:not([data-disabled])": colors.surfaceHover },
@@ -28,36 +29,33 @@ const styles = stylex.create({
     color: colors.text,
     cursor: { default: "pointer", "[data-disabled]": "not-allowed" },
     display: "inline-flex",
-    height: 40,
+    height: sizes.control,
     justifyContent: "center",
     opacity: { default: 1, "[data-disabled]": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    width: 44,
+    width: sizes.control,
   },
   stepperInput: {
     backgroundColor: "transparent",
     borderWidth: 0,
     color: colors.text,
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeLg,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     textAlign: "center",
     width: 48,
   },
-  stepperUnit: { color: colors.textMuted, fontSize: fonts.sizeSm },
+  stepperUnit: { color: colors.textMuted },
   switchRow: {
     alignItems: "center",
     display: "flex",
-    gap: 12,
+    gap: space.md,
     justifyContent: "space-between",
-    minHeight: 48,
+    minHeight: sizes.controlLarge,
   },
-  switchText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
-  switchLabelRow: { alignItems: "center", display: "flex", gap: 4 },
-  switchLabel: { color: colors.text, cursor: "pointer", fontSize: fonts.sizeMd, fontWeight: 600 },
-  switchHint: { color: colors.textMuted, fontSize: fonts.sizeXs, lineHeight: 1.5 },
+  switchText: { display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 },
+  switchLabelRow: { alignItems: "center", display: "flex", gap: space.xs },
+  switchLabel: { color: colors.text, cursor: "pointer" },
+  switchHint: { color: colors.textMuted },
   switchRoot: {
     backgroundColor: { default: colors.borderStrong, "[data-checked]": colors.primary },
     borderRadius: radii.pill,
@@ -85,8 +83,8 @@ const styles = stylex.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     display: "flex",
-    gap: 2,
-    padding: 3,
+    gap: space.xxs,
+    padding: space.xxs,
     position: "relative",
   },
   tab: {
@@ -97,15 +95,13 @@ const styles = stylex.create({
     cursor: "pointer",
     flexGrow: 1,
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
-    minHeight: 40,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.md,
     position: "relative",
     zIndex: 1,
   },
-  panel: { outline: "none", paddingTop: 12 },
+  panel: { outline: "none", paddingTop: space.md },
   disclosureTrigger: {
     alignItems: "center",
     backgroundColor: "transparent",
@@ -114,17 +110,15 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeLg,
-    fontWeight: 700,
-    gap: 8,
+    gap: space.sm,
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     padding: 0,
     textAlign: "start",
     width: "100%",
   },
-  disclosureHint: { color: colors.textMuted, fontSize: fonts.sizeSm, fontWeight: 500 },
+  disclosureHint: { color: colors.textMuted },
   chevron: {
     color: colors.textMuted,
     flexShrink: 0,
@@ -164,11 +158,11 @@ export function SwitchRow({
     <Field.Root disabled={isDisabled} {...stylex.props(styles.switchRow)}>
       <div {...stylex.props(styles.switchText)}>
         <span {...stylex.props(styles.switchLabelRow)}>
-          <Field.Label {...stylex.props(styles.switchLabel)}>{label}</Field.Label>
+          <Field.Label {...stylex.props(text.label, styles.switchLabel)}>{label}</Field.Label>
           {help}
         </span>
         {hint === undefined ? null : (
-          <Field.Description {...stylex.props(styles.switchHint)}>{hint}</Field.Description>
+          <Field.Description {...stylex.props(text.meta, styles.switchHint)}>{hint}</Field.Description>
         )}
       </div>
       <Switch.Root
@@ -215,7 +209,7 @@ export function TabView<Value extends string>({ label, value, onValueChange, ite
     >
       <Tabs.List aria-label={label} {...stylex.props(styles.tabsList)}>
         {items.map((item) => (
-          <Tabs.Tab key={item.value} value={item.value} {...stylex.props(styles.tab)}>
+          <Tabs.Tab key={item.value} value={item.value} {...stylex.props(text.label, styles.tab)}>
             {item.label}
           </Tabs.Tab>
         ))}
@@ -248,17 +242,17 @@ export function Disclosure({ title, hint, isDefaultOpen = false, children }: Dis
 
   return (
     <Collapsible.Root open={isOpen} onOpenChange={(open) => setIsOpen(open)}>
-      <Collapsible.Trigger {...stylex.props(styles.disclosureTrigger)}>
+      <Collapsible.Trigger {...stylex.props(text.title, styles.disclosureTrigger)}>
         <span>
           {title}
           {hint === undefined ? null : (
             <>
               {" "}
-              <span {...stylex.props(styles.disclosureHint)}>{hint}</span>
+              <span {...stylex.props(text.meta, styles.disclosureHint)}>{hint}</span>
             </>
           )}
         </span>
-        <ChevronDown size={20} aria-hidden {...stylex.props(styles.chevron, isOpen && styles.chevronOpen)} />
+        <ChevronDown aria-hidden {...stylex.props(styles.chevron, isOpen && styles.chevronOpen)} />
       </Collapsible.Trigger>
       <Collapsible.Panel {...stylex.props(styles.disclosurePanel)}>{children}</Collapsible.Panel>
     </Collapsible.Root>
@@ -293,18 +287,18 @@ export function Stepper({ label, value, min, max, unit, onValueChange }: Stepper
       }}
       {...stylex.props(styles.stepperRoot)}
     >
-      <span aria-hidden {...stylex.props(styles.stepperLabel)}>
+      <span aria-hidden {...stylex.props(text.label, styles.stepperLabel)}>
         {label}
       </span>
       <NumberField.Group {...stylex.props(styles.stepperGroup)}>
         <NumberField.Decrement aria-label={`减少${label}`} {...stylex.props(styles.stepperButton)}>
-          <Minus size={18} aria-hidden />
+          <Minus aria-hidden />
         </NumberField.Decrement>
-        <NumberField.Input aria-label={label} {...stylex.props(styles.stepperInput)} />
+        <NumberField.Input aria-label={label} {...stylex.props(text.input, styles.stepperInput)} />
         <NumberField.Increment aria-label={`增加${label}`} {...stylex.props(styles.stepperButton)}>
-          <Plus size={18} aria-hidden />
+          <Plus aria-hidden />
         </NumberField.Increment>
-        {unit === undefined ? null : <span {...stylex.props(styles.stepperUnit)}>{unit}</span>}
+        {unit === undefined ? null : <span {...stylex.props(text.body, styles.stepperUnit)}>{unit}</span>}
       </NumberField.Group>
     </NumberField.Root>
   );

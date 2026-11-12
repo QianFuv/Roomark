@@ -20,7 +20,7 @@ import {
   parseZoned,
   todayDate,
 } from "../../lib/time";
-import { colors, fonts } from "../../styles/tokens.stylex";
+import { colors, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { ClockPicker } from "../../ui/clock-picker";
 import { SwitchRow } from "../../ui/controls";
@@ -28,8 +28,10 @@ import { DatePicker } from "../../ui/date-picker";
 import { confirmAction } from "../../ui/dialogs";
 import { SelectField, TextAreaField, TextField } from "../../ui/field";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
+import { ICON_SIZE } from "../../ui/icon";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/announcements")({ component: AdminAnnouncementsPage });
 
@@ -48,12 +50,11 @@ const announcementSchema = z
   });
 
 const styles = stylex.create({
-  list: { display: "flex", flexDirection: "column", gap: 12 },
-  title: { fontSize: fonts.sizeLg, fontWeight: 700 },
-  body: { color: colors.textMuted, fontSize: fonts.sizeMd, lineHeight: 1.6, whiteSpace: "pre-wrap" },
-  meta: { color: colors.textSubtle, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
-  pair: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
-  error: { color: colors.busy, fontSize: fonts.sizeXs, lineHeight: 1.5 },
+  list: { display: "flex", flexDirection: "column", gap: space.md },
+  body: { color: colors.textMuted, whiteSpace: "pre-wrap" },
+  meta: { color: colors.textSubtle },
+  pair: { display: "grid", gap: space.md, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+  error: { color: colors.busy },
 });
 
 /**
@@ -116,7 +117,7 @@ function AdminAnnouncementsPage() {
     <Stack gap="lg">
       <Row gap="md" isSpread>
         <PageHeader title="公告" />
-        <Button variant="primary" icon={<Plus size={18} aria-hidden />} onClick={() => setEditing("new")}>
+        <Button variant="primary" icon={<Plus aria-hidden />} onClick={() => setEditing("new")}>
           发布公告
         </Button>
       </Row>
@@ -127,7 +128,7 @@ function AdminAnnouncementsPage() {
           <Skeleton height={160} />
         )
       ) : items.length === 0 ? (
-        <EmptyState icon={<Megaphone size={32} aria-hidden />} title="还没有公告" />
+        <EmptyState icon={<Megaphone size={ICON_SIZE.empty} aria-hidden />} title="还没有公告" />
       ) : (
         <ul {...stylex.props(styles.list)}>
           {items.map((item) => {
@@ -140,8 +141,8 @@ function AdminAnnouncementsPage() {
             return (
               <Card key={item.id} as="li">
                 <Row gap="sm">
-                  {item.pinned ? <Pin size={16} aria-label="置顶" /> : null}
-                  <span {...stylex.props(styles.title)}>{item.title}</span>
+                  {item.pinned ? <Pin aria-label="置顶" /> : null}
+                  <span {...stylex.props(text.title)}>{item.title}</span>
                   <Badge tone={state === "生效中" ? "free" : "neutral"}>{state}</Badge>
                   <Badge>
                     {item.roomSlug === undefined || item.roomSlug === ""
@@ -149,19 +150,19 @@ function AdminAnnouncementsPage() {
                       : (roomNames.get(item.roomSlug) ?? item.roomSlug)}
                   </Badge>
                 </Row>
-                {item.body === "" ? null : <p {...stylex.props(styles.body)}>{item.body}</p>}
-                <span {...stylex.props(styles.meta)}>
+                {item.body === "" ? null : <p {...stylex.props(text.body, styles.body)}>{item.body}</p>}
+                <span {...stylex.props(text.meta, styles.meta)}>
                   {formatMonthDay(starts.toPlainDate())} {formatClock(starts)} –{" "}
                   {formatMonthDay(ends.toPlainDate())} {formatClock(ends)}
                 </span>
                 <Row gap="sm">
-                  <Button size="sm" icon={<Pencil size={16} aria-hidden />} onClick={() => setEditing(item)}>
+                  <Button size="sm" icon={<Pencil aria-hidden />} onClick={() => setEditing(item)}>
                     编辑
                   </Button>
                   <Button
                     size="sm"
                     variant="danger"
-                    icon={<Trash2 size={16} aria-hidden />}
+                    icon={<Trash2 aria-hidden />}
                     onClick={() => void remove(item)}
                   >
                     删除
@@ -392,7 +393,7 @@ function DateTimeField({
         />
       </div>
       {error === undefined ? null : (
-        <p role="alert" {...stylex.props(styles.error)}>
+        <p role="alert" {...stylex.props(text.meta, styles.error)}>
           {error}
         </p>
       )}

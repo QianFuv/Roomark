@@ -15,13 +15,14 @@ import { api, errorMessage, type Booking } from "../../api/client";
 import { cancelBooking } from "../../features/booking/booking-actions";
 import { isFinished } from "../../lib/schedule";
 import { formatBookingWhen, nowZoned, parseDate, parseZoned, todayDate } from "../../lib/time";
-import { colors, fonts, media } from "../../styles/tokens.stylex";
+import { colors, media, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { CORE_FEATURES, DataTable } from "../../ui/data-table";
 import { DatePicker } from "../../ui/date-picker";
 import { ComboboxField, SelectField } from "../../ui/field";
 import { HelpHint } from "../../ui/help-hint";
 import { Badge, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/bookings")({ component: AdminBookingsPage });
 
@@ -30,7 +31,7 @@ const columnHelper = createColumnHelper<typeof CORE_FEATURES, Booking>();
 const styles = stylex.create({
   filters: {
     display: "grid",
-    gap: 12,
+    gap: space.md,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
       [media.narrow]: "repeat(3, minmax(0, 1fr))",
@@ -39,7 +40,6 @@ const styles = stylex.create({
   },
   title: {
     color: colors.textMuted,
-    fontSize: fonts.sizeSm,
     maxWidth: 220,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -106,9 +106,8 @@ function AdminBookingsPage() {
     columnHelper.accessor("title", {
       header: "用途",
       cell: (info) => (
-        <span {...stylex.props(styles.title)}>
-          {info.row.original.series === undefined ? null : <Repeat size={12} aria-label="周期预约" />}{" "}
-          {info.getValue()}
+        <span {...stylex.props(text.body, styles.title)}>
+          {info.row.original.series === undefined ? null : <Repeat aria-label="周期预约" />} {info.getValue()}
         </span>
       ),
     }),
@@ -136,7 +135,7 @@ function AdminBookingsPage() {
               size="sm"
               variant="ghost"
               aria-label="修改"
-              icon={<Pencil size={16} aria-hidden />}
+              icon={<Pencil aria-hidden />}
               onClick={() =>
                 void navigate({
                   to: "/r/$slug/book",
@@ -149,7 +148,7 @@ function AdminBookingsPage() {
               size="sm"
               variant="ghost"
               aria-label="取消"
-              icon={<Trash2 size={16} aria-hidden />}
+              icon={<Trash2 aria-hidden />}
               onClick={() => void cancelBooking(booking).then(() => bookings.refetch())}
             />
           </Row>
@@ -172,7 +171,7 @@ function AdminBookingsPage() {
             </HelpHint>
           )}
           <Button
-            icon={<UserRoundPlus size={18} aria-hidden />}
+            icon={<UserRoundPlus aria-hidden />}
             disabled={targetRoom === undefined}
             onClick={() => {
               if (targetRoom !== undefined)
@@ -182,7 +181,7 @@ function AdminBookingsPage() {
             代人预约
           </Button>
           <Button
-            icon={<Ban size={18} aria-hidden />}
+            icon={<Ban aria-hidden />}
             disabled={targetRoom === undefined}
             onClick={() => {
               if (targetRoom !== undefined) {

@@ -12,6 +12,7 @@ import { api, errorMessage } from "../../api/client";
 import {
   EXPORT_DPI,
   exportPoster,
+  loadPosterFonts,
   pixelSize,
   posterFileName,
   renderPoster,
@@ -20,11 +21,12 @@ import {
   type PosterLayout,
 } from "../../lib/qr-poster";
 import { platform } from "../../platform/platform";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, media, radii, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Card, EmptyState, Notice, PageHeader, Skeleton, Stack } from "../../ui/layout";
 import { Segmented } from "../../ui/segmented";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/rooms_/$roomId/qr")({ component: QrExportPage });
 
@@ -36,7 +38,7 @@ const styles = stylex.create({
   layout: {
     alignItems: "stretch",
     display: "grid",
-    gap: 16,
+    gap: space.sectionGap,
     gridTemplateColumns: { default: "minmax(0, 1fr)", [media.wide]: "minmax(0, 1fr) 360px" },
   },
   stage: {
@@ -46,7 +48,7 @@ const styles = stylex.create({
     display: "flex",
     justifyContent: "center",
     minHeight: 360,
-    padding: { default: 16, [media.narrow]: 32 },
+    padding: { default: space.lg, [media.narrow]: space.xxl },
   },
   paper: {
     backgroundColor: "#ffffff",
@@ -57,7 +59,7 @@ const styles = stylex.create({
     maxWidth: "100%",
     objectFit: "contain",
   },
-  facts: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.7, wordBreak: "break-all" },
+  facts: { color: colors.textMuted, wordBreak: "break-all" },
 });
 
 /**
@@ -87,9 +89,18 @@ function QrExportPage() {
         };
 
   useEffect(() => {
-    if (canvasRef.current === null || content === undefined) return;
+    if (content === undefined) return undefined;
 
-    renderPoster(canvasRef.current, layout, content, PREVIEW_DPI);
+    let isCurrent = true;
+
+    void loadPosterFonts(content).then(() => {
+      if (isCurrent && canvasRef.current !== null)
+        renderPoster(canvasRef.current, layout, content, PREVIEW_DPI);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [content, layout]);
 
   if (qr.isError) {
@@ -163,17 +174,17 @@ function QrExportPage() {
               onValueChange={setFormat}
             />
             {content === undefined ? null : (
-              <p {...stylex.props(styles.facts)}>
+              <p {...stylex.props(text.meta, styles.facts)}>
                 {size.width}×{size.height} 像素 · 房间码 {content.code}
               </p>
             )}
             <Button
               variant="primary"
-              size="xl"
+              size="lg"
               isFullWidth
               isLoading={isExporting}
               disabled={content === undefined}
-              icon={<Download size={20} aria-hidden />}
+              icon={<Download aria-hidden />}
               onClick={() => void download()}
             >
               {platform().kind === "web" ? "下载" : "保存"} {format.toUpperCase()}

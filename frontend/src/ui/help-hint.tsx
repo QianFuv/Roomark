@@ -11,7 +11,8 @@ import { CircleHelp } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { useOverlayHistory } from "../app/overlay-history";
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 const styles = stylex.create({
   trigger: {
@@ -27,15 +28,15 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: 0,
-    height: 44,
+    height: sizes.control,
     justifyContent: "center",
-    marginBlock: -12,
+    marginBlock: `calc(-1 * ${space.md})`,
     marginInlineEnd: 0,
-    marginInlineStart: -10,
+    marginInlineStart: `calc(-1 * ${space.md})`,
     outline: "none",
     padding: 0,
     verticalAlign: "middle",
-    width: 44,
+    width: sizes.control,
   },
   icon: {
     borderRadius: radii.pill,
@@ -52,13 +53,10 @@ const styles = stylex.create({
     boxShadow: `0 10px 28px ${colors.shadowStrong}`,
     color: colors.text,
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: 400,
-    lineHeight: 1.6,
-    maxWidth: "min(280px, calc(100vw - 24px))",
+    maxWidth: `min(280px, calc(100vw - ${space.xl}))`,
     outline: "none",
-    paddingBlock: 8,
-    paddingInline: 12,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
 });
 
@@ -91,12 +89,12 @@ export function HelpHint({ topic, children }: { topic: string; children: ReactNo
         {...stylex.props(stylex.defaultMarker(), styles.trigger)}
       >
         <span {...stylex.props(styles.icon)}>
-          <CircleHelp size={16} aria-hidden />
+          <CircleHelp aria-hidden />
         </span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={2} {...stylex.props(styles.positioner)}>
-          <Popover.Popup {...stylex.props(styles.popup)}>{children}</Popover.Popup>
+          <Popover.Popup {...stylex.props(text.body, styles.popup)}>{children}</Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>

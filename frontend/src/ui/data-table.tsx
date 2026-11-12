@@ -7,8 +7,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { tableFeatures, type ReactTable, type RowData } from "@tanstack/react-table";
 
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, radii, space } from "../styles/tokens.stylex";
 import { useLayoutTier } from "./tier";
+import { text } from "./typography";
 
 /** Feature set shared by the admin tables. */
 export const CORE_FEATURES = tableFeatures({});
@@ -22,7 +23,7 @@ const styles = stylex.create({
     borderWidth: 1,
     overflow: "hidden",
   },
-  table: { borderCollapse: "collapse", fontSize: fonts.sizeMd, width: "100%" },
+  table: { borderCollapse: "collapse", width: "100%" },
   caption: {
     clipPath: "inset(50%)",
     height: 1,
@@ -34,22 +35,26 @@ const styles = stylex.create({
   headCell: {
     backgroundColor: colors.surfaceMuted,
     color: colors.textMuted,
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    paddingBlock: 10,
-    paddingInline: 12,
+    paddingBlock: space.sm,
+    paddingInline: space.rowPaddingInline,
     textAlign: "start",
   },
   row: { borderTopColor: colors.border, borderTopStyle: "solid", borderTopWidth: 1 },
   cell: {
     color: colors.text,
-    fontVariantNumeric: "tabular-nums",
-    paddingBlock: 8,
-    paddingInline: 12,
+    paddingBlock: space.rowPaddingBlock,
+    paddingInline: space.rowPaddingInline,
     verticalAlign: "middle",
   },
-  empty: { color: colors.textMuted, paddingBlock: 28, textAlign: "center" },
-  list: { display: "flex", flexDirection: "column", gap: 8, listStyle: "none", margin: 0, padding: 0 },
+  empty: { color: colors.textMuted, paddingBlock: space.xxl, textAlign: "center" },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.sm,
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+  },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -58,16 +63,20 @@ const styles = stylex.create({
     borderWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: space.xs,
     minWidth: 0,
-    paddingBlock: 10,
-    paddingInline: 14,
+    paddingBlock: space.rowPaddingBlock,
+    paddingInline: space.rowPaddingInline,
   },
-  cardHead: { alignItems: "center", display: "flex", gap: 8, justifyContent: "space-between", minWidth: 0 },
+  cardHead: {
+    alignItems: "center",
+    display: "flex",
+    gap: space.sm,
+    justifyContent: "space-between",
+    minWidth: 0,
+  },
   cardTitle: {
     color: colors.text,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
     minWidth: 0,
     overflowWrap: "anywhere",
   },
@@ -76,13 +85,11 @@ const styles = stylex.create({
     color: colors.text,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    gap: 6,
-    columnGap: 14,
+    rowGap: space.xs,
+    columnGap: space.md,
     margin: 0,
   },
-  field: { alignItems: "center", display: "flex", gap: 6, minWidth: 0 },
+  field: { alignItems: "center", display: "flex", gap: space.xs, minWidth: 0 },
   fieldLabel: { color: colors.textMuted },
   fieldValue: { margin: 0, minWidth: 0, overflowWrap: "anywhere" },
 });
@@ -110,7 +117,7 @@ export function DataTable<TData extends RowData>({ table, caption, emptyText }: 
 
   if (tier === "mobile") {
     return rows.length === 0 ? (
-      <p {...stylex.props(styles.card, styles.empty)}>{emptyText}</p>
+      <p {...stylex.props(text.body, styles.card, styles.empty)}>{emptyText}</p>
     ) : (
       <ul aria-label={caption} {...stylex.props(styles.list)}>
         {rows.map((row) => {
@@ -124,7 +131,7 @@ export function DataTable<TData extends RowData>({ table, caption, emptyText }: 
           return (
             <li key={row.id} {...stylex.props(styles.card)}>
               <div {...stylex.props(styles.cardHead)}>
-                <span {...stylex.props(styles.cardTitle)}>
+                <span {...stylex.props(text.label, styles.cardTitle)}>
                   {first === undefined ? null : <table.FlexRender cell={first} />}
                 </span>
                 {actions === undefined ? null : (
@@ -133,7 +140,7 @@ export function DataTable<TData extends RowData>({ table, caption, emptyText }: 
                   </span>
                 )}
               </div>
-              <dl {...stylex.props(styles.fields)}>
+              <dl {...stylex.props(text.body, styles.fields)}>
                 {fields.map((cell) => (
                   <div key={cell.id} {...stylex.props(styles.field)}>
                     <dt {...stylex.props(styles.fieldLabel)}>{String(cell.column.columnDef.header ?? "")}</dt>
@@ -152,13 +159,13 @@ export function DataTable<TData extends RowData>({ table, caption, emptyText }: 
 
   return (
     <div {...stylex.props(styles.frame)}>
-      <table {...stylex.props(styles.table)}>
+      <table {...stylex.props(text.body, styles.table)}>
         <caption {...stylex.props(styles.caption)}>{caption}</caption>
         <thead>
           {table.getHeaderGroups().map((group) => (
             <tr key={group.id}>
               {group.headers.map((header) => (
-                <th key={header.id} scope="col" {...stylex.props(styles.headCell)}>
+                <th key={header.id} scope="col" {...stylex.props(text.meta, styles.headCell)}>
                   {header.isPlaceholder ? null : <table.FlexRender header={header} />}
                 </th>
               ))}

@@ -39,13 +39,37 @@ const PAGE_SIZES_MM: Record<PosterLayout, readonly [number, number]> = {
   qr: [80, 80],
 };
 
-const MONO_STACK = '"SF Mono", "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono", monospace';
-
-const FONT_STACK =
-  '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif';
+/** The app font (see `styles/base.css`); posters print in it too. Only 400 and 700 exist. */
+const FONT_STACK = "'JetBrainsLxgwNerdMono', monospace";
 
 /** Call to action printed under the QR code. */
 const CALL_TO_ACTION = "扫码查看空闲 · 预约";
+
+/** Label printed before the room code. */
+const ROOM_CODE_LABEL = "房间码";
+
+/**
+ * Load the font chunks for every glyph a poster draws, in both weights. Canvas text does not
+ * trigger web-font loading by itself, so drawing before this would fall back to a system font.
+ *
+ * @param content - Poster content.
+ * @returns Resolves once the glyphs are available (or the browser gave up on them).
+ */
+export async function loadPosterFonts(content: PosterContent): Promise<void> {
+  const glyphs = [
+    content.roomName,
+    content.location,
+    content.url,
+    content.code,
+    CALL_TO_ACTION,
+    ROOM_CODE_LABEL,
+  ].join("");
+
+  await Promise.all([
+    document.fonts.load(`400 16px ${FONT_STACK}`, glyphs),
+    document.fonts.load(`700 16px ${FONT_STACK}`, glyphs),
+  ]);
+}
 
 /**
  * Pixel size of a layout at a resolution.
@@ -89,8 +113,8 @@ function fitFontSize(
 }
 
 /**
- * Draw `房间码 K7M2XQ` centred on a baseline: a small label, then the code in large spaced
- * monospace.
+ * Draw `房间码 K7M2XQ` centred on a baseline: a small label, then the code in large, evenly spaced
+ * characters.
  *
  * @param context - Canvas context.
  * @param code - Room code.
@@ -105,12 +129,12 @@ function drawRoomCode(
   baseline: number,
   size: number,
 ): void {
-  const label = "房间码";
+  const label = ROOM_CODE_LABEL;
   const labelSize = size * 0.42;
   const gap = size * 0.45;
   const advance = size * 0.82;
 
-  context.font = `600 ${labelSize}px ${FONT_STACK}`;
+  context.font = `400 ${labelSize}px ${FONT_STACK}`;
 
   const labelWidth = context.measureText(label).width;
   const total = labelWidth + gap + advance * (code.length - 1) + size * 0.62;
@@ -121,7 +145,7 @@ function drawRoomCode(
   context.fillText(label, x, baseline);
   x += labelWidth + gap;
   context.fillStyle = "#111111";
-  context.font = `700 ${size}px ${MONO_STACK}`;
+  context.font = `700 ${size}px ${FONT_STACK}`;
 
   for (const character of code) {
     context.fillText(character, x, baseline);
@@ -169,7 +193,8 @@ function drawQr(
 }
 
 /**
- * Draw a poster onto a canvas, resizing it to the layout at the given resolution.
+ * Draw a poster onto a canvas, resizing it to the layout at the given resolution. Call
+ * {@link loadPosterFonts} first so the text renders in the app font.
  *
  * @param canvas - Target canvas.
  * @param layout - Layout.
@@ -205,7 +230,7 @@ export function renderPoster(
     drawQr(context, content.url, (width - qrSize) / 2, 0, qrSize);
     drawRoomCode(context, content.code, width / 2, qrSize + 6.5 * mm, 6 * mm);
     context.fillStyle = "#444444";
-    context.font = `600 ${fitFontSize(context, content.roomName, width * 0.9, 3.2 * mm, 600)}px ${FONT_STACK}`;
+    context.font = `700 ${fitFontSize(context, content.roomName, width * 0.9, 3.2 * mm, 700)}px ${FONT_STACK}`;
     context.fillText(content.roomName, width / 2, height - 2.6 * mm);
 
     return;
@@ -219,13 +244,13 @@ export function renderPoster(
     content.roomName,
     contentWidth,
     (layout === "a4" ? 30 : 22) * mm,
-    800,
+    700,
   );
 
   let cursor = margin + nameSize * 0.9;
 
   context.fillStyle = "#111111";
-  context.font = `800 ${nameSize}px ${FONT_STACK}`;
+  context.font = `700 ${nameSize}px ${FONT_STACK}`;
   context.fillText(content.roomName, width / 2, cursor);
 
   if (content.location !== "") {
@@ -233,7 +258,7 @@ export function renderPoster(
 
     cursor += nameSize * 0.32 + locationSize * 1.3;
     context.fillStyle = "#555555";
-    context.font = `500 ${fitFontSize(context, content.location, contentWidth, locationSize, 500)}px ${FONT_STACK}`;
+    context.font = `400 ${fitFontSize(context, content.location, contentWidth, locationSize, 400)}px ${FONT_STACK}`;
     context.fillText(content.location, width / 2, cursor);
   }
 
@@ -272,6 +297,7 @@ export async function exportPoster(
 ): Promise<{ blob: Blob; mimeType: string }> {
   const canvas = document.createElement("canvas");
 
+  await loadPosterFonts(content);
   renderPoster(canvas, layout, content, EXPORT_DPI);
 
   const png = await new Promise<Blob>((resolve, reject) => {

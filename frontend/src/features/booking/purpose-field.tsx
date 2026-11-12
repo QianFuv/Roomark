@@ -8,8 +8,9 @@ import { History } from "lucide-react";
 import type { Ref } from "react";
 
 import { useRecentTitles } from "../../state/app-store";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../../styles/tokens.stylex";
 import { TextField } from "../../ui/field";
+import { text } from "../../ui/typography";
 
 /** Longest purpose the API accepts. */
 export const TITLE_MAX_LENGTH = 200;
@@ -18,8 +19,8 @@ export const TITLE_MAX_LENGTH = 200;
 export const TITLE_REQUIRED_MESSAGE = "请填写用途";
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  chips: { alignItems: "center", display: "flex", flexWrap: "wrap", gap: 6 },
+  root: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
+  chips: { alignItems: "center", display: "flex", flexWrap: "wrap", gap: space.sm },
   chipsIcon: { color: colors.textMuted, display: "inline-flex" },
   chip: {
     backgroundColor: { default: colors.surfaceMuted, ":hover": colors.surfaceHover },
@@ -28,13 +29,11 @@ const styles = stylex.create({
     color: colors.text,
     cursor: "pointer",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: 500,
     maxWidth: 200,
-    minHeight: 32,
+    minHeight: sizes.controlSmall,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     overflow: "hidden",
-    paddingInline: 12,
+    paddingInline: space.md,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
@@ -82,7 +81,7 @@ export function PurposeField({
       {recent.length === 0 ? null : (
         <div role="group" aria-label="最近用过的用途" {...stylex.props(styles.chips)}>
           <span aria-hidden {...stylex.props(styles.chipsIcon)}>
-            <History size={14} />
+            <History />
           </span>
           {recent.map((title) => (
             <button
@@ -90,7 +89,7 @@ export function PurposeField({
               type="button"
               aria-label={`用途：${title}`}
               onClick={() => onValueChange(title)}
-              {...stylex.props(styles.chip)}
+              {...stylex.props(text.body, styles.chip)}
             >
               {title}
             </button>

@@ -1,7 +1,7 @@
 /**
  * Scroll-free time picker in four short rows: the chosen range with a ±15 minute end stepper, an
- * hour grid whose cells show which quarters are free, the quarter of the start, and one row of
- * duration chips. Choices that would run into another booking, past closing time or beyond the
+ * hour grid whose cells show which quarters are free, the quarter of the start, and the duration
+ * chips (wrapping when a chip label would not fit). Choices that would run into another booking, past closing time or beyond the
  * maximum duration are disabled.
  *
  * @module
@@ -13,37 +13,33 @@ import { useId } from "react";
 import type { Booking } from "../../api/client";
 import { latestEnd, nextBusy, slotState, type DayAvailability, type SlotState } from "../../lib/schedule";
 import { GRID_MINUTES, clockToMinutes, formatDuration, minutesToClock } from "../../lib/time";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, fontWeights, radii, sizes, space } from "../../styles/tokens.stylex";
 import { HelpHint } from "../../ui/help-hint";
+import { text } from "../../ui/typography";
 
 const DURATIONS = [30, 60, 90, 120, 180, 240] as const;
 
 const QUARTERS = [0, 15, 30, 45] as const;
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  head: { alignItems: "center", display: "flex", gap: 4, minHeight: 44 },
+  root: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
+  head: { alignItems: "center", display: "flex", gap: space.xs, minHeight: sizes.control },
   label: {
     alignItems: "center",
     color: colors.text,
     display: "flex",
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    gap: 4,
+    gap: space.xs,
   },
   summary: {
     color: colors.text,
     flexGrow: 1,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
     minWidth: 0,
     textAlign: "end",
   },
-  summaryMuted: { color: colors.textMuted, fontWeight: 500 },
+  summaryMuted: { color: colors.textMuted, fontWeight: fontWeights.regular },
   hours: {
     display: "grid",
-    gap: 6,
+    gap: space.sm,
     gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
   },
   hour: {
@@ -62,24 +58,25 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
-    gap: 4,
+    gap: space.xs,
     justifyContent: "center",
-    minHeight: 44,
+    minHeight: sizes.control,
     opacity: { default: 1, ":disabled": 0.45 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 4,
-    paddingInline: 2,
+    paddingBlock: space.xs,
+    paddingInline: space.xxs,
   },
-  bars: { display: "flex", gap: 2, width: 24 },
+  bars: { display: "flex", gap: space.xxs, width: 24 },
   bar: { borderRadius: 2, flexGrow: 1, height: 3 },
   barFree: { backgroundColor: colors.free },
   barBusy: { backgroundColor: colors.busySolid },
   barOff: { backgroundColor: colors.borderStrong },
-  quarters: { display: "grid", gap: 6, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
-  chips: { display: "grid", gap: 6, gridTemplateColumns: "repeat(auto-fit, minmax(0, 1fr))" },
+  quarters: { display: "grid", gap: space.sm, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  chips: {
+    display: "grid",
+    gap: space.sm,
+    gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+  },
   choice: {
     alignItems: "center",
     backgroundColor: {
@@ -95,15 +92,12 @@ const styles = stylex.create({
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
     justifyContent: "center",
-    minHeight: 44,
+    minHeight: sizes.control,
     minWidth: 0,
     opacity: { default: 1, ":disabled": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 2,
+    paddingInline: space.xxs,
     whiteSpace: "nowrap",
   },
   choiceTaken: {
@@ -122,13 +116,13 @@ const styles = stylex.create({
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
     flexShrink: 0,
-    height: 44,
+    height: sizes.control,
     justifyContent: "center",
     opacity: { default: 1, ":disabled": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    width: 44,
+    width: sizes.control,
   },
-  hint: { color: colors.warning, fontSize: fonts.sizeSm, lineHeight: 1.5 },
+  hint: { color: colors.warning },
 });
 
 const BAR_STYLES: Record<SlotState, stylex.StyleXStyles> = {
@@ -219,13 +213,13 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
   return (
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.head)}>
-        <span {...stylex.props(styles.label)}>
+        <span {...stylex.props(text.label, styles.label)}>
           <span id={`${ids}-start`}>时间</span>
           <HelpHint topic="时间格子">
             每个整点下的四段小条代表四个一刻钟：蓝色可约，红色已被预约，灰色已过去。
           </HelpHint>
         </span>
-        <span aria-live="polite" {...stylex.props(styles.summary)}>
+        <span aria-live="polite" {...stylex.props(text.label, styles.summary)}>
           {start}–{end}
           <span {...stylex.props(styles.summaryMuted)}>
             {duration > 0 ? ` · ${formatDuration(duration)}` : ""}
@@ -238,7 +232,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
           onClick={() => onChange(start, minutesToClock(endMinutes - GRID_MINUTES))}
           {...stylex.props(styles.stepper)}
         >
-          <Minus size={18} aria-hidden />
+          <Minus aria-hidden />
         </button>
         <button
           type="button"
@@ -247,7 +241,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
           onClick={() => onChange(start, minutesToClock(endMinutes + GRID_MINUTES))}
           {...stylex.props(styles.stepper)}
         >
-          <Plus size={18} aria-hidden />
+          <Plus aria-hidden />
         </button>
       </div>
       <div role="group" aria-labelledby={`${ids}-start`} {...stylex.props(styles.hours)}>
@@ -264,7 +258,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
               aria-label={`${hour} 点，${freeCount === 0 ? "约满了" : `${freeCount} 个一刻钟可约`}`}
               disabled={freeCount === 0 && !isSelected}
               onClick={() => chooseHour(hour)}
-              {...stylex.props(styles.hour)}
+              {...stylex.props(text.label, styles.hour)}
             >
               {String(hour).padStart(2, "0")}
               <span aria-hidden {...stylex.props(styles.bars)}>
@@ -290,7 +284,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
               aria-label={`${minutesToClock(minutes)} 开始${state === "busy" ? "（已被预约）" : ""}`}
               disabled={state !== "free" && !isSelected}
               onClick={() => chooseStart(minutes)}
-              {...stylex.props(styles.choice, state === "busy" && styles.choiceTaken)}
+              {...stylex.props(text.label, styles.choice, state === "busy" && styles.choiceTaken)}
             >
               {minutesToClock(minutes)}
             </button>
@@ -307,6 +301,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
             disabled={startMinutes + minutes > latest && duration !== minutes}
             onClick={() => onChange(start, minutesToClock(startMinutes + minutes))}
             {...stylex.props(
+              text.label,
               styles.choice,
               startMinutes + minutes > latest && latest > startMinutes && styles.choiceTaken,
             )}
@@ -316,7 +311,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
         ))}
       </div>
       {blocker === undefined ? null : (
-        <p {...stylex.props(styles.hint)}>
+        <p {...stylex.props(text.meta, styles.hint)}>
           {latest <= startMinutes
             ? `这个时间${blockerName}，换个开始时间`
             : `${minutesToClock(blocker.startMinutes)} 起${blockerName}，最晚约到 ${minutesToClock(latest)}`}

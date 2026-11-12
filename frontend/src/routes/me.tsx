@@ -17,12 +17,14 @@ import { requestSession } from "../features/identity/identity";
 import type { components } from "../api/schema";
 import { formatBookingWhen, formatMonthDay, nowZoned, parseZoned } from "../lib/time";
 import { useRememberedRooms, useSession } from "../state/app-store";
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { TabView } from "../ui/controls";
 import { HelpHint } from "../ui/help-hint";
+import { ICON_SIZE } from "../ui/icon";
 import { Badge, Card, EmptyState, Notice, PageHeader, Section, Skeleton, Stack } from "../ui/layout";
 import { notify } from "../ui/toast";
+import { text } from "../ui/typography";
 
 export const Route = createFileRoute("/me")({ component: MePage });
 
@@ -30,7 +32,7 @@ type MySeries = components["schemas"]["MySeries"];
 
 const styles = stylex.create({
   page: { marginInline: "auto", maxWidth: 880, width: "100%" },
-  list: { display: "flex", flexDirection: "column", gap: 8 },
+  list: { display: "flex", flexDirection: "column", gap: space.sm },
   item: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, ":hover": colors.surfaceHover },
@@ -42,23 +44,21 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 12,
-    minHeight: 60,
+    gap: space.md,
+    minHeight: sizes.controlLarge,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 10,
-    paddingInline: 14,
+    paddingBlock: space.rowPaddingBlock,
+    paddingInline: space.rowPaddingInline,
     textAlign: "start",
     width: "100%",
   },
-  itemBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 3, minWidth: 0 },
+  itemBody: { display: "flex", flexDirection: "column", flexGrow: 1, gap: space.xxs, minWidth: 0 },
   itemTitle: {
-    fontSize: fonts.sizeMd,
-    fontWeight: 700,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  itemMeta: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
+  itemMeta: { color: colors.textMuted },
   seriesCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -75,11 +75,11 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 12,
-    minHeight: 64,
+    gap: space.md,
+    minHeight: sizes.controlLarge,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 10,
-    paddingInline: 14,
+    paddingBlock: space.rowPaddingBlock,
+    paddingInline: space.rowPaddingInline,
     textAlign: "start",
     width: "100%",
   },
@@ -108,8 +108,8 @@ const styles = stylex.create({
     borderTopWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    padding: 10,
+    gap: space.xs,
+    padding: space.sm,
   },
   occurrence: {
     backgroundColor: { default: "transparent", ":hover": colors.surfaceHover },
@@ -118,20 +118,16 @@ const styles = stylex.create({
     color: colors.text,
     cursor: "pointer",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    minHeight: 44,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 8,
+    paddingInline: space.sm,
     textAlign: "start",
   },
-  feedRow: { alignItems: "center", display: "flex", gap: 8 },
-  feedText: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2, minWidth: 0 },
-  feedLabel: { fontSize: fonts.sizeMd, fontWeight: 600 },
+  feedRow: { alignItems: "center", display: "flex", gap: space.sm },
+  feedText: { display: "flex", flexDirection: "column", flexGrow: 1, gap: space.xxs, minWidth: 0 },
   feedUrl: {
     color: colors.textMuted,
     fontFamily: fonts.mono,
-    fontSize: fonts.sizeXs,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -148,8 +144,8 @@ function MePage() {
 
   if (session === undefined) {
     return (
-      <EmptyState icon={<UserRoundCog size={40} aria-hidden />} title="登录后查看你的预约">
-        <Button variant="primary" size="lg" onClick={() => void requestSession()}>
+      <EmptyState icon={<UserRoundCog size={ICON_SIZE.empty} aria-hidden />} title="登录后查看你的预约">
+        <Button variant="primary" onClick={() => void requestSession()}>
           登录
         </Button>
       </EmptyState>
@@ -231,7 +227,7 @@ function BookingList({ isPast, onSelect }: { isPast: boolean; onSelect: (booking
   if (singles.length === 0 && series.length === 0) {
     return (
       <EmptyState
-        icon={<CalendarX2 size={32} aria-hidden />}
+        icon={<CalendarX2 size={ICON_SIZE.empty} aria-hidden />}
         title={isPast ? "还没有已结束的预约" : "没有即将开始的预约"}
       ></EmptyState>
     );
@@ -246,12 +242,12 @@ function BookingList({ isPast, onSelect }: { isPast: boolean; onSelect: (booking
       ))}
       {singles.map((booking) => (
         <li key={booking.id}>
-          <button type="button" onClick={() => onSelect(booking)} {...stylex.props(styles.item)}>
+          <button type="button" onClick={() => onSelect(booking)} {...stylex.props(text.body, styles.item)}>
             <span {...stylex.props(styles.itemBody)}>
-              <span {...stylex.props(styles.itemTitle)}>
+              <span {...stylex.props(text.label, styles.itemTitle)}>
                 {booking.title === "" ? "会议室预约" : booking.title}
               </span>
-              <span {...stylex.props(styles.itemMeta)}>
+              <span {...stylex.props(text.meta, styles.itemMeta)}>
                 {formatBookingWhen(booking.start, booking.end)} · {roomName(booking.roomSlug)}
               </span>
             </span>
@@ -305,15 +301,17 @@ function SeriesCard({
       onOpenChange={(open) => setIsOpen(open)}
       {...stylex.props(styles.seriesCard)}
     >
-      <Collapsible.Trigger {...stylex.props(styles.seriesTrigger)}>
+      <Collapsible.Trigger {...stylex.props(text.body, styles.seriesTrigger)}>
         <span aria-hidden {...stylex.props(styles.seriesIcon)}>
-          <Repeat size={18} />
+          <Repeat />
         </span>
         <span {...stylex.props(styles.itemBody)}>
-          <span {...stylex.props(styles.itemTitle)}>{series.title === "" ? "周期预约" : series.title}</span>
-          <span {...stylex.props(styles.itemMeta)}>{summary}</span>
+          <span {...stylex.props(text.label, styles.itemTitle)}>
+            {series.title === "" ? "周期预约" : series.title}
+          </span>
+          <span {...stylex.props(text.meta, styles.itemMeta)}>{summary}</span>
         </span>
-        <ChevronDown size={20} aria-hidden {...stylex.props(styles.chevron, isOpen && styles.chevronOpen)} />
+        <ChevronDown aria-hidden {...stylex.props(styles.chevron, isOpen && styles.chevronOpen)} />
       </Collapsible.Trigger>
       <Collapsible.Panel {...stylex.props(styles.seriesPanel)}>
         <div {...stylex.props(styles.seriesBody)}>
@@ -322,7 +320,7 @@ function SeriesCard({
               key={booking.id}
               type="button"
               onClick={() => onSelect(booking)}
-              {...stylex.props(styles.occurrence)}
+              {...stylex.props(text.body, styles.occurrence)}
             >
               {formatBookingWhen(booking.start, booking.end)}
             </button>
@@ -393,14 +391,15 @@ function FeedRow({ label, url }: { label: string; url: string }) {
   return (
     <div {...stylex.props(styles.feedRow)}>
       <span {...stylex.props(styles.feedText)}>
-        <span {...stylex.props(styles.feedLabel)}>{label}</span>
-        <span {...stylex.props(styles.feedUrl)}>{url}</span>
+        <span {...stylex.props(text.label)}>{label}</span>
+        <span {...stylex.props(text.meta, styles.feedUrl)}>{url}</span>
       </span>
       <Button
         variant="soft"
         size="sm"
         aria-label={`复制「${label}」订阅链接`}
-        icon={<Copy size={16} aria-hidden />}
+        icon={<Copy aria-hidden />}
+
         onClick={() => {
           void navigator.clipboard
             .writeText(url)

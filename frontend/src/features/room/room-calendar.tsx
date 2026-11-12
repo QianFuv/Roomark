@@ -39,12 +39,14 @@ import {
   startOfWeek,
   weekdayLabel,
 } from "../../lib/time";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, fontWeights, lineHeights, radii, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ICON_SIZE } from "../../ui/icon";
 import { Skeleton } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
 import { useLayoutTier, usePrefersReducedMotion } from "../../ui/tier";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 import { BookingDetailSheet } from "../booking/booking-detail";
 import { BookingForm, type BookingDraft } from "../booking/booking-form";
 import { useNow, useRoomBookings, useRoomDetail } from "./room-data";
@@ -60,6 +62,12 @@ const FILL_MIN_HOUR = { day: 44, week: 34 } as const;
 
 /** Space above the first hour line so its label is not clipped. */
 const BODY_PADDING = 10;
+
+/** Line height of booking block text in pixels (the `meta` role). */
+const BLOCK_LINE_HEIGHT = 18;
+
+/** Vertical padding inside a booking block in pixels (`space.xxs` on each side). */
+const BLOCK_PADDING_BLOCK = 4;
 
 /** Height of the week view's day header row, shared by the fixed corner and the sliding header. */
 const HEAD_HEIGHT = 64;
@@ -87,25 +95,20 @@ const PAGE_TRANSITION: Transition = {
 const INSTANT: Transition = { duration: 0 };
 
 const styles = stylex.create({
-  toolbar: { alignItems: "center", display: "flex", gap: 6 },
+  toolbar: { alignItems: "center", display: "flex", gap: space.xs },
   rangeLabel: {
     color: colors.text,
     flexGrow: 1,
-    fontSize: fonts.sizeLg,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    paddingInline: 4,
+    paddingInline: space.xs,
   },
   emptyLine: {
     backgroundColor: colors.freeSoft,
     borderRadius: radii.medium,
     color: colors.freeStrong,
-    fontSize: fonts.sizeSm,
-    lineHeight: 1.5,
-    paddingBlock: 8,
-    paddingInline: 12,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
-  strip: { display: "grid", gap: 4, gridTemplateColumns: "repeat(7, minmax(0, 1fr))" },
+  strip: { display: "grid", gap: space.xs, gridTemplateColumns: "repeat(7, minmax(0, 1fr))" },
   stripDay: {
     alignItems: "center",
     backgroundColor: {
@@ -120,13 +123,10 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    gap: 2,
-    minHeight: 58,
+    gap: space.xxs,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 6,
+    paddingBlock: space.xs,
   },
-  stripWeekday: { fontSize: fonts.sizeXs, fontWeight: 500 },
-  stripNumber: { fontSize: fonts.sizeLg, fontVariantNumeric: "tabular-nums", fontWeight: 700 },
   stripToday: { color: { default: colors.primaryText, '[aria-pressed="true"]': colors.onPrimary } },
   stripDot: { backgroundColor: "currentColor", borderRadius: radii.pill, height: 4, opacity: 0.8, width: 4 },
   stripDotEmpty: { opacity: 0 },
@@ -142,7 +142,7 @@ const styles = stylex.create({
   },
   gutterColumn: { display: "flex", flexDirection: "column" },
   viewport: { minWidth: 0, overflow: "clip", position: "relative" },
-  root: { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 },
+  root: { display: "flex", flexDirection: "column", gap: space.cardGap, minWidth: 0 },
   fillRoot: { flexGrow: 1, minHeight: 0 },
   fillFrame: { alignItems: "start", flexGrow: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "thin" },
   stickyHead: { position: "sticky", top: 0, zIndex: 6 },
@@ -162,20 +162,17 @@ const styles = stylex.create({
     color: colors.textMuted,
     display: "flex",
     flexDirection: "column",
-    fontSize: fonts.sizeXs,
-    fontWeight: 600,
-    gap: 2,
+    gap: space.xxs,
     justifyContent: "center",
   },
   dayHeadToday: { color: colors.primaryText },
   dayNumber: {
+    alignItems: "center",
     color: colors.text,
-    fontSize: fonts.sizeLg,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    lineHeight: "28px",
+    display: "inline-flex",
+    height: 28,
+    justifyContent: "center",
     minWidth: 30,
-    textAlign: "center",
   },
   dayNumberToday: { backgroundColor: colors.primary, borderRadius: radii.pill, color: colors.onPrimary },
   body: { display: "grid", paddingBottom: BODY_PADDING, paddingTop: BODY_PADDING },
@@ -183,9 +180,7 @@ const styles = stylex.create({
   gutter: { position: "relative" },
   hourLabel: {
     color: colors.textMuted,
-    fontSize: fonts.sizeXs,
-    fontVariantNumeric: "tabular-nums",
-    insetInlineEnd: 8,
+    insetInlineEnd: space.sm,
     position: "absolute",
     translate: "0 -50%",
   },
@@ -193,12 +188,8 @@ const styles = stylex.create({
     backgroundColor: colors.busy,
     borderRadius: radii.pill,
     color: colors.canvas,
-    fontSize: 11,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    insetInlineEnd: 2,
-    paddingBlock: 1,
-    paddingInline: 5,
+    insetInlineEnd: space.xxs,
+    paddingInline: space.xs,
     position: "absolute",
     translate: "0 -50%",
     zIndex: 4,
@@ -255,18 +246,16 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeXs,
-    fontWeight: 600,
-    gap: 4,
-    insetInline: 2,
+    gap: space.xs,
+    insetInline: space.xxs,
     outline: "none",
     padding: 0,
-    paddingInline: 6,
-    paddingTop: 4,
+    paddingInline: space.xs,
+    paddingTop: space.xs,
     position: "absolute",
     zIndex: 1,
   },
-  freeLabel: { alignItems: "center", display: "inline-flex", gap: 3, whiteSpace: "nowrap" },
+  freeLabel: { alignItems: "center", display: "inline-flex", gap: space.xxs, whiteSpace: "nowrap" },
   freeLabelHoverOnly: {
     opacity: { default: 0, [stylex.when.ancestor(":hover")]: 1, [stylex.when.ancestor(":focus-visible")]: 1 },
   },
@@ -283,20 +272,17 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeXs,
-    gap: 1,
-    insetInline: 2,
-    lineHeight: 1.35,
-    minHeight: 18,
+    insetInline: space.xxs,
+    minHeight: lineHeights.meta,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     overflow: "hidden",
-    paddingBlock: 3,
-    paddingInline: 5,
+    paddingBlock: space.xxs,
+    paddingInline: space.xs,
     position: "absolute",
     textAlign: "start",
     zIndex: 2,
   },
-  blockDay: { fontSize: fonts.sizeSm, insetInline: 6, paddingInline: 10 },
+  blockDay: { insetInline: space.xs, paddingInline: space.sm },
   blockMine: {
     backgroundColor: { default: colors.primary, ":hover": colors.primaryHover },
     borderColor: colors.primaryHover,
@@ -317,16 +303,14 @@ const styles = stylex.create({
   blockTitle: {
     alignItems: "center",
     display: "flex",
-    fontWeight: 700,
-    gap: 4,
+    fontWeight: fontWeights.bold,
+    gap: space.xs,
     minWidth: 0,
     overflow: "hidden",
     whiteSpace: "nowrap",
   },
   blockTitleText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
   blockMeta: {
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 400,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -336,11 +320,11 @@ const styles = stylex.create({
     color: colors.textMuted,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: fonts.sizeXs,
-    gap: 14,
+    columnGap: space.md,
+    rowGap: space.xs,
     justifyContent: "center",
   },
-  legendItem: { alignItems: "center", display: "inline-flex", gap: 6 },
+  legendItem: { alignItems: "center", display: "inline-flex", gap: space.xs },
   swatch: { borderRadius: 3, height: 10, width: 14 },
   swatchMine: { backgroundColor: colors.primary },
   swatchOther: { backgroundColor: colors.surfaceMuted, boxShadow: `inset 3px 0 0 ${colors.borderStrong}` },
@@ -622,7 +606,7 @@ export function RoomCalendar({
       {...stylex.props(styles.root, isFill && styles.fillRoot)}
     >
       <div {...stylex.props(styles.toolbar)}>
-        <span aria-live="polite" {...stylex.props(styles.rangeLabel)}>
+        <span aria-live="polite" {...stylex.props(text.title, styles.rangeLabel)}>
           {rangeLabel}
         </span>
         <Button variant="secondary" size="sm" onClick={() => onAnchorChange(undefined)}>
@@ -632,13 +616,13 @@ export function RoomCalendar({
           variant="ghost"
           aria-label="上一周"
           onClick={() => move(-7)}
-          icon={<ChevronLeft size={20} aria-hidden />}
+          icon={<ChevronLeft aria-hidden />}
         />
         <Button
           variant="ghost"
           aria-label="下一周"
           onClick={() => move(7)}
-          icon={<ChevronRight size={20} aria-hidden />}
+          icon={<ChevronRight aria-hidden />}
         />
       </div>
 
@@ -657,10 +641,10 @@ export function RoomCalendar({
                 onClick={() => onAnchorChange(date.toString())}
                 {...stylex.props(styles.stripDay, isToday && styles.stripToday)}
               >
-                <span {...stylex.props(styles.stripWeekday)}>
+                <span {...stylex.props(text.meta)}>
                   {isToday ? "今天" : weekdayLabel(date.dayOfWeek).replace("周", "")}
                 </span>
-                <span {...stylex.props(styles.stripNumber)}>{date.day}</span>
+                <span {...stylex.props(text.label)}>{date.day}</span>
                 <span aria-hidden {...stylex.props(styles.stripDot, count === 0 && styles.stripDotEmpty)} />
               </button>
             );
@@ -696,6 +680,7 @@ export function RoomCalendar({
                   <span
                     key={minutes}
                     {...stylex.props(
+                      text.meta,
                       styles.hourLabel,
                       styles.position(`${((minutes - openMinutes) / span) * 100}%`, "auto"),
                     )}
@@ -706,6 +691,7 @@ export function RoomCalendar({
               {isNowInside ? (
                 <span
                   {...stylex.props(
+                    text.meta,
                     styles.nowLabel,
                     styles.position(`${((nowMinutes - openMinutes) / span) * 100}%`, "auto"),
                   )}
@@ -744,10 +730,12 @@ export function RoomCalendar({
                       <span
                         key={date.toString()}
                         aria-label={formatDateLabel(date)}
-                        {...stylex.props(styles.dayHead, isToday && styles.dayHeadToday)}
+                        {...stylex.props(text.meta, styles.dayHead, isToday && styles.dayHeadToday)}
                       >
                         {isToday ? "今天" : weekdayLabel(date.dayOfWeek)}
-                        <span {...stylex.props(styles.dayNumber, isToday && styles.dayNumberToday)}>
+                        <span
+                          {...stylex.props(text.label, styles.dayNumber, isToday && styles.dayNumberToday)}
+                        >
                           {date.day}
                         </span>
                       </span>
@@ -778,10 +766,12 @@ export function RoomCalendar({
       </div>
 
       {visibleCount === 0 && hasFutureDay && bookings.data !== undefined ? (
-        <p {...stylex.props(styles.emptyLine)}>{isDayView ? "这天还没有预约" : "这周还没有预约"}</p>
+        <p {...stylex.props(text.body, styles.emptyLine)}>
+          {isDayView ? "这天还没有预约" : "这周还没有预约"}
+        </p>
       ) : null}
 
-      <div aria-hidden {...stylex.props(styles.legend)}>
+      <div aria-hidden {...stylex.props(text.meta, styles.legend)}>
         <span {...stylex.props(styles.legendItem)}>
           <span {...stylex.props(styles.swatch, styles.swatchMine)} />
           我的预约
@@ -942,6 +932,7 @@ function DayColumn({
             onClick={(event) => onFreeClick(event, gap.startMinutes, gap.endMinutes)}
             {...stylex.props(
               stylex.defaultMarker(),
+              text.meta,
               styles.free,
               styles.position(at(gap.startMinutes), at(openMinutes + minutesLong)),
             )}
@@ -950,7 +941,7 @@ function DayColumn({
               <span
                 {...stylex.props(styles.freeLabel, !isDayView && !isWholeDay && styles.freeLabelHoverOnly)}
               >
-                <Plus size={12} aria-hidden />
+                <Plus size={ICON_SIZE.meta} aria-hidden />
                 {isWholeDay ? "全天空闲" : isDayView ? `空闲 ${formatDuration(minutesLong)}` : "预约"}
               </span>
             ) : null}
@@ -1012,8 +1003,7 @@ function BookingBlock({
   const who = isBlock ? "不可预约" : `${booking.person?.name ?? ""}${booking.isMine ? "（我）" : ""}`;
   const title = booking.title === "" ? (isBlock ? "不可预约" : "会议室预约") : booking.title;
   const time = `${formatClock(booking.start)}–${formatClock(booking.end)}`;
-  const lineHeight = isDayView ? 19 : 17;
-  const lineCount = Math.max(1, Math.floor((pixels - 6) / lineHeight));
+  const lineCount = Math.max(1, Math.floor((pixels - BLOCK_PADDING_BLOCK) / BLOCK_LINE_HEIGHT));
 
   return (
     <button
@@ -1021,6 +1011,7 @@ function BookingBlock({
       aria-label={`${time} ${title} · ${who}${booking.series === undefined ? "" : " · 周期预约"}`}
       onClick={() => onSelect(booking)}
       {...stylex.props(
+        text.meta,
         styles.block,
         isDayView && styles.blockDay,
         booking.isMine && !isBlock && styles.blockMine,
@@ -1031,7 +1022,8 @@ function BookingBlock({
       )}
     >
       <span {...stylex.props(styles.blockTitle)}>
-        {booking.series === undefined ? null : <Repeat size={11} aria-hidden />}
+        {booking.series === undefined ? null : <Repeat size={ICON_SIZE.meta} aria-hidden />}
+
         <span {...stylex.props(styles.blockTitleText)}>
           {title}
           {lineCount === 1 && !isBlock ? ` · ${who}` : ""}

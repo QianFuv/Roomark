@@ -17,16 +17,17 @@ import { useId, useState } from "react";
 import { isString } from "../lib/guards";
 import { formatDateLabel, formatRelativeDate, parseDate } from "../lib/time";
 import { useOverlayHistory } from "../app/overlay-history";
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, fonts, media, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 const WEEKDAY_HEADS = ["一", "二", "三", "四", "五", "六", "日"] as const;
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  labelRow: { alignItems: "baseline", display: "flex", gap: 8, justifyContent: "space-between" },
-  label: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  chosen: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
-  quickRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  root: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
+  labelRow: { alignItems: "baseline", display: "flex", gap: space.sm, justifyContent: "space-between" },
+  label: { color: colors.text },
+  chosen: { color: colors.textMuted },
+  quickRow: { display: "flex", flexWrap: "wrap", gap: space.controlGap },
   chip: {
     alignItems: "center",
     backgroundColor: {
@@ -42,20 +43,17 @@ const styles = stylex.create({
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
-    gap: 6,
+    gap: space.sm,
     justifyContent: "center",
-    minHeight: 40,
+    minHeight: sizes.control,
     opacity: { default: 1, ":disabled": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 14,
+    paddingInline: space.lg,
     whiteSpace: "nowrap",
   },
   trigger: {
     display: { default: "inline-flex", [media.formTwoColumn]: "none" },
     flexGrow: 1,
-    fontVariantNumeric: "tabular-nums",
     justifyContent: "space-between",
   },
   triggerChevron: { color: "inherit", opacity: 0.7 },
@@ -70,12 +68,10 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    gap: 8,
-    minHeight: 46,
+    gap: space.sm,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.md,
     textAlign: "start",
     width: "100%",
     containerType: "inline-size",
@@ -91,7 +87,7 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: 1,
     display: { default: "none", [media.formTwoColumn]: "block" },
-    padding: 12,
+    padding: space.md,
   },
   positioner: { outline: "none", zIndex: 90 },
   popup: {
@@ -104,17 +100,14 @@ const styles = stylex.create({
     color: colors.text,
     fontFamily: fonts.sans,
     outline: "none",
-    padding: 12,
-    width: "min(320px, calc(100vw - 24px))",
+    padding: space.md,
+    width: `min(320px, calc(100vw - ${space.xl}))`,
   },
-  monthHead: { alignItems: "center", display: "flex", gap: 4, marginBottom: 8 },
+  monthHead: { alignItems: "center", display: "flex", gap: space.xs, marginBottom: space.sm },
   monthTitle: {
     color: colors.text,
     flexGrow: 1,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 700,
-    paddingInlineStart: 6,
+    paddingInlineStart: space.sm,
   },
   navButton: {
     alignItems: "center",
@@ -124,18 +117,16 @@ const styles = stylex.create({
     color: colors.text,
     cursor: { default: "pointer", ":disabled": "not-allowed" },
     display: "inline-flex",
-    height: 36,
+    height: sizes.controlSmall,
     justifyContent: "center",
     opacity: { default: 1, ":disabled": 0.3 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    width: 36,
+    width: sizes.controlSmall,
   },
-  grid: { display: "grid", gap: 2, gridTemplateColumns: "repeat(7, minmax(0, 1fr))" },
+  grid: { display: "grid", gap: space.xxs, gridTemplateColumns: "repeat(7, minmax(0, 1fr))" },
   weekday: {
     color: colors.textMuted,
-    fontSize: fonts.sizeXs,
-    fontWeight: 600,
-    paddingBlock: 4,
+    paddingBlock: space.xs,
     textAlign: "center",
   },
   day: {
@@ -153,11 +144,8 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: { default: 600, "[data-disabled]": 400 },
     justifyContent: "center",
-    maxHeight: 44,
+    maxHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     padding: 0,
     position: "relative",
@@ -236,11 +224,11 @@ export function DatePicker({
   return (
     <div role="group" aria-labelledby={labelId} {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.labelRow)}>
-        <span id={labelId} {...stylex.props(styles.label)}>
+        <span id={labelId} {...stylex.props(text.label, styles.label)}>
           {label}
         </span>
         {isPopoverOnly ? null : (
-          <span aria-live="polite" {...stylex.props(styles.chosen)}>
+          <span aria-live="polite" {...stylex.props(text.meta, styles.chosen)}>
             {chosenLabel}
             {relative === undefined ? "" : ` · ${relative}`}
           </span>
@@ -254,7 +242,7 @@ export function DatePicker({
             aria-pressed={selected?.equals(shortcut.date) === true}
             disabled={!isInRange(shortcut.date, min, max)}
             onClick={() => onValueChange(shortcut.date.toString())}
-            {...stylex.props(styles.chip)}
+            {...stylex.props(text.label, styles.chip)}
           >
             {shortcut.text}
           </button>
@@ -263,10 +251,10 @@ export function DatePicker({
           {isPopoverOnly ? (
             <Popover.Trigger
               aria-label={`${label}：${chosenLabel}，打开日历`}
-              {...stylex.props(styles.fieldTrigger)}
+              {...stylex.props(text.body, styles.fieldTrigger)}
             >
               <span aria-hidden {...stylex.props(styles.fieldIcon)}>
-                <CalendarDays size={16} />
+                <CalendarDays />
               </span>
               <span {...stylex.props(styles.fieldValue, selected === undefined && styles.fieldPlaceholder)}>
                 {chosenLabel}
@@ -275,17 +263,17 @@ export function DatePicker({
                 )}
               </span>
               <span aria-hidden {...stylex.props(styles.fieldIcon)}>
-                <ChevronDown size={16} />
+                <ChevronDown />
               </span>
             </Popover.Trigger>
           ) : (
             <Popover.Trigger
               aria-label={`${label}：${chosenLabel}，打开日历`}
-              {...stylex.props(styles.chip, styles.trigger)}
+              {...stylex.props(text.label, styles.chip, styles.trigger)}
             >
-              <CalendarDays size={16} aria-hidden />
+              <CalendarDays aria-hidden />
               {chosenLabel}
-              <ChevronDown size={16} aria-hidden {...stylex.props(styles.triggerChevron)} />
+              <ChevronDown aria-hidden {...stylex.props(styles.triggerChevron)} />
             </Popover.Trigger>
           )}
           <Popover.Portal>
@@ -369,7 +357,7 @@ function MonthGrid({
   return (
     <div>
       <div {...stylex.props(styles.monthHead)}>
-        <span aria-live="polite" {...stylex.props(styles.monthTitle)}>
+        <span aria-live="polite" {...stylex.props(text.label, styles.monthTitle)}>
           {month.year}年{month.month}月
         </span>
         <button
@@ -379,7 +367,7 @@ function MonthGrid({
           onClick={() => setMonth(month.subtract({ months: 1 }))}
           {...stylex.props(styles.navButton)}
         >
-          <ChevronLeft size={18} aria-hidden />
+          <ChevronLeft aria-hidden />
         </button>
         <button
           type="button"
@@ -388,12 +376,12 @@ function MonthGrid({
           onClick={() => setMonth(month.add({ months: 1 }))}
           {...stylex.props(styles.navButton)}
         >
-          <ChevronRight size={18} aria-hidden />
+          <ChevronRight aria-hidden />
         </button>
       </div>
       <div aria-hidden {...stylex.props(styles.grid)}>
         {WEEKDAY_HEADS.map((head) => (
-          <span key={head} {...stylex.props(styles.weekday)}>
+          <span key={head} {...stylex.props(text.meta, styles.weekday)}>
             {head}
           </span>
         ))}
@@ -418,7 +406,7 @@ function MonthGrid({
               value={date.toString()}
               disabled={!isInRange(date, min, max)}
               aria-label={`${formatDateLabel(date)}${isToday ? "（今天）" : ""}`}
-              {...stylex.props(styles.day, isToday && styles.dayToday)}
+              {...stylex.props(text.body, styles.day, isToday && styles.dayToday)}
             >
               {date.day}
               {isToday ? <span aria-hidden {...stylex.props(styles.todayDot)} /> : null}

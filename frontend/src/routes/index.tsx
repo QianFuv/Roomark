@@ -15,8 +15,9 @@ import { statusSummary } from "../features/room/room-home";
 import { ScanRoomActions } from "../features/room/scan-room";
 import { useRoomDetail } from "../features/room/room-data";
 import { forgetRoom, useRememberedRooms } from "../state/app-store";
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, media, radii, space } from "../styles/tokens.stylex";
 import { PageHeader, Skeleton, Stack } from "../ui/layout";
+import { text } from "../ui/typography";
 
 export const Route = createFileRoute("/")({
   validateSearch: z.object({ add: z.boolean().optional() }),
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/")({
 const styles = stylex.create({
   grid: {
     display: "grid",
-    gap: 12,
+    gap: space.md,
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.narrow]: "repeat(2, minmax(0, 1fr))",
@@ -42,25 +43,28 @@ const styles = stylex.create({
     borderWidth: 1,
     color: colors.text,
     display: "flex",
-    gap: 14,
-    minHeight: 84,
+    gap: space.md,
+    minHeight: 72,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingBlock: 14,
-    paddingInline: 16,
+    paddingBlock: space.md,
+    paddingInline: space.cardPadding,
     textDecoration: "none",
   },
-  dot: { borderRadius: radii.pill, flexShrink: 0, height: 12, width: 12 },
+  dot: { borderRadius: radii.pill, flexShrink: 0, height: 10, width: 10 },
   free: { backgroundColor: colors.free },
-  busy: { backgroundColor: colors.busy },
+  busy: { backgroundColor: colors.busySolid },
   unknown: { backgroundColor: colors.textSubtle },
-  body: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 4, minWidth: 0 },
-  name: { fontSize: fonts.sizeLg, fontWeight: 700 },
-  summary: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
-  summaryFree: { color: colors.free, fontWeight: 600 },
-  summaryBusy: { color: colors.busy, fontWeight: 600 },
+  body: { display: "flex", flexDirection: "column", flexGrow: 1, gap: space.xxs, minWidth: 0 },
+  summary: { color: colors.textMuted },
   chevron: { color: colors.textSubtle, flexShrink: 0 },
-  addCard: { borderStyle: "dashed", color: colors.primaryText, fontWeight: 600, justifyContent: "center" },
-  bind: { alignItems: "center", display: "flex", flexDirection: "column", gap: 20, paddingBlock: 24 },
+  addCard: { borderStyle: "dashed", color: colors.primaryText, justifyContent: "center" },
+  bind: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: space.lg,
+    paddingBlock: space.xl,
+  },
 });
 
 /**
@@ -96,8 +100,8 @@ function HomePage() {
           </li>
         ))}
         <li>
-          <Link to="/" search={{ add: true }} {...stylex.props(styles.card, styles.addCard)}>
-            <Plus size={20} aria-hidden />
+          <Link to="/" search={{ add: true }} {...stylex.props(text.label, styles.card, styles.addCard)}>
+            <Plus aria-hidden />
             添加会议室
           </Link>
         </li>
@@ -134,20 +138,20 @@ function RoomCard({ slug, fallbackName }: { slug: string; fallbackName: string }
         )}
       />
       <span {...stylex.props(styles.body)}>
-        <span {...stylex.props(styles.name)}>{data?.room.name ?? fallbackName}</span>
+        <span {...stylex.props(text.title)}>{data?.room.name ?? fallbackName}</span>
         {data === undefined ? (
           detail.isError ? (
-            <span {...stylex.props(styles.summary)}>{isTokenRejected ? "房间码已失效" : "状态加载失败"}</span>
+            <span {...stylex.props(text.body, styles.summary)}>
+              {isTokenRejected ? "房间码已失效" : "状态加载失败"}
+            </span>
           ) : (
-            <Skeleton height={16} width="60%" />
+            <Skeleton height={22} width="60%" />
           )
         ) : (
-          <span {...stylex.props(styles.summary, state === "free" ? styles.summaryFree : styles.summaryBusy)}>
-            {statusSummary(data.room, data.status)}
-          </span>
+          <span {...stylex.props(text.body, styles.summary)}>{statusSummary(data.room, data.status)}</span>
         )}
       </span>
-      <ChevronRight size={20} aria-hidden {...stylex.props(styles.chevron)} />
+      <ChevronRight aria-hidden {...stylex.props(styles.chevron)} />
     </Link>
   );
 }

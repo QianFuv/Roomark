@@ -1,3 +1,10 @@
+/*
+ * JetBrainsLxgwNerdMono (JetBrains Mono + LXGW WenKai Mono, OFL-1.1): cn-font-split WOFF2 chunks
+ * with unicode-range, loaded the same way as LitRadar. Only 400 and 700 exist.
+ */
+@import "../../assets/JetBrainsLxgwNerdMono-Regular/result.css";
+@import "../../assets/JetBrainsLxgwNerdMono-Bold/result.css";
+
 @layer reset {
   *,
   *::before,
@@ -7,6 +14,12 @@
 
   html {
     color-scheme: light dark;
+    font-family: "JetBrainsLxgwNerdMono", monospace;
+    font-size: 14px;
+    line-height: 22px;
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;

@@ -8,7 +8,8 @@ import { ToggleGroup } from "@animate-ui/react/primitives/base-ui/toggle-group";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 /** One segment. */
 interface SegmentOption<Value extends string> {
@@ -34,8 +35,8 @@ const styles = stylex.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     display: "inline-flex",
-    gap: 2,
-    padding: 3,
+    gap: space.xxs,
+    padding: space.xxs,
   },
   fullWidth: { display: "flex", width: "100%" },
   item: {
@@ -50,24 +51,16 @@ const styles = stylex.create({
     flexDirection: "column",
     flexGrow: 1,
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    gap: 1,
     justifyContent: "center",
-    minHeight: 36,
+    minHeight: sizes.controlSmall,
     opacity: { default: 1, "[data-disabled]": 0.4 },
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.md,
     whiteSpace: "nowrap",
   },
-  itemLarge: { fontSize: fonts.sizeMd, minHeight: 48 },
-  hint: {
-    color: "inherit",
-    fontSize: fonts.sizeXs,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 500,
-  },
-  chips: { display: "flex", gap: 6 },
+  itemLarge: { minHeight: sizes.controlLarge },
+  hint: { color: "inherit" },
+  chips: { display: "flex", gap: space.xs },
   chip: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, "[data-pressed]": colors.primary },
@@ -79,13 +72,11 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
     justifyContent: "center",
     flexBasis: 0,
     flexGrow: 1,
-    minHeight: 44,
-    minWidth: 36,
+    minHeight: sizes.control,
+    minWidth: sizes.controlSmall,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     paddingInline: 0,
   },
@@ -122,10 +113,12 @@ export function Segmented<Value extends string>({
           value={option.value}
           disabled={option.isDisabled === true}
           aria-label={option.ariaLabel}
-          {...stylex.props(styles.item, size === "lg" && styles.itemLarge)}
+          {...stylex.props(text.label, styles.item, size === "lg" && styles.itemLarge)}
         >
           {option.label}
-          {option.hint === undefined ? null : <span {...stylex.props(styles.hint)}>{option.hint}</span>}
+          {option.hint === undefined ? null : (
+            <span {...stylex.props(text.meta, styles.hint)}>{option.hint}</span>
+          )}
         </Toggle>
       ))}
     </ToggleGroup>
@@ -168,7 +161,7 @@ export function ChipGroup<Value extends string>({
           value={option.value}
           aria-label={option.ariaLabel}
           disabled={option.isDisabled === true}
-          {...stylex.props(styles.chip)}
+          {...stylex.props(text.label, styles.chip)}
         >
           {option.label}
         </Toggle>

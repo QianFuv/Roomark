@@ -9,7 +9,8 @@ import * as stylex from "@stylexjs/stylex";
 import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, lineHeights, radii, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 /** Kind of toast. */
 export type ToastTone = "success" | "error" | "info";
@@ -35,12 +36,12 @@ export function notify(tone: ToastTone, title: string, description?: string): vo
 
 const styles = stylex.create({
   viewport: {
-    bottom: "max(16px, env(safe-area-inset-bottom))",
+    bottom: `max(${space.lg}, env(safe-area-inset-bottom))`,
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: space.sm,
     left: "50%",
-    maxWidth: "calc(100vw - 24px)",
+    maxWidth: `calc(100vw - ${space.xl})`,
     position: "fixed",
     translate: "-50% 0",
     width: 420,
@@ -57,17 +58,17 @@ const styles = stylex.create({
     color: colors.text,
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 10,
-    paddingBlock: 12,
-    paddingInline: 14,
+    gap: space.sm,
+    paddingBlock: space.md,
+    paddingInline: space.md,
   },
-  content: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2, minWidth: 0 },
-  title: { fontSize: fonts.sizeMd, fontWeight: 600, lineHeight: 1.4, margin: 0 },
-  description: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.4, margin: 0 },
+  content: { display: "flex", flexDirection: "column", flexGrow: 1, gap: space.xxs, minWidth: 0 },
+  title: { margin: 0 },
+  description: { color: colors.textMuted, margin: 0 },
   success: { color: colors.free },
   error: { color: colors.busy },
   info: { color: colors.info },
-  icon: { flexShrink: 0, marginTop: 1 },
+  icon: { alignItems: "center", display: "inline-flex", flexShrink: 0, height: lineHeights.control },
   close: {
     alignItems: "center",
     backgroundColor: { default: "transparent", ":hover": colors.surfaceHover },
@@ -84,9 +85,9 @@ const styles = stylex.create({
 });
 
 const ICONS: Record<ToastTone, ReactNode> = {
-  success: <CircleCheck size={20} aria-hidden />,
-  error: <CircleAlert size={20} aria-hidden />,
-  info: <Info size={20} aria-hidden />,
+  success: <CircleCheck aria-hidden />,
+  error: <CircleAlert aria-hidden />,
+  info: <Info aria-hidden />,
 };
 
 /**
@@ -114,11 +115,11 @@ function ToastList() {
       <Toast.Root key={toast.id} toast={toast} {...stylex.props(styles.root)}>
         <span {...stylex.props(styles.icon, styles[tone])}>{ICONS[tone]}</span>
         <Toast.Content {...stylex.props(styles.content)}>
-          <Toast.Title {...stylex.props(styles.title)} />
-          <Toast.Description {...stylex.props(styles.description)} />
+          <Toast.Title {...stylex.props(text.label, styles.title)} />
+          <Toast.Description {...stylex.props(text.meta, styles.description)} />
         </Toast.Content>
         <Toast.Close aria-label="关闭通知" {...stylex.props(styles.close)}>
-          <X size={16} aria-hidden />
+          <X aria-hidden />
         </Toast.Close>
       </Toast.Root>
     );

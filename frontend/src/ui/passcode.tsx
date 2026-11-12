@@ -8,7 +8,8 @@ import { OTPField } from "@base-ui/react/otp-field";
 import * as stylex from "@stylexjs/stylex";
 import { useId, type ReactNode } from "react";
 
-import { colors, fonts, radii } from "../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../styles/tokens.stylex";
+import { text } from "./typography";
 
 /** Every passcode has exactly this many digits. */
 export const PASSCODE_LENGTH = 6;
@@ -28,9 +29,9 @@ export interface PasscodeInputProps {
 }
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  labelRow: { alignItems: "center", display: "flex", gap: 4 },
-  label: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 500, lineHeight: 1.5 },
+  root: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
+  labelRow: { alignItems: "center", display: "flex", gap: space.xs },
+  label: { color: colors.text },
   hiddenLabel: {
     clipPath: "inset(50%)",
     height: 1,
@@ -39,7 +40,7 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
     width: 1,
   },
-  slots: { display: "flex", gap: 8, maxWidth: 352, width: "100%" },
+  slots: { display: "flex", gap: space.sm, maxWidth: 352, width: "100%" },
   slot: {
     backgroundColor: colors.surface,
     borderColor: { default: colors.borderStrong, ":focus": colors.primary },
@@ -50,16 +51,14 @@ const styles = stylex.create({
     flexBasis: 0,
     flexGrow: 1,
     fontFamily: fonts.mono,
-    fontSize: 22,
-    fontWeight: 700,
-    height: 52,
+    height: sizes.controlLarge,
     minWidth: 0,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     padding: 0,
     textAlign: "center",
   },
   slotInvalid: { borderColor: colors.busy },
-  error: { color: colors.busy, fontSize: fonts.sizeSm, lineHeight: 1.5 },
+  error: { color: colors.busy },
 });
 
 /**
@@ -85,7 +84,10 @@ export function PasscodeInput({
   return (
     <div {...stylex.props(styles.root)}>
       <span {...stylex.props(styles.labelRow)}>
-        <label htmlFor={id} {...stylex.props(isLabelVisible ? styles.label : styles.hiddenLabel)}>
+        <label
+          htmlFor={id}
+          {...stylex.props(isLabelVisible ? [text.label, styles.label] : styles.hiddenLabel)}
+        >
           {label}
         </label>
         {labelAside}
@@ -109,12 +111,12 @@ export function PasscodeInput({
             key={index}
             autoFocus={isAutoFocus && index === 0}
             aria-label={index === 0 ? undefined : `第 ${index + 1} 位，共 ${PASSCODE_LENGTH} 位`}
-            {...stylex.props(styles.slot, error !== undefined && styles.slotInvalid)}
+            {...stylex.props(text.figure, styles.slot, error !== undefined && styles.slotInvalid)}
           />
         ))}
       </OTPField.Root>
       {error === undefined ? null : (
-        <p id={errorId} role="alert" {...stylex.props(styles.error)}>
+        <p id={errorId} role="alert" {...stylex.props(text.meta, styles.error)}>
           {error}
         </p>
       )}

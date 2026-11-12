@@ -11,14 +11,16 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { api, errorMessage, fetchClient, refreshBookings, type AdminRoom } from "../../api/client";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, media, radii, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ICON_SIZE } from "../../ui/icon";
 import { SwitchRow } from "../../ui/controls";
 import { ClockPicker } from "../../ui/clock-picker";
 import { TextAreaField, TextField } from "../../ui/field";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/rooms")({ component: AdminRoomsPage });
 
@@ -50,39 +52,29 @@ type RoomValues = z.infer<typeof roomSchema>;
 const styles = stylex.create({
   grid: {
     display: "grid",
-    gap: 12,
+    gap: space.md,
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.narrow]: "repeat(2, minmax(0, 1fr))",
       [media.wide]: "repeat(3, minmax(0, 1fr))",
     },
   },
-  roomName: { fontSize: fonts.sizeLg, fontWeight: 700 },
-  meta: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.6 },
+  meta: { alignItems: "center", color: colors.textMuted, display: "flex", flexWrap: "wrap", gap: space.xs },
   rules: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     color: colors.textMuted,
     display: "grid",
-    fontSize: fonts.sizeSm,
-    gap: 4,
+    gap: space.xs,
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    paddingBlock: 10,
-    paddingInline: 12,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
-  rule: { fontVariantNumeric: "tabular-nums" },
-  pair: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
-  codeRow: { alignItems: "center", display: "flex", gap: 10, minWidth: 0 },
-  codeLabel: { color: colors.textMuted, fontSize: fonts.sizeSm },
-  code: {
-    color: colors.text,
-    flexGrow: 1,
-    fontFamily: fonts.mono,
-    fontSize: fonts.sizeXl,
-    fontWeight: 700,
-    letterSpacing: "0.18em",
-  },
-  formTitle: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 700 },
+  pair: { display: "grid", gap: space.md, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+  codeRow: { alignItems: "center", display: "flex", gap: space.sm, minWidth: 0 },
+  codeLabel: { color: colors.textMuted },
+  code: { color: colors.text, flexGrow: 1, fontFamily: fonts.mono },
+  formTitle: { color: colors.text },
 });
 
 /**
@@ -133,7 +125,7 @@ function AdminRoomsPage() {
     <Stack gap="lg">
       <Row gap="md" isSpread>
         <PageHeader title="房间" />
-        <Button variant="primary" icon={<Plus size={18} aria-hidden />} onClick={() => setEditing("new")}>
+        <Button variant="primary" icon={<Plus aria-hidden />} onClick={() => setEditing("new")}>
           新建房间
         </Button>
       </Row>
@@ -153,43 +145,43 @@ function AdminRoomsPage() {
           {(rooms.data ?? []).map((room) => (
             <Card key={room.id} as="li">
               <Row gap="sm">
-                <span {...stylex.props(styles.roomName)}>{room.name}</span>
+                <span {...stylex.props(text.title)}>{room.name}</span>
                 <Badge>{room.slug}</Badge>
                 {room.archived ? (
                   <Badge tone="warning">
-                    <Archive size={12} aria-hidden />
+                    <Archive size={ICON_SIZE.meta} aria-hidden />
                     已归档
                   </Badge>
                 ) : null}
               </Row>
-              <p {...stylex.props(styles.meta)}>
+              <p {...stylex.props(text.meta, styles.meta)}>
                 {room.location === "" ? "未填写位置" : room.location}
                 {room.capacity > 0 ? (
                   <>
                     {" · "}
-                    <Users size={13} aria-hidden /> {room.capacity} 人
+                    <Users size={ICON_SIZE.meta} aria-hidden /> {room.capacity} 人
                   </>
                 ) : null}
               </p>
-              <div {...stylex.props(styles.rules)}>
-                <span {...stylex.props(styles.rule)}>
+              <div {...stylex.props(text.meta, styles.rules)}>
+                <span>
                   开放 {room.rules.openTime}–{room.rules.closeTime}
                 </span>
-                <span {...stylex.props(styles.rule)}>单次最长 {room.rules.maxDurationMinutes} 分钟</span>
-                <span {...stylex.props(styles.rule)}>最多提前 {room.rules.maxAdvanceDays} 天</span>
-                <span {...stylex.props(styles.rule)}>
+                <span>单次最长 {room.rules.maxDurationMinutes} 分钟</span>
+                <span>最多提前 {room.rules.maxAdvanceDays} 天</span>
+                <span>
                   每人 {room.rules.maxActivePerPerson === 0 ? "不限" : `${room.rules.maxActivePerPerson} 个`}
                 </span>
-                <span {...stylex.props(styles.rule)}>重复最长 {room.rules.recurringMaxWeeks} 周</span>
+                <span>重复最长 {room.rules.recurringMaxWeeks} 周</span>
               </div>
               <div {...stylex.props(styles.codeRow)}>
-                <span {...stylex.props(styles.codeLabel)}>房间码</span>
-                <span {...stylex.props(styles.code)}>{room.code}</span>
+                <span {...stylex.props(text.meta, styles.codeLabel)}>房间码</span>
+                <span {...stylex.props(text.title, styles.code)}>{room.code}</span>
                 <Button
                   variant="soft"
                   size="sm"
                   aria-label={`复制「${room.name}」的房间码`}
-                  icon={<Copy size={16} aria-hidden />}
+                  icon={<Copy aria-hidden />}
                   onClick={() => copyCode(room)}
                 >
                   复制
@@ -198,13 +190,13 @@ function AdminRoomsPage() {
               <Row gap="sm">
                 <Button
                   variant="primary"
-                  icon={<QrCode size={18} aria-hidden />}
+                  icon={<QrCode aria-hidden />}
                   render={<Link to="/admin/rooms/$roomId/qr" params={{ roomId: String(room.id) }} />}
                   nativeButton={false}
                 >
                   导出二维码
                 </Button>
-                <Button icon={<Settings2 size={18} aria-hidden />} onClick={() => setEditing(room)}>
+                <Button icon={<Settings2 aria-hidden />} onClick={() => setEditing(room)}>
                   编辑
                 </Button>
               </Row>
@@ -299,7 +291,7 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
       }}
     >
       <Stack gap="lg">
-        <span {...stylex.props(styles.formTitle)}>基本信息</span>
+        <span {...stylex.props(text.label, styles.formTitle)}>基本信息</span>
         <div {...stylex.props(styles.pair)}>
           <form.Field name="name">
             {(field) => (
@@ -357,7 +349,7 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
             />
           )}
         </form.Field>
-        <span {...stylex.props(styles.formTitle)}>预约规则</span>
+        <span {...stylex.props(text.label, styles.formTitle)}>预约规则</span>
         <div {...stylex.props(styles.pair)}>
           <form.Field name="openTime">
             {(field) => (

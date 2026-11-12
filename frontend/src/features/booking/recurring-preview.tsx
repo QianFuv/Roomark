@@ -24,14 +24,16 @@ import {
   type SeriesRule,
 } from "../../lib/recurring";
 import { formatClockRange, formatDateLabel, todayDate } from "../../lib/time";
-import { colors, fonts } from "../../styles/tokens.stylex";
+import { colors, fonts, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ICON_SIZE } from "../../ui/icon";
 import { Card, Notice, Skeleton, Stack } from "../../ui/layout";
+import { text } from "../../ui/typography";
 import { requestSession } from "../identity/identity";
 import { SuggestionCard, SuggestionGrid, SuggestionOption } from "./suggestion-list";
 
 const styles = stylex.create({
-  header: { color: colors.text, fontSize: fonts.sizeMd, fontVariantNumeric: "tabular-nums", fontWeight: 700 },
+  header: { color: colors.text },
   list: { display: "flex", flexDirection: "column" },
   row: {
     borderBottomColor: colors.border,
@@ -39,35 +41,29 @@ const styles = stylex.create({
     borderBottomWidth: { default: 1, ":last-child": 0 },
     display: "flex",
     flexDirection: "column",
-    gap: 8,
-    paddingBlock: 10,
+    gap: space.sm,
+    paddingBlock: space.rowPaddingBlock,
   },
-  line: { alignItems: "center", display: "flex", gap: 10, minHeight: 32 },
+  line: { alignItems: "center", display: "flex", gap: space.sm, minHeight: 32 },
   when: {
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
-    fontSize: fonts.sizeMd,
-    fontVariantNumeric: "tabular-nums",
-    gap: 1,
     minWidth: 0,
   },
-  whenDate: { fontWeight: 600 },
-  whenTime: { color: colors.textMuted, fontSize: fonts.sizeSm },
+  whenTime: { color: colors.textMuted },
   whenSkipped: { color: colors.textSubtle, textDecoration: "line-through" },
   status: {
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    gap: 4,
+    gap: space.xs,
   },
   ok: { color: colors.free },
   bad: { color: colors.busy },
   skipped: { color: colors.textSubtle },
   moved: { color: colors.primaryText },
-  detail: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
+  detail: { color: colors.textMuted },
   toggle: {
     backgroundColor: "transparent",
     borderWidth: 0,
@@ -75,12 +71,10 @@ const styles = stylex.create({
     cursor: "pointer",
     flexShrink: 0,
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    minHeight: 40,
-    minWidth: 44,
+    minHeight: sizes.control,
+    minWidth: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 8,
+    paddingInline: space.sm,
   },
 });
 
@@ -179,7 +173,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
 
   return (
     <Card as="section" ariaLabel="重复预约预览">
-      <p aria-live="polite" {...stylex.props(styles.header)}>
+      <p aria-live="polite" {...stylex.props(text.label, styles.header)}>
         {summaryLine(summary)}
       </p>
       <ul {...stylex.props(styles.list)}>
@@ -192,15 +186,19 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
             <li key={occurrence.date} {...stylex.props(styles.row)}>
               <div {...stylex.props(styles.line)}>
                 <span {...stylex.props(styles.when, isSkipped && styles.whenSkipped)}>
-                  <span {...stylex.props(styles.whenDate)}>{formatDateLabel(occurrence.date)}</span>
-                  <span {...stylex.props(styles.whenTime)}>
+                  <span {...stylex.props(text.label)}>{formatDateLabel(occurrence.date)}</span>
+                  <span {...stylex.props(text.meta, styles.whenTime)}>
                     {formatClockRange(occurrence.start, occurrence.end)}
                   </span>
                 </span>
                 {occurrence.status === "ok" ? (
                   <>
-                    <span {...stylex.props(styles.status, isSkipped ? styles.skipped : styles.ok)}>
-                      {isSkipped ? <CircleSlash size={16} aria-hidden /> : <Check size={16} aria-hidden />}
+                    <span {...stylex.props(text.meta, styles.status, isSkipped ? styles.skipped : styles.ok)}>
+                      {isSkipped ? (
+                        <CircleSlash size={ICON_SIZE.meta} aria-hidden />
+                      ) : (
+                        <Check size={ICON_SIZE.meta} aria-hidden />
+                      )}
                       {isSkipped ? "跳过" : "可约"}
                     </span>
                     <button
@@ -210,26 +208,26 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
                       onClick={() =>
                         choose(occurrence.date, isSkipped ? { action: "book" } : { action: "skip" })
                       }
-                      {...stylex.props(styles.toggle)}
+                      {...stylex.props(text.label, styles.toggle)}
                     >
                       {isSkipped ? "恢复" : "跳过"}
                     </button>
                   </>
                 ) : choice.action === "move" ? (
-                  <span {...stylex.props(styles.status, styles.moved)}>
-                    <Check size={16} aria-hidden />
+                  <span {...stylex.props(text.meta, styles.status, styles.moved)}>
+                    <Check size={ICON_SIZE.meta} aria-hidden />
                     已换时间
                   </span>
                 ) : (
-                  <span {...stylex.props(styles.status, styles.bad)}>
-                    <X size={16} aria-hidden />
+                  <span {...stylex.props(text.meta, styles.status, styles.bad)}>
+                    <X size={ICON_SIZE.meta} aria-hidden />
                     {occurrence.status === "conflict" ? "冲突" : "不可约"}
                   </span>
                 )}
               </div>
               {occurrence.status === "conflict" && occurrence.conflict !== undefined ? (
                 <>
-                  <span {...stylex.props(styles.detail)}>
+                  <span {...stylex.props(text.meta, styles.detail)}>
                     {formatClockRange(
                       occurrence.conflict.conflictWith.start,
                       occurrence.conflict.conflictWith.end,
@@ -266,7 +264,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
                 </>
               ) : null}
               {occurrence.status === "violation" ? (
-                <span {...stylex.props(styles.detail)}>
+                <span {...stylex.props(text.meta, styles.detail)}>
                   {(occurrence.violations ?? []).map((violation) => violation.message).join("；")}
                 </span>
               ) : null}

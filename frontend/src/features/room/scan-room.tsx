@@ -13,10 +13,11 @@ import { useId, useState } from "react";
 import { asProblem, errorMessage, fetchClient } from "../../api/client";
 import { platform } from "../../platform/platform";
 import { rememberRoom, rememberRoomName } from "../../state/app-store";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, radii, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Stack } from "../../ui/layout";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 /** Characters a room code may contain (no 0/O/1/I/L). */
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -73,9 +74,9 @@ async function resolveRoomCode(code: string): Promise<ResolveOutcome> {
 
 const styles = stylex.create({
   root: { maxWidth: 400, width: "100%" },
-  field: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 },
-  label: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 600 },
-  slots: { display: "flex", gap: 8, width: "100%" },
+  field: { display: "flex", flexDirection: "column", gap: space.sm, minWidth: 0 },
+  label: { color: colors.text },
+  slots: { display: "flex", gap: space.sm, width: "100%" },
   slot: {
     backgroundColor: colors.surface,
     borderColor: { default: colors.borderStrong, ":focus": colors.primary },
@@ -86,9 +87,7 @@ const styles = stylex.create({
     flexBasis: 0,
     flexGrow: 1,
     fontFamily: fonts.mono,
-    fontSize: 22,
-    fontWeight: 700,
-    height: 52,
+    height: sizes.controlLarge,
     minWidth: 0,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     padding: 0,
@@ -96,8 +95,8 @@ const styles = stylex.create({
     textTransform: "uppercase",
   },
   slotInvalid: { borderColor: colors.busy },
-  message: { color: colors.busy, fontSize: fonts.sizeSm, lineHeight: 1.5 },
-  pending: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
+  message: { color: colors.busy },
+  pending: { color: colors.textMuted },
 });
 
 /**
@@ -148,7 +147,7 @@ export function RoomCodeInput({
 
   return (
     <div {...stylex.props(styles.field)}>
-      <label htmlFor={id} {...stylex.props(styles.label)}>
+      <label htmlFor={id} {...stylex.props(text.label, styles.label)}>
         房间码
       </label>
       <OTPField.Root
@@ -175,18 +174,18 @@ export function RoomCodeInput({
             autoCapitalize="characters"
             spellCheck={false}
             aria-label={index === 0 ? undefined : `房间码第 ${index + 1} 位，共 ${ROOM_CODE_LENGTH} 位`}
-            {...stylex.props(styles.slot, error !== undefined && styles.slotInvalid)}
+            {...stylex.props(text.figure, styles.slot, error !== undefined && styles.slotInvalid)}
           />
         ))}
       </OTPField.Root>
       {error === undefined ? (
         isChecking ? (
-          <p role="status" {...stylex.props(styles.pending)}>
+          <p role="status" {...stylex.props(text.meta, styles.pending)}>
             正在查找…
           </p>
         ) : null
       ) : (
-        <p id={`${id}-error`} role="alert" {...stylex.props(styles.message)}>
+        <p id={`${id}-error`} role="alert" {...stylex.props(text.meta, styles.message)}>
           {error}
         </p>
       )}
@@ -245,7 +244,7 @@ export function ScanRoomActions({ isAutoFocus = false }: { isAutoFocus?: boolean
             size="lg"
             isFullWidth
             isLoading={isScanning}
-            icon={<ScanLine size={20} aria-hidden />}
+            icon={<ScanLine aria-hidden />}
             onClick={() => {
               setIsScanning(true);
               void host

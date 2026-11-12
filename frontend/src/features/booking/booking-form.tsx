@@ -45,7 +45,7 @@ import {
   weekdayLabel,
 } from "../../lib/time";
 import { rememberTitle, useSession } from "../../state/app-store";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, lineHeights, media, radii, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure, Stepper, SwitchRow } from "../../ui/controls";
 import { DatePicker } from "../../ui/date-picker";
@@ -55,6 +55,7 @@ import { Card, Notice, Stack } from "../../ui/layout";
 import { ChipGroup, Segmented } from "../../ui/segmented";
 import { confirmAction } from "../../ui/dialogs";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 import { overlayDepth } from "../../app/overlay-history";
 import { requestSession } from "../identity/identity";
 import { useNow, useRoomBookings } from "../room/room-data";
@@ -112,49 +113,45 @@ const WEEKDAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
 const BLOCK_HORIZON_DAYS = 366;
 
 const styles = stylex.create({
-  form: { containerType: "inline-size", display: "flex", flexDirection: "column", gap: 20 },
+  form: { containerType: "inline-size", display: "flex", flexDirection: "column", gap: space.sectionGap },
   when: {
     alignItems: "start",
     display: "grid",
-    gap: 20,
+    gap: space.lg,
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.formTwoColumn]: "minmax(260px, 320px) minmax(0, 1fr)",
     },
   },
-  timeColumn: { display: "flex", flexDirection: "column", gap: 14, minWidth: 0 },
-  checkBox: { minHeight: 48 },
+  timeColumn: { display: "flex", flexDirection: "column", gap: space.md, minWidth: 0 },
+  checkBox: { minHeight: sizes.controlLarge },
   check: {
     alignItems: "flex-start",
     borderRadius: radii.medium,
     display: "flex",
-    fontSize: fonts.sizeMd,
-    gap: 8,
-    lineHeight: 1.5,
-    paddingBlock: 12,
-    paddingInline: 14,
+    gap: space.sm,
+    paddingBlock: space.sm,
+    paddingInline: space.md,
   },
   checkOk: { backgroundColor: colors.freeSoft, color: colors.freeStrong },
   checkBad: { backgroundColor: colors.busySoft, color: colors.busyStrong },
   checkWarn: { backgroundColor: colors.warningSoft, color: colors.warning },
   checkPending: { backgroundColor: colors.surfaceMuted, color: colors.textMuted },
-  checkIcon: { display: "inline-flex", flexShrink: 0, marginTop: 2 },
+  checkIcon: { alignItems: "center", display: "inline-flex", flexShrink: 0, height: lineHeights.body },
   panelStatus: {
     alignItems: "flex-start",
     borderTopColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: 1,
     display: "flex",
-    fontSize: fonts.sizeSm,
-    gap: 6,
-    lineHeight: 1.5,
-    paddingTop: 12,
+    gap: space.sm,
+    paddingTop: space.md,
   },
   panelStatusOk: { color: colors.freeStrong },
   panelStatusWarn: { color: colors.warning },
   panelStatusPending: { color: colors.textMuted },
-  panelStatusIcon: { display: "inline-flex", flexShrink: 0, marginTop: 1 },
-  repeatBox: { display: "flex", flexDirection: "column", gap: 16 },
+  panelStatusIcon: { alignItems: "center", display: "inline-flex", flexShrink: 0, height: lineHeights.body },
+  repeatBox: { display: "flex", flexDirection: "column", gap: space.lg },
   spin: {
     animationDuration: "800ms",
     animationIterationCount: "infinite",
@@ -167,8 +164,8 @@ const styles = stylex.create({
   sticky: {
     backgroundColor: colors.surface,
     bottom: 0,
-    paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-    paddingTop: 8,
+    paddingBottom: `max(${space.sm}, env(safe-area-inset-bottom))`,
+    paddingTop: space.sm,
     position: "sticky",
     zIndex: 2,
   },
@@ -651,9 +648,9 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
           {values.isRepeat && editing === undefined ? null : (
             <div aria-live="polite" {...stylex.props(styles.checkBox)}>
               {submitError !== undefined ? (
-                <div {...stylex.props(styles.check, styles.checkBad)}>
+                <div {...stylex.props(text.body, styles.check, styles.checkBad)}>
                   <span {...stylex.props(styles.checkIcon)}>
-                    <CircleAlert size={18} aria-hidden />
+                    <CircleAlert aria-hidden />
                   </span>
                   <span>{submitError}</span>
                 </div>
@@ -687,25 +684,25 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                   }
                 />
               ) : violations.length > 0 ? (
-                <div {...stylex.props(styles.check, styles.checkWarn)}>
+                <div {...stylex.props(text.body, styles.check, styles.checkWarn)}>
                   <span {...stylex.props(styles.checkIcon)}>
-                    <CircleAlert size={18} aria-hidden />
+                    <CircleAlert aria-hidden />
                   </span>
                   <span>{violations.map((violation) => violation.message).join("；")}</span>
                 </div>
               ) : isCheckOk && !isCheckStale ? (
-                <div {...stylex.props(styles.check, styles.checkOk)}>
+                <div {...stylex.props(text.body, styles.check, styles.checkOk)}>
                   <span {...stylex.props(styles.checkIcon)}>
-                    <Check size={18} aria-hidden />
+                    <Check aria-hidden />
                   </span>
                   <span>
                     {formatMonthDay(values.date)} {values.start}–{values.end} 可以约
                   </span>
                 </div>
               ) : isRangeValid ? (
-                <div {...stylex.props(styles.check, styles.checkPending)}>
+                <div {...stylex.props(text.body, styles.check, styles.checkPending)}>
                   <span {...stylex.props(styles.checkIcon)}>
-                    <LoaderCircle size={18} aria-hidden {...stylex.props(styles.spin)} />
+                    <LoaderCircle aria-hidden {...stylex.props(styles.spin)} />
                   </span>
                   <span>检查中…</span>
                 </div>
@@ -810,10 +807,10 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
         <Button
           type="submit"
           variant="primary"
-          size="xl"
+          size="lg"
           isFullWidth
           isLoading={isBusy}
-          icon={values.isRepeat ? <Repeat size={20} aria-hidden /> : <CalendarCheck size={20} aria-hidden />}
+          icon={values.isRepeat ? <Repeat aria-hidden /> : <CalendarCheck aria-hidden />}
           disabled={
             !isRangeValid ||
             (values.isRepeat
@@ -849,14 +846,14 @@ function AppliedStatus({ label, state, confirmText }: { label: string; state: st
     state === "ok" ? `，可以约。${confirmText}` : state === "pending" ? "，检查中…" : `：${state}`;
 
   return (
-    <p {...stylex.props(styles.panelStatus, tone)}>
+    <p {...stylex.props(text.body, styles.panelStatus, tone)}>
       <span {...stylex.props(styles.panelStatusIcon)}>
         {state === "ok" ? (
-          <Check size={16} aria-hidden />
+          <Check aria-hidden />
         ) : state === "pending" ? (
-          <LoaderCircle size={16} aria-hidden {...stylex.props(styles.spin)} />
+          <LoaderCircle aria-hidden {...stylex.props(styles.spin)} />
         ) : (
-          <CircleAlert size={16} aria-hidden />
+          <CircleAlert aria-hidden />
         )}
       </span>
       <span>

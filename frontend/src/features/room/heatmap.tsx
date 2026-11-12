@@ -9,7 +9,8 @@ import * as stylex from "@stylexjs/stylex";
 
 import { formatPercent, heatRows, type HeatCell } from "../../lib/stats";
 import { minutesToClock } from "../../lib/time";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, radii, space } from "../../styles/tokens.stylex";
+import { text } from "../../ui/typography";
 
 /** Gap between cells in pixels. */
 const CELL_GAP = 4;
@@ -18,7 +19,7 @@ const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: space.sm,
     marginInline: "auto",
     minWidth: 0,
     position: "relative",
@@ -27,7 +28,6 @@ const styles = stylex.create({
   table: {
     borderCollapse: "separate",
     borderSpacing: CELL_GAP,
-    fontSize: fonts.sizeXs,
     tableLayout: "fixed",
     width: "100%",
   },
@@ -35,16 +35,14 @@ const styles = stylex.create({
   labelColumn: (pixels: number) => ({ width: pixels }),
   axis: {
     color: colors.textMuted,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 500,
-    lineHeight: 1,
+    fontWeight: "inherit",
     padding: 0,
     whiteSpace: "nowrap",
   },
-  rowAxis: { paddingInlineEnd: 4, textAlign: "end" },
+  rowAxis: { paddingInlineEnd: space.xs, textAlign: "end" },
   columnAxis: { height: 20, textAlign: "center", verticalAlign: "bottom" },
-  dayHead: { color: colors.text, fontWeight: 600 },
-  todayHead: { color: colors.primaryText, fontWeight: 800 },
+  dayHead: { color: colors.text },
+  todayHead: { color: colors.primaryText },
   dayButton: {
     backgroundColor: { default: "transparent", ":hover": colors.surfaceHover },
     borderRadius: radii.small,
@@ -52,8 +50,6 @@ const styles = stylex.create({
     color: "inherit",
     cursor: "pointer",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: "inherit",
     minHeight: 28,
     outline: { default: "none", ":focus-visible": `2px solid ${colors.focusRing}` },
     padding: 0,
@@ -64,8 +60,8 @@ const styles = stylex.create({
     borderRadius: radii.pill,
     color: colors.onPrimary,
     display: "inline-block",
-    lineHeight: "22px",
     minWidth: 22,
+    textAlign: "center",
   },
   cell: { padding: 0, position: "relative" },
   square: { aspectRatio: "1", borderRadius: 4, width: "100%" },
@@ -84,8 +80,7 @@ const styles = stylex.create({
     alignSelf: "flex-end",
     color: colors.textMuted,
     display: "flex",
-    fontSize: fonts.sizeXs,
-    gap: 4,
+    gap: space.xs,
   },
   legendSwatch: { borderRadius: 3, display: "inline-block", height: 10, width: 10 },
   srOnly: {
@@ -215,7 +210,7 @@ export function HeatmapGrid({
 
   return (
     <div {...stylex.props(styles.root, styles.maxWidth(maxWidth))}>
-      <table {...stylex.props(styles.table)}>
+      <table {...stylex.props(text.meta, styles.table)}>
         <caption {...stylex.props(styles.srOnly)}>{caption}</caption>
         <colgroup>
           <col {...stylex.props(styles.labelColumn(labelWidth))} />
@@ -297,7 +292,7 @@ export function HeatmapGrid({
           </>
         )}
       </table>
-      <div aria-hidden {...stylex.props(styles.legend)}>
+      <div aria-hidden {...stylex.props(text.meta, styles.legend)}>
         <span>{lowLabel}</span>
         {LEVEL_STYLES.map((levelStyle, index) => (
           <span key={index} {...stylex.props(styles.legendSwatch, levelStyle)} />

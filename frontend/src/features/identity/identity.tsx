@@ -13,14 +13,16 @@ import { api, asProblem, errorMessage, fetchClient, serverUrl, type Person } fro
 import { overlayHistorySettled } from "../../app/overlay-history";
 import { formatClock, minutesBetween, nowZoned, parseZoned } from "../../lib/time";
 import { appStore, setSession, type StoredSession } from "../../state/app-store";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, fonts, media, radii, sizes, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { TextField } from "../../ui/field";
+import { ICON_SIZE } from "../../ui/icon";
 import { Badge, EmptyState, Notice, Skeleton, Stack } from "../../ui/layout";
 import { PASSCODE_LENGTH, PasscodeInput } from "../../ui/passcode";
 import { HelpHint } from "../../ui/help-hint";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 interface IdentityRequest {
   roomSlug?: string | undefined;
@@ -158,7 +160,7 @@ type Step =
   | { kind: "manual" };
 
 const styles = stylex.create({
-  list: { display: "flex", flexDirection: "column", gap: 6 },
+  list: { display: "flex", flexDirection: "column", gap: space.xs },
   personButton: {
     alignItems: "center",
     backgroundColor: { default: colors.surface, ":hover": colors.surfaceHover },
@@ -170,14 +172,14 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "flex",
     fontFamily: fonts.sans,
-    gap: 10,
-    minHeight: 52,
+    gap: space.sm,
+    minHeight: sizes.controlLarge,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
+    paddingInline: space.rowPaddingInline,
     textAlign: "start",
     width: "100%",
   },
-  personName: { flexGrow: 1, fontSize: fonts.sizeMd, fontWeight: 600 },
+  personName: { flexGrow: 1 },
   chevron: { color: colors.textSubtle, flexShrink: 0 },
   selected: {
     alignItems: "center",
@@ -185,9 +187,9 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomWidth: 1,
     display: "flex",
-    gap: 12,
+    gap: space.md,
     minHeight: 56,
-    paddingBottom: 14,
+    paddingBottom: space.md,
   },
   avatar: {
     alignItems: "center",
@@ -196,23 +198,19 @@ const styles = stylex.create({
     color: colors.primaryText,
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: fonts.sizeLg,
-    fontWeight: 700,
     height: 40,
     justifyContent: "center",
     width: 40,
   },
-  selectedText: { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2, minWidth: 0 },
+  selectedText: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 },
   selectedName: {
     color: colors.text,
-    fontSize: fonts.sizeLg,
-    fontWeight: 700,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  selectedTag: { color: colors.textMuted, fontSize: fonts.sizeSm },
-  steps: { alignItems: "center", display: "flex", gap: 6 },
+  selectedTag: { color: colors.textMuted },
+  steps: { alignItems: "center", display: "flex", gap: space.xs },
   stepDot: {
     backgroundColor: colors.borderStrong,
     borderRadius: radii.pill,
@@ -232,10 +230,8 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontWeight: 600,
-    gap: 6,
-    minHeight: 36,
+    gap: space.xs,
+    minHeight: sizes.controlSmall,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     padding: 0,
   },
@@ -354,28 +350,28 @@ function PickPerson({
         <Notice tone="warning" title="名单加载失败">
           {errorMessage(people.error)}
           <div>
-            <button type="button" onClick={onManual} {...stylex.props(styles.linkButton)}>
+            <button type="button" onClick={onManual} {...stylex.props(text.label, styles.linkButton)}>
               直接输入姓名和口令
             </button>
           </div>
         </Notice>
       ) : matches.length === 0 ? (
-        <EmptyState icon={<Search size={28} aria-hidden />} title="名单里没有这个名字" />
+        <EmptyState icon={<Search size={ICON_SIZE.empty} aria-hidden />} title="名单里没有这个名字" />
       ) : (
         <ul aria-label="名单" {...stylex.props(styles.list)}>
           {matches.map((person) => (
             <li key={person.id}>
               <button type="button" onClick={() => onPick(person)} {...stylex.props(styles.personButton)}>
-                <span {...stylex.props(styles.personName)}>{person.name}</span>
+                <span {...stylex.props(text.label, styles.personName)}>{person.name}</span>
                 <Badge>{ROLE_LABELS[person.role]}</Badge>
                 {person.hasPasscode ? null : <Badge tone="info">首次使用</Badge>}
-                <ChevronRight size={18} aria-hidden {...stylex.props(styles.chevron)} />
+                <ChevronRight aria-hidden {...stylex.props(styles.chevron)} />
               </button>
             </li>
           ))}
         </ul>
       )}
-      <Button variant="ghost" isFullWidth icon={<UserPlus size={18} aria-hidden />} onClick={onCustom}>
+      <Button variant="ghost" isFullWidth icon={<UserPlus aria-hidden />} onClick={onCustom}>
         我不在名单里
       </Button>
     </Stack>
@@ -402,12 +398,12 @@ function SelectedPerson({
 }) {
   return (
     <div {...stylex.props(styles.selected)}>
-      <span aria-hidden {...stylex.props(styles.avatar)}>
+      <span aria-hidden {...stylex.props(text.title, styles.avatar)}>
         {name.slice(0, 1)}
       </span>
       <span {...stylex.props(styles.selectedText)}>
-        <span {...stylex.props(styles.selectedName)}>{name}</span>
-        <span {...stylex.props(styles.selectedTag)}>{tag}</span>
+        <span {...stylex.props(text.title, styles.selectedName)}>{name}</span>
+        <span {...stylex.props(text.meta, styles.selectedTag)}>{tag}</span>
       </span>
       {onChange === undefined ? null : (
         <Button variant="ghost" size="sm" aria-label="换个名字" onClick={onChange}>
@@ -590,8 +586,8 @@ function NewPasscode({
         />
       )}
       {isConfirming ? (
-        <button type="button" onClick={restart} {...stylex.props(styles.linkButton)}>
-          <RotateCcw size={14} aria-hidden />
+        <button type="button" onClick={restart} {...stylex.props(text.label, styles.linkButton)}>
+          <RotateCcw aria-hidden />
           重新设置
         </button>
       ) : null}

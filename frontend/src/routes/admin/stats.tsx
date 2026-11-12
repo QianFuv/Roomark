@@ -35,15 +35,18 @@ import {
 } from "../../lib/stats";
 import { parseDate, todayDate, weekdayLabel } from "../../lib/time";
 import { platform } from "../../platform/platform";
-import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
+import { colors, media, radii, space } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure, TabView } from "../../ui/controls";
 import { HelpHint } from "../../ui/help-hint";
+import { ICON_SIZE } from "../../ui/icon";
+
 import { DatePicker } from "../../ui/date-picker";
 import { SelectField } from "../../ui/field";
 import { Card, EmptyState, Notice, PageHeader, Row, Section, Skeleton, Stack } from "../../ui/layout";
 import { Segmented } from "../../ui/segmented";
 import { notify } from "../../ui/toast";
+import { text } from "../../ui/typography";
 
 export const Route = createFileRoute("/admin/stats")({ component: StatsPage });
 
@@ -59,19 +62,24 @@ const styles = stylex.create({
   filters: {
     alignItems: "end",
     display: "grid",
-    gap: 12,
+    gap: space.md,
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [media.narrow]: "repeat(2, minmax(0, 1fr))",
       [media.wide]: "220px auto auto 1fr",
     },
   },
-  filterGroup: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-  customRange: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", maxWidth: 520 },
-  caption: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
+  filterGroup: { display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 },
+  customRange: {
+    display: "grid",
+    gap: space.md,
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    maxWidth: 520,
+  },
+  caption: { color: colors.textMuted },
   kpis: {
     display: "grid",
-    gap: 12,
+    gap: space.md,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
       [media.wide]: "repeat(4, minmax(0, 1fr))",
@@ -85,53 +93,38 @@ const styles = stylex.create({
     borderWidth: 1,
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    minHeight: 96,
-    padding: 14,
+    gap: space.xs,
+    padding: space.cardPadding,
   },
-  kpiLabel: { color: colors.textMuted, fontSize: fonts.sizeSm, fontWeight: 600 },
-  kpiValue: {
-    color: colors.text,
-    fontSize: { default: 26, [media.narrow]: 32 },
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 800,
-    lineHeight: 1.1,
-  },
-  kpiUnit: { color: colors.textMuted, fontSize: fonts.sizeMd, fontWeight: 600, marginInlineStart: 4 },
+  kpiLabel: { color: colors.textMuted },
+  kpiValue: { color: colors.text },
+  kpiUnit: { color: colors.textMuted, marginInlineStart: space.xs },
   delta: {
     alignItems: "center",
     display: "inline-flex",
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
-    gap: 2,
+    flexWrap: "wrap",
+    gap: space.xxs,
   },
   deltaUp: { color: colors.free },
   deltaDown: { color: colors.busy },
   deltaFlat: { color: colors.textMuted },
-  deltaPrevious: { color: colors.textSubtle, fontWeight: 500, marginInlineStart: 6 },
+  deltaPrevious: { color: colors.textSubtle, marginInlineStart: space.xs },
   grow: { flexGrow: 1 },
   twoColumns: {
     alignItems: "stretch",
     display: "grid",
-    gap: 16,
+    gap: space.sectionGap,
     gridTemplateColumns: { default: "minmax(0, 1fr)", [media.wide]: "repeat(2, minmax(0, 1fr))" },
   },
-  metricGrid: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
-  metric: { display: "flex", flexDirection: "column", gap: 2 },
-  metricValue: {
-    color: colors.text,
-    fontSize: fonts.sizeXl,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 800,
-  },
-  metricLabel: { color: colors.textMuted, fontSize: fonts.sizeSm },
-  slotList: { display: "flex", flexDirection: "column", gap: 6 },
+  metricGrid: { display: "grid", gap: space.md, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+  metric: { display: "flex", flexDirection: "column" },
+  metricValue: { color: colors.text },
+  metricLabel: { color: colors.textMuted },
+  slotList: { display: "flex", flexDirection: "column", gap: space.xs },
   slotRow: {
     alignItems: "center",
     display: "grid",
-    fontSize: fonts.sizeMd,
-    gap: 10,
+    gap: space.sm,
     gridTemplateColumns: "80px 1fr 48px",
   },
   slotTrack: {
@@ -141,21 +134,16 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   slotFill: { backgroundColor: colors.chart2, borderRadius: radii.pill, height: "100%" },
-  slotCount: { color: colors.textMuted, fontVariantNumeric: "tabular-nums", textAlign: "end" },
-  dataTable: {
-    borderCollapse: "collapse",
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    width: "100%",
-  },
+  slotCount: { color: colors.textMuted, textAlign: "end" },
+  dataTable: { borderCollapse: "collapse", width: "100%" },
   dataCell: {
     borderTopColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: 1,
-    paddingBlock: 6,
+    paddingBlock: space.xs,
     textAlign: "start",
   },
-  subTitle: { color: colors.text, fontSize: fonts.sizeMd, fontWeight: 700 },
+  subTitle: { color: colors.text },
   width: (percent: number) => ({ width: `${percent}%` }),
 });
 
@@ -222,7 +210,7 @@ function StatsPage() {
       <Row gap="md" isSpread>
         <PageHeader title="统计" />
         <Button
-          icon={<Download size={18} aria-hidden />}
+          icon={<Download aria-hidden />}
           isLoading={isExporting}
           disabled={!isRangeValid}
           onClick={() => void exportCsv()}
@@ -294,7 +282,7 @@ function StatsPage() {
           />
         </div>
       ) : null}
-      <p {...stylex.props(styles.caption)}>
+      <p {...stylex.props(text.meta, styles.caption)}>
         {rangeLabel(range)} · 对比上期 {rangeLabel(previous)}
       </p>
       {!isRangeValid ? (
@@ -364,22 +352,23 @@ function Kpi({
 
   const icon =
     delta.direction === "up" ? (
-      <ArrowUpRight size={16} aria-hidden />
+      <ArrowUpRight size={ICON_SIZE.meta} aria-hidden />
     ) : delta.direction === "down" ? (
-      <ArrowDownRight size={16} aria-hidden />
+      <ArrowDownRight size={ICON_SIZE.meta} aria-hidden />
     ) : (
-      <ArrowRight size={16} aria-hidden />
+      <ArrowRight size={ICON_SIZE.meta} aria-hidden />
     );
 
   return (
     <div {...stylex.props(styles.kpi)}>
-      <span {...stylex.props(styles.kpiLabel)}>{label}</span>
-      <span {...stylex.props(styles.kpiValue)}>
+      <span {...stylex.props(text.meta, styles.kpiLabel)}>{label}</span>
+      <span {...stylex.props(text.figure, styles.kpiValue)}>
         {value}
-        {unit === undefined ? null : <span {...stylex.props(styles.kpiUnit)}>{unit}</span>}
+        {unit === undefined ? null : <span {...stylex.props(text.meta, styles.kpiUnit)}>{unit}</span>}
       </span>
       <span
         {...stylex.props(
+          text.meta,
           styles.delta,
           delta.direction === "up"
             ? styles.deltaUp
@@ -407,8 +396,8 @@ function Kpi({
 function Metric({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div {...stylex.props(styles.metric)}>
-      <span {...stylex.props(styles.metricValue)}>{children}</span>
-      <span {...stylex.props(styles.metricLabel)}>{label}</span>
+      <span {...stylex.props(text.title, styles.metricValue)}>{children}</span>
+      <span {...stylex.props(text.meta, styles.metricLabel)}>{label}</span>
     </div>
   );
 }
@@ -483,7 +472,7 @@ function StatsBody({ stats }: { stats: Stats }) {
         <Section title="利用率趋势" aside={stats.granularity === "week" ? "按周" : "按天"}>
           {trend.length === 0 ? <Notice tone="info">暂无数据</Notice> : <TrendChart rows={trend} />}
           <Disclosure title="数据表">
-            <table {...stylex.props(styles.dataTable)}>
+            <table {...stylex.props(text.body, styles.dataTable)}>
               <thead>
                 <tr>
                   <th scope="col" {...stylex.props(styles.dataCell)}>
@@ -532,11 +521,11 @@ function StatsBody({ stats }: { stats: Stats }) {
       <div {...stylex.props(styles.twoColumns)}>
         <Card as="section" ariaLabel="使用习惯">
           <Section title="使用习惯">
-            <span {...stylex.props(styles.subTitle)}>单次时长</span>
+            <span {...stylex.props(text.label, styles.subTitle)}>单次时长</span>
             <HistogramChart rows={labelBuckets(habits.duration, DURATION_LABELS)} label="单次预约时长分布" />
-            <span {...stylex.props(styles.subTitle)}>提前多久预约</span>
+            <span {...stylex.props(text.label, styles.subTitle)}>提前多久预约</span>
             <HistogramChart rows={labelBuckets(habits.leadTime, LEAD_TIME_LABELS)} label="提前预约天数分布" />
-            <span {...stylex.props(styles.subTitle)}>
+            <span {...stylex.props(text.label, styles.subTitle)}>
               单次与重复（单次占 {formatPercent(singleShare(habits.single, habits.recurring))}）
             </span>
             {total === 0 ? (
@@ -560,20 +549,20 @@ function StatsBody({ stats }: { stats: Stats }) {
                 <Metric label="冲突次数">{demandGap.conflictCount}</Metric>
                 <Metric label="改约推荐时段">{formatPercent(demandGap.suggestionAcceptanceRate)}</Metric>
               </div>
-              <span {...stylex.props(styles.subTitle)}>最常冲突的时段</span>
+              <span {...stylex.props(text.label, styles.subTitle)}>最常冲突的时段</span>
               {topSlots.length === 0 ? (
                 <Notice tone="info">没有冲突</Notice>
               ) : (
                 <ul {...stylex.props(styles.slotList)}>
                   {topSlots.map((slot) => (
-                    <li key={`${slot.weekday}-${slot.hour}`} {...stylex.props(styles.slotRow)}>
+                    <li key={`${slot.weekday}-${slot.hour}`} {...stylex.props(text.body, styles.slotRow)}>
                       <span>{conflictSlotLabel(slot)}</span>
                       <span aria-hidden {...stylex.props(styles.slotTrack)}>
                         <span
                           {...stylex.props(styles.slotFill, styles.width((slot.count / maxSlot) * 100))}
                         />
                       </span>
-                      <span {...stylex.props(styles.slotCount)}>{slot.count} 次</span>
+                      <span {...stylex.props(text.meta, styles.slotCount)}>{slot.count} 次</span>
                     </li>
                   ))}
                 </ul>
@@ -590,7 +579,7 @@ function StatsBody({ stats }: { stats: Stats }) {
                 <Metric label="提前结束次数">{cancellations.earlyEndCount}</Metric>
                 <Metric label="平均提前结束">
                   {Math.round(cancellations.averageReleasedMinutes)}
-                  <span {...stylex.props(styles.kpiUnit)}>分钟</span>
+                  <span {...stylex.props(text.meta, styles.kpiUnit)}>分钟</span>
                 </Metric>
               </div>
             </Section>
