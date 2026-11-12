@@ -96,13 +96,28 @@ tasks:
 
   package:
     summary: Packages the application
+    preconditions:
+      - sh: '[ "{{.FORMAT}}" = "portable" ] || [ "{{.FORMAT}}" = "nsis" ] || [ "{{.FORMAT}}" = "msix" ]'
+        msg: "FORMAT must be portable, nsis or msix"
     cmds:
-      - task: '{{if eq (.FORMAT | default "nsis") "msix"}}create:msix:package{{else}}create:nsis:installer{{end}}'
+      - task: '{{if eq .FORMAT "msix"}}create:msix:package{{else if eq .FORMAT "nsis"}}create:nsis:installer{{else}}package:portable{{end}}'
         vars:
           INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
     vars:
-      FORMAT: '{{.FORMAT | default "nsis"}}'
+      FORMAT: '{{.FORMAT | default "portable"}}'
       INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
+
+  package:portable:
+    summary: Creates a production Windows portable ZIP with executable-local data
+    platforms: [windows]
+    cmds:
+      - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
+          DEV: 'false'
+      - 'powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/portable.ps1" -Executable "{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe" -OutputPath "{{.ROOT_DIR}}/{{.BIN_DIR}}/Roomark-portable-windows-{{.ARCH}}.zip"'
+    vars:
+      ARCH: '{{.ARCH | default "amd64"}}'
 
   generate:syso:
     summary: Generates Windows `.syso` file
