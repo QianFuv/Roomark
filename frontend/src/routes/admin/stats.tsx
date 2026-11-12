@@ -32,12 +32,13 @@ import {
   type RangePreset,
   type Stats,
 } from "../../lib/stats";
-import { todayDate } from "../../lib/time";
+import { parseDate, todayDate } from "../../lib/time";
 import { platform } from "../../platform/platform";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure, TabView } from "../../ui/controls";
-import { SelectField, TextField } from "../../ui/field";
+import { DatePicker } from "../../ui/date-picker";
+import { SelectField } from "../../ui/field";
 import { Card, EmptyState, Notice, PageHeader, Row, Section, Skeleton, Stack } from "../../ui/layout";
 import { Segmented } from "../../ui/segmented";
 import { notify } from "../../ui/toast";
@@ -59,7 +60,7 @@ const styles = stylex.create({
   },
   filterGroup: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
   filterLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  customRange: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", maxWidth: 420 },
+  customRange: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", maxWidth: 520 },
   caption: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
   kpis: {
     display: "grid",
@@ -265,18 +266,24 @@ function StatsPage() {
       </div>
       {preset === "custom" ? (
         <div {...stylex.props(styles.customRange)}>
-          <TextField
+          <DatePicker
             label="从"
-            type="date"
             value={custom.from}
-            max={custom.to}
+            min={today.subtract({ years: 3 })}
+            max={parseDate(custom.to)}
+            today={today}
+            hasShortcuts={false}
+            isPopoverOnly
             onValueChange={(from) => setCustom({ ...custom, from })}
           />
-          <TextField
+          <DatePicker
             label="到"
-            type="date"
             value={custom.to}
-            min={custom.from}
+            min={parseDate(custom.from)}
+            max={today.add({ years: 1 })}
+            today={today}
+            hasShortcuts={false}
+            isPopoverOnly
             onValueChange={(to) => setCustom({ ...custom, to })}
           />
         </div>

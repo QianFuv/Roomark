@@ -11,19 +11,17 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { api, errorMessage, fetchClient, refreshBookings, type AdminRoom } from "../../api/client";
-import { gridClockOptions } from "../../lib/time";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { SwitchRow } from "../../ui/controls";
 import { confirmAction } from "../../ui/dialogs";
-import { SelectField, TextAreaField, TextField } from "../../ui/field";
+import { ClockPicker } from "../../ui/clock-picker";
+import { TextAreaField, TextField } from "../../ui/field";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
 import { notify } from "../../ui/toast";
 
 export const Route = createFileRoute("/admin/rooms")({ component: AdminRoomsPage });
-
-const CLOCK_OPTIONS = gridClockOptions("00:00", "23:30", 30).map((clock) => ({ value: clock, label: clock }));
 
 const roomSchema = z
   .object({
@@ -367,10 +365,9 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
         <div {...stylex.props(styles.pair)}>
           <form.Field name="openTime">
             {(field) => (
-              <SelectField
+              <ClockPicker
                 label="开门时间"
                 value={field.state.value}
-                options={CLOCK_OPTIONS}
                 onValueChange={(next) => field.handleChange(next)}
               />
             )}
@@ -378,10 +375,9 @@ function RoomForm({ room, onDone }: { room: AdminRoom | undefined; onDone: () =>
           <form.Field name="closeTime">
             {(field) => (
               <Stack gap="xs">
-                <SelectField
+                <ClockPicker
                   label="关门时间"
                   value={field.state.value}
-                  options={CLOCK_OPTIONS}
                   onValueChange={(next) => field.handleChange(next)}
                 />
                 {field.state.meta.errors[0] === undefined ? null : (

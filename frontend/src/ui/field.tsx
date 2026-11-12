@@ -1,14 +1,15 @@
 /**
- * Form fields: text input, text area and select, built on Base UI Field / Input and the
- * Animate UI select.
+ * Form fields: text input, text area, select and searchable combobox, built on Base UI Field /
+ * Input / Combobox and the Animate UI select.
  *
  * @module
  */
 import { Select } from "@animate-ui/react/primitives/base-ui/select";
+import { Combobox } from "@base-ui/react/combobox";
 import { Field } from "@base-ui/react/field";
 import { Input } from "@base-ui/react/input";
 import * as stylex from "@stylexjs/stylex";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { colors, fonts, radii } from "../styles/tokens.stylex";
@@ -257,6 +258,130 @@ export function SelectField<Value extends string>({
       {description === undefined ? null : (
         <Field.Description {...stylex.props(fieldStyles.description)}>{description}</Field.Description>
       )}
+    </Field.Root>
+  );
+}
+
+const comboboxStyles = stylex.create({
+  group: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: { default: colors.borderStrong, ":focus-within": colors.primary },
+    borderRadius: radii.medium,
+    borderStyle: "solid",
+    borderWidth: 1,
+    display: "flex",
+    gap: 8,
+    minHeight: 46,
+    outline: { default: "none", ":has(input:focus-visible)": `3px solid ${colors.focusRing}` },
+    paddingInlineStart: 12,
+  },
+  searchIcon: { color: colors.textSubtle, display: "inline-flex", flexShrink: 0 },
+  input: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    color: colors.text,
+    flexGrow: 1,
+    fontFamily: fonts.sans,
+    fontSize: 16,
+    minHeight: 44,
+    minWidth: 0,
+    outline: "none",
+    padding: 0,
+  },
+  trigger: {
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    color: colors.textSubtle,
+    cursor: "pointer",
+    display: "inline-flex",
+    flexShrink: 0,
+    height: 44,
+    justifyContent: "center",
+    outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
+    width: 40,
+  },
+  empty: {
+    color: colors.textMuted,
+    fontSize: fonts.sizeSm,
+    paddingBlock: { default: 0, ":not(:empty)": 12 },
+    paddingInline: 12,
+  },
+});
+
+/** Props of {@link ComboboxField}. */
+export interface ComboboxFieldProps<Value extends string> {
+  label: ReactNode;
+  value: Value;
+  options: readonly SelectOption<Value>[];
+  onValueChange: (value: Value) => void;
+  placeholder?: string;
+  emptyText?: string;
+}
+
+/**
+ * Labeled searchable select (Base UI Combobox): type to filter, then pick an option.
+ *
+ * @param props - Field props.
+ * @returns The field.
+ */
+export function ComboboxField<Value extends string>({
+  label,
+  value,
+  options,
+  onValueChange,
+  placeholder,
+  emptyText = "没有匹配的选项",
+}: ComboboxFieldProps<Value>) {
+  const selected = options.find((option) => option.value === value) ?? null;
+
+  return (
+    <Field.Root {...stylex.props(fieldStyles.root)}>
+      <Field.Label {...stylex.props(fieldStyles.label)}>{label}</Field.Label>
+      <Combobox.Root
+        items={options}
+        value={selected}
+        itemToStringLabel={(option: SelectOption<Value>) => option.label}
+        isItemEqualToValue={(option: SelectOption<Value>, current: SelectOption<Value>) =>
+          option.value === current.value
+        }
+        onValueChange={(next: SelectOption<Value> | null) => {
+          if (next !== null) onValueChange(next.value);
+        }}
+      >
+        <Combobox.InputGroup {...stylex.props(comboboxStyles.group)}>
+          <span aria-hidden {...stylex.props(comboboxStyles.searchIcon)}>
+            <Search size={16} />
+          </span>
+          <Combobox.Input placeholder={placeholder} {...stylex.props(comboboxStyles.input)} />
+          <Combobox.Trigger aria-label="展开列表" {...stylex.props(comboboxStyles.trigger)}>
+            <ChevronsUpDown size={16} aria-hidden />
+          </Combobox.Trigger>
+        </Combobox.InputGroup>
+        <Combobox.Portal>
+          <Combobox.Positioner sideOffset={6} {...stylex.props(selectStyles.positioner)}>
+            <Combobox.Popup {...stylex.props(selectStyles.popup)}>
+              <Combobox.Empty {...stylex.props(comboboxStyles.empty)}>{emptyText}</Combobox.Empty>
+              <Combobox.List {...stylex.props(selectStyles.list)}>
+                {(option: SelectOption<Value>) => (
+                  <Combobox.Item
+                    key={option.value}
+                    value={option}
+                    disabled={option.isDisabled === true}
+                    {...stylex.props(selectStyles.item)}
+                  >
+                    <Combobox.ItemIndicator {...stylex.props(selectStyles.indicator)}>
+                      <Check size={16} aria-hidden />
+                    </Combobox.ItemIndicator>
+                    <span {...stylex.props(selectStyles.itemText)}>{option.label}</span>
+                  </Combobox.Item>
+                )}
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
     </Field.Root>
   );
 }

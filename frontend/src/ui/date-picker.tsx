@@ -1,7 +1,8 @@
 /**
  * Scroll-free date picker: 今天 / 明天 shortcuts plus a month grid. In a compact container the grid
  * opens in a popover from a button that shows the chosen date; in a container at least 640 px
- * wide the grid is shown inline. Days outside `[min, max]` are disabled.
+ * wide the grid is shown inline. With `isPopoverOnly` it is a form field: a field-style button
+ * that opens the grid, used for filters and range ends. Days outside `[min, max]` are disabled.
  *
  * @module
  */
@@ -57,6 +58,31 @@ const styles = stylex.create({
     justifyContent: "space-between",
   },
   triggerChevron: { color: "inherit", opacity: 0.7 },
+  fieldTrigger: {
+    alignItems: "center",
+    backgroundColor: { default: colors.surface, ":hover:not(:disabled)": colors.surfaceHover },
+    borderColor: { default: colors.borderStrong, "[data-popup-open]": colors.primary },
+    borderRadius: radii.medium,
+    borderStyle: "solid",
+    borderWidth: 1,
+    color: colors.text,
+    cursor: "pointer",
+    display: "flex",
+    fontFamily: fonts.sans,
+    fontSize: fonts.sizeMd,
+    fontVariantNumeric: "tabular-nums",
+    gap: 8,
+    minHeight: 46,
+    outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
+    paddingInline: 12,
+    textAlign: "start",
+    width: "100%",
+    containerType: "inline-size",
+  },
+  fieldIcon: { color: colors.textSubtle, display: "inline-flex", flexShrink: 0 },
+  fieldValue: { flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  fieldRelative: { display: { default: "none", "@container (min-width: 230px)": "inline" } },
+  fieldPlaceholder: { color: colors.textMuted },
   inline: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -210,10 +236,12 @@ export function DatePicker({
         <span id={labelId} {...stylex.props(styles.label)}>
           {label}
         </span>
-        <span aria-live="polite" {...stylex.props(styles.chosen)}>
-          {chosenLabel}
-          {relative === undefined ? "" : ` · ${relative}`}
-        </span>
+        {isPopoverOnly ? null : (
+          <span aria-live="polite" {...stylex.props(styles.chosen)}>
+            {chosenLabel}
+            {relative === undefined ? "" : ` · ${relative}`}
+          </span>
+        )}
       </div>
       <div {...stylex.props(styles.quickRow)}>
         {shortcuts.map((shortcut) => (
@@ -229,14 +257,34 @@ export function DatePicker({
           </button>
         ))}
         <Popover.Root open={isOpen} onOpenChange={(open) => setIsOpen(open)}>
-          <Popover.Trigger
-            aria-label={`${label}：${chosenLabel}，打开日历`}
-            {...stylex.props(styles.chip, !isPopoverOnly && styles.trigger)}
-          >
-            <CalendarDays size={16} aria-hidden />
-            {chosenLabel}
-            <ChevronDown size={16} aria-hidden {...stylex.props(styles.triggerChevron)} />
-          </Popover.Trigger>
+          {isPopoverOnly ? (
+            <Popover.Trigger
+              aria-label={`${label}：${chosenLabel}，打开日历`}
+              {...stylex.props(styles.fieldTrigger)}
+            >
+              <span aria-hidden {...stylex.props(styles.fieldIcon)}>
+                <CalendarDays size={16} />
+              </span>
+              <span {...stylex.props(styles.fieldValue, selected === undefined && styles.fieldPlaceholder)}>
+                {chosenLabel}
+                {relative === undefined ? null : (
+                  <span {...stylex.props(styles.fieldRelative)}> · {relative}</span>
+                )}
+              </span>
+              <span aria-hidden {...stylex.props(styles.fieldIcon)}>
+                <ChevronDown size={16} />
+              </span>
+            </Popover.Trigger>
+          ) : (
+            <Popover.Trigger
+              aria-label={`${label}：${chosenLabel}，打开日历`}
+              {...stylex.props(styles.chip, styles.trigger)}
+            >
+              <CalendarDays size={16} aria-hidden />
+              {chosenLabel}
+              <ChevronDown size={16} aria-hidden {...stylex.props(styles.triggerChevron)} />
+            </Popover.Trigger>
+          )}
           <Popover.Portal>
             <Popover.Positioner sideOffset={6} align="start" {...stylex.props(styles.positioner)}>
               <Popover.Popup aria-label={`${label}日历`} {...stylex.props(styles.popup)}>

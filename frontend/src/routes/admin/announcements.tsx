@@ -18,10 +18,13 @@ import {
   minutesOfDay,
   nowZoned,
   parseZoned,
+  todayDate,
 } from "../../lib/time";
 import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
+import { ClockPicker } from "../../ui/clock-picker";
 import { SwitchRow } from "../../ui/controls";
+import { DatePicker } from "../../ui/date-picker";
 import { confirmAction } from "../../ui/dialogs";
 import { SelectField, TextAreaField, TextField } from "../../ui/field";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
@@ -50,6 +53,7 @@ const styles = stylex.create({
   body: { color: colors.textMuted, fontSize: fonts.sizeMd, lineHeight: 1.6, whiteSpace: "pre-wrap" },
   meta: { color: colors.textSubtle, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
   pair: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+  error: { color: colors.busy, fontSize: fonts.sizeXs, lineHeight: 1.5 },
 });
 
 /**
@@ -302,30 +306,26 @@ function AnnouncementForm({
             />
           )}
         </form.Field>
-        <div {...stylex.props(styles.pair)}>
-          <form.Field name="startsAt">
-            {(field) => (
-              <TextField
-                label="开始"
-                type="datetime-local"
-                value={field.state.value}
-                onValueChange={(next) => field.handleChange(next)}
-                error={field.state.meta.errors[0]?.message}
-              />
-            )}
-          </form.Field>
-          <form.Field name="endsAt">
-            {(field) => (
-              <TextField
-                label="结束"
-                type="datetime-local"
-                value={field.state.value}
-                onValueChange={(next) => field.handleChange(next)}
-                error={field.state.meta.errors[0]?.message}
-              />
-            )}
-          </form.Field>
-        </div>
+        <form.Field name="startsAt">
+          {(field) => (
+            <DateTimeField
+              label="开始"
+              value={field.state.value}
+              onValueChange={(next) => field.handleChange(next)}
+              error={field.state.meta.errors[0]?.message}
+            />
+          )}
+        </form.Field>
+        <form.Field name="endsAt">
+          {(field) => (
+            <DateTimeField
+              label="结束"
+              value={field.state.value}
+              onValueChange={(next) => field.handleChange(next)}
+              error={field.state.meta.errors[0]?.message}
+            />
+          )}
+        </form.Field>
         <form.Field name="pinned">
           {(field) => (
             <SwitchRow
@@ -346,5 +346,57 @@ function AnnouncementForm({
         </form.Subscribe>
       </Stack>
     </form>
+  );
+}
+
+/**
+ * Date and time of an announcement bound: a date field and a clock field side by side.
+ *
+ * @param props - Field props.
+ * @param props.label - `开始` or `结束`.
+ * @param props.value - `YYYY-MM-DDTHH:MM`, or empty.
+ * @param props.onValueChange - Called with the combined value.
+ * @param props.error - Validation message.
+ * @returns The field pair.
+ */
+function DateTimeField({
+  label,
+  value,
+  onValueChange,
+  error,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  error: string | undefined;
+}) {
+  const today = todayDate();
+  const [date = "", clock = ""] = value.split("T");
+
+  return (
+    <Stack gap="xs">
+      <div {...stylex.props(styles.pair)}>
+        <DatePicker
+          label={`${label}日期`}
+          value={date}
+          min={today.subtract({ years: 1 })}
+          max={today.add({ years: 1 })}
+          today={today}
+          hasShortcuts={false}
+          isPopoverOnly
+          onValueChange={(next) => onValueChange(`${next}T${clock === "" ? "08:00" : clock}`)}
+        />
+        <ClockPicker
+          label={`${label}时间`}
+          value={clock}
+          onValueChange={(next) => onValueChange(`${date === "" ? today.toString() : date}T${next}`)}
+        />
+      </div>
+      {error === undefined ? null : (
+        <p role="alert" {...stylex.props(styles.error)}>
+          {error}
+        </p>
+      )}
+    </Stack>
   );
 }

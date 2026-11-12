@@ -14,11 +14,12 @@ import { useState } from "react";
 import { api, errorMessage, type Booking } from "../../api/client";
 import { cancelBooking } from "../../features/booking/booking-actions";
 import { isFinished } from "../../lib/schedule";
-import { formatBookingWhen, nowZoned, parseZoned, todayDate } from "../../lib/time";
+import { formatBookingWhen, nowZoned, parseDate, parseZoned, todayDate } from "../../lib/time";
 import { colors, fonts, media } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { CORE_FEATURES, DataTable } from "../../ui/data-table";
-import { SelectField, TextField } from "../../ui/field";
+import { DatePicker } from "../../ui/date-picker";
+import { ComboboxField, SelectField } from "../../ui/field";
 import { Badge, Notice, PageHeader, Row, Skeleton, Stack } from "../../ui/layout";
 
 export const Route = createFileRoute("/admin/bookings")({ component: AdminBookingsPage });
@@ -200,15 +201,35 @@ function AdminBookingsPage() {
           ]}
           onValueChange={setRoom}
         />
-        <TextField label="从" type="date" value={from} onValueChange={setFrom} />
-        <TextField label="到" type="date" value={to} min={from} onValueChange={setTo} />
-        <SelectField
+        <DatePicker
+          label="从"
+          value={from}
+          min={today.subtract({ years: 3 })}
+          max={parseDate(to)}
+          today={today}
+          hasShortcuts={false}
+          isPopoverOnly
+          onValueChange={setFrom}
+        />
+        <DatePicker
+          label="到"
+          value={to}
+          min={parseDate(from)}
+          max={today.add({ years: 1 })}
+          today={today}
+          hasShortcuts={false}
+          isPopoverOnly
+          onValueChange={setTo}
+        />
+        <ComboboxField
           label="预约人"
           value={personId}
           options={[
             { value: "", label: "所有人" },
             ...(people.data ?? []).map((person) => ({ value: String(person.id), label: person.name })),
           ]}
+          placeholder="搜索姓名"
+          emptyText="没有找到这个人"
           onValueChange={setPersonId}
         />
         <SelectField
