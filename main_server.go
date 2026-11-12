@@ -24,7 +24,7 @@ func run() error {
 		return err
 	}
 	handler := service.Handler()
-	app, _ := newApp(application.AssetOptions{Handler: spaAssets(), Middleware: func(next http.Handler) http.Handler {
+	app, _, err := newApp(application.AssetOptions{Handler: spaAssets(), Middleware: func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ical/") {
 				handler.ServeHTTP(writer, r)
@@ -33,5 +33,8 @@ func run() error {
 			next.ServeHTTP(writer, r)
 		})
 	}})
+	if err != nil {
+		return errors.Join(err, service.Close())
+	}
 	return errors.Join(app.Run(), service.Close())
 }

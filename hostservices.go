@@ -51,17 +51,40 @@ func (s *PlatformService) Info() PlatformInfo {
 
 func configDirectory() (string, error) {
 	if platformName == "android" {
-		path := application.Mobile.StoragePath()
+		return resolveDataDirectory(platformName, application.Mobile.StoragePath())
+	}
+	path, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return resolveDataDirectory(platformName, path)
+}
+
+// resolveDataDirectory uses Android app storage or the resolved executable's directory.
+func resolveDataDirectory(platform, path string) (string, error) {
+	if platform == "android" {
 		if path == "" {
 			return "", fmt.Errorf("app storage unavailable")
 		}
 		return path, nil
 	}
-	path, err := os.UserConfigDir()
+	executable, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve executable %q: %w", path, err)
 	}
-	return filepath.Join(path, "Roomark"), nil
+	return filepath.Join(filepath.Dir(executable), "data"), nil
+}
+
+// writableDataDirectory creates the directory and checks that files can be written.
+func writableDataDirectory(directory string) error {
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(directory, ".roomark-write-*")
+	if err != nil {
+		return err
+	}
+	return errors.Join(file.Close(), os.Remove(file.Name()))
 }
 
 // ServerURL returns an empty URL on web and the saved server URL in apps.
