@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -18,9 +18,7 @@ import * as $models from "./models.js";
  * Info reports web, desktop or Android as required by the frontend.
  */
 export function Info(): $CancellablePromise<$models.PlatformInfo> {
-    return $Call.ByID(1911474938).then(($result: any) => {
-        return $$createType0($result);
-    });
+    return $Call.ByID(1911474938);
 }
 
 /**
@@ -36,6 +34,3 @@ export function ServerURL(): $CancellablePromise<string> {
 export function SetServerURL(value: string): $CancellablePromise<void> {
     return $Call.ByID(3392533822, value);
 }
-
-// Private type creation functions
-const $$createType0 = $models.PlatformInfo.createFrom;

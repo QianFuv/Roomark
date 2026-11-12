@@ -14,7 +14,7 @@ export {
     TrayService
 };
 
-export {
+export type {
     FileResult,
     PlatformInfo,
     TrayState

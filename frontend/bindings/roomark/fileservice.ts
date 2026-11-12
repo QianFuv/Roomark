@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -18,10 +18,5 @@ import * as $models from "./models.js";
  * SaveFile decodes an export and opens the platform save or share surface.
  */
 export function SaveFile(suggestedName: string, mimeType: string, base64Data: string): $CancellablePromise<$models.FileResult> {
-    return $Call.ByID(2283414560, suggestedName, mimeType, base64Data).then(($result: any) => {
-        return $$createType0($result);
-    });
+    return $Call.ByID(2283414560, suggestedName, mimeType, base64Data);
 }
-
-// Private type creation functions
-const $$createType0 = $models.FileResult.createFrom;
