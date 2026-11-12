@@ -286,7 +286,8 @@ export const handlers = [
     // JUSTIFICATION: request body shape is defined by the Roomark OpenAPI contract.
     const { code } = (await request.json()) as { code: string };
 
-    if (code.toUpperCase() === MOCK_RATE_LIMITED_CODE) return problem(429, "rate_limited", "试得太频繁，请稍后再试");
+    if (code.toUpperCase() === MOCK_RATE_LIMITED_CODE)
+      return problem(429, "rate_limited", "试得太频繁，请稍后再试");
 
     return code.toUpperCase() === MOCK_TOKEN
       ? HttpResponse.json({ slug: state.room.slug, name: state.room.name })
@@ -331,8 +332,7 @@ export const handlers = [
     );
   }),
   http.post("*/api/rooms/:slug/series/preview", async ({ request }) => {
-    if (sessionPerson(request) === undefined)
-      return problem(401, "session_required", "请先登录");
+    if (sessionPerson(request) === undefined) return problem(401, "session_required", "请先登录");
 
     // JUSTIFICATION: mock request bodies follow the OpenAPI request schema.
     const body = (await request.json()) as { rule: components["schemas"]["SeriesRule"] };
@@ -409,8 +409,7 @@ export const handlers = [
   http.post("*/api/bookings/:id/end", ({ request, params }) => {
     const booking = state.bookings.find((item) => item.id === Number(params["id"]));
 
-    if (sessionPerson(request) === undefined)
-      return problem(401, "session_required", "请先登录");
+    if (sessionPerson(request) === undefined) return problem(401, "session_required", "请先登录");
 
     if (booking === undefined) return problem(404, "not_found", "预约不存在");
 
