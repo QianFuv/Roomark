@@ -1,7 +1,7 @@
 /**
- * Account menu, logout and switching identity, history-aware back (overlays first, tabs, the
- * visible back control, unsaved-form prompt), binding a room by its code, recovering from a stale
- * stored token, and theme switching while a menu item is hovered.
+ * Account menu, logout and switching identity, history-only back (overlays first, tabs, no back
+ * arrow, sub-pages leavable through visible navigation, unsaved-form prompt), binding a room by its
+ * code, recovering from a stale stored token, and theme switching while a menu item is hovered.
  *
  * @module
  */
@@ -211,7 +211,7 @@ test("given typed 用途 when backing out of the booking form then it asks once 
   await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
 });
 
-test("given an admin sub-page when pressing the back control then it returns to the room list, with or without history", async ({
+test("given an admin sub-page when going back or using the admin navigation then it returns to the room list, with no back arrow", async ({
   page,
   request,
 }) => {
@@ -222,13 +222,16 @@ test("given an admin sub-page when pressing the back control then it returns to 
   await page.goto("/admin/rooms");
   await page.getByRole("button", { name: "导出二维码" }).first().click();
   await expect(page.getByRole("img", { name: /海报预览/ })).toBeVisible();
-  await page.getByRole("button", { name: "返回" }).click();
+  await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
+  await page.goBack();
   await expect(page).toHaveURL(/\/admin\/rooms$/);
 
   const qrPath = await page.getByRole("button", { name: "导出二维码" }).first().getAttribute("href");
 
   await page.goto(qrPath ?? "/admin/rooms");
-  await page.getByRole("button", { name: "返回" }).click();
+  await expect(page.getByRole("img", { name: /海报预览/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "房间", exact: true }).filter({ visible: true }).first().click();
   await expect(page).toHaveURL(/\/admin\/rooms$/);
 });
 

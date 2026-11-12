@@ -26,20 +26,21 @@ import { useEffect, type ReactNode } from "react";
 
 import { IdentitySheet } from "../features/identity/identity";
 import { AccountMenu } from "./account-menu";
-import { BackButton, WideBack } from "./back";
 import { ThemeResync } from "./theme-resync";
 import { platform } from "../platform/platform";
 import { appStore, useRememberedRooms, useSession } from "../state/app-store";
-import { colors, fonts, media, radii } from "../styles/tokens.stylex";
+import { colors, fonts, media, radii, sizes, space } from "../styles/tokens.stylex";
 import { DialogHost } from "../ui/dialogs";
+import { ICON_SIZE } from "../ui/icon";
+import { text } from "../ui/typography";
 
 /** Admin sections, shared by the side navigation and the admin tabs. */
 export const ADMIN_SECTIONS = [
-  { to: "/admin/rooms", label: "房间", icon: <DoorOpen size={18} aria-hidden /> },
-  { to: "/admin/people", label: "名单", icon: <Users size={18} aria-hidden /> },
-  { to: "/admin/bookings", label: "预约", icon: <ListChecks size={18} aria-hidden /> },
-  { to: "/admin/announcements", label: "公告", icon: <Megaphone size={18} aria-hidden /> },
-  { to: "/admin/stats", label: "统计", icon: <ChartColumn size={18} aria-hidden /> },
+  { to: "/admin/rooms", label: "房间", icon: <DoorOpen size={ICON_SIZE.nav} aria-hidden /> },
+  { to: "/admin/people", label: "名单", icon: <Users size={ICON_SIZE.nav} aria-hidden /> },
+  { to: "/admin/bookings", label: "预约", icon: <ListChecks size={ICON_SIZE.nav} aria-hidden /> },
+  { to: "/admin/announcements", label: "公告", icon: <Megaphone size={ICON_SIZE.nav} aria-hidden /> },
+  { to: "/admin/stats", label: "统计", icon: <ChartColumn size={ICON_SIZE.nav} aria-hidden /> },
 ] as const;
 
 const SIDEBAR_WIDTH = 248;
@@ -68,25 +69,22 @@ const styles = stylex.create({
   barInner: {
     alignItems: "center",
     display: "flex",
-    gap: 4,
+    gap: space.xs,
     height: 56,
     marginInline: "auto",
     maxWidth: 1040,
-    paddingInline: { default: 8, [media.narrow]: 24 },
+    paddingInline: { default: space.sm, [media.narrow]: space.pagePaddingNarrow },
   },
   brand: {
     alignItems: "center",
     borderRadius: radii.medium,
     color: colors.text,
     display: "flex",
-    fontSize: fonts.sizeLg,
-    fontWeight: 800,
-    gap: 8,
-    letterSpacing: "-0.01em",
+    gap: space.sm,
     marginInlineEnd: "auto",
-    minHeight: 44,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 8,
+    paddingInline: space.sm,
     textDecoration: "none",
   },
   logo: {
@@ -95,8 +93,6 @@ const styles = stylex.create({
     borderRadius: 8,
     color: colors.onPrimary,
     display: "inline-flex",
-    fontSize: 15,
-    fontWeight: 900,
     height: 28,
     justifyContent: "center",
     width: 28,
@@ -114,14 +110,12 @@ const styles = stylex.create({
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: fonts.sans,
-    fontSize: fonts.sizeMd,
-    fontWeight: 600,
-    gap: 6,
+    gap: space.sm,
     justifyContent: "center",
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: sizes.control,
+    minWidth: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: { default: 10, [media.narrow]: 12 },
+    paddingInline: space.md,
     textDecoration: "none",
   },
   navLabel: { display: { default: "none", [media.narrow]: "inline" } },
@@ -140,22 +134,19 @@ const styles = stylex.create({
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: 18,
+    gap: space.lg,
     height: "100dvh",
     overflowY: "auto",
-    paddingBlock: 16,
-    paddingInline: 12,
+    paddingBlock: space.lg,
+    paddingInline: space.md,
     position: "sticky",
     top: 0,
   },
-  sideGroup: { display: "flex", flexDirection: "column", gap: 2 },
+  sideGroup: { display: "flex", flexDirection: "column", gap: space.xxs },
   sideHeading: {
     color: colors.textMuted,
-    fontSize: fonts.sizeXs,
-    fontWeight: 600,
-    letterSpacing: "0.04em",
-    paddingBottom: 4,
-    paddingInline: 10,
+    paddingBottom: space.xs,
+    paddingInline: space.md,
   },
   sideItem: {
     alignItems: "center",
@@ -167,32 +158,43 @@ const styles = stylex.create({
     borderRadius: radii.medium,
     color: { default: colors.textMuted, ":hover": colors.text, '[data-status="active"]': colors.text },
     display: "flex",
-    fontSize: fonts.sizeMd,
-    fontWeight: { default: 500, '[data-status="active"]': 600 },
-    gap: 10,
-    minHeight: 38,
+    gap: space.sm,
+    minHeight: sizes.control,
     outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
     overflow: "hidden",
-    paddingInline: 10,
+    paddingInline: space.md,
     textDecoration: "none",
     whiteSpace: "nowrap",
   },
   sideItemText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" },
-  sideFooter: { display: "flex", flexDirection: "column", gap: 4, marginTop: "auto" },
-  themeRow: { alignItems: "center", display: "flex", justifyContent: "space-between", paddingInline: 4 },
-  themeLabel: { color: colors.textMuted, fontSize: fonts.sizeSm, paddingInline: 6 },
+  sideFooter: { display: "flex", flexDirection: "column", gap: space.xs, marginTop: "auto" },
+  themeRow: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "space-between",
+    paddingInline: space.xs,
+  },
+  themeLabel: { color: colors.textMuted, paddingInline: space.sm },
   main: {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
-    gap: 16,
+    gap: space.sectionGap,
     marginInline: "auto",
     minWidth: 0,
     maxWidth: { default: 1040, [media.wide]: 1480 },
-    paddingBottom: "max(32px, env(safe-area-inset-bottom))",
-    paddingInline: { default: 16, [media.narrow]: 24, [media.wide]: 36 },
-    paddingTop: { default: 16, [media.narrow]: 24, [media.wide]: 32 },
+    paddingBottom: `max(${space.xxl}, env(safe-area-inset-bottom))`,
+    paddingInline: {
+      default: space.pagePadding,
+      [media.narrow]: space.pagePaddingNarrow,
+      [media.wide]: space.pagePaddingWide,
+    },
+    paddingTop: {
+      default: space.pagePadding,
+      [media.narrow]: space.pagePaddingNarrow,
+      [media.wide]: space.pagePaddingWide,
+    },
     width: "100%",
   },
   menuPositioner: { outline: "none", zIndex: 80 },
@@ -207,7 +209,7 @@ const styles = stylex.create({
     fontFamily: fonts.sans,
     minWidth: 168,
     outline: "none",
-    padding: 4,
+    padding: space.xs,
   },
   menuItem: {
     alignItems: "center",
@@ -215,19 +217,18 @@ const styles = stylex.create({
     borderRadius: radii.small,
     cursor: "pointer",
     display: "flex",
-    fontSize: fonts.sizeMd,
-    gap: 10,
-    minHeight: 44,
+    gap: space.sm,
+    minHeight: sizes.control,
     outline: "none",
-    paddingInline: 10,
+    paddingInline: space.md,
   },
   menuCheck: { color: colors.primary, display: "inline-flex", marginInlineStart: "auto" },
 });
 
 const THEME_OPTIONS = [
-  { value: "system", label: "跟随系统", icon: <Monitor size={18} aria-hidden /> },
-  { value: "light", label: "浅色", icon: <Sun size={18} aria-hidden /> },
-  { value: "dark", label: "深色", icon: <Moon size={18} aria-hidden /> },
+  { value: "system", label: "跟随系统", icon: <Monitor aria-hidden /> },
+  { value: "light", label: "浅色", icon: <Sun aria-hidden /> },
+  { value: "dark", label: "深色", icon: <Moon aria-hidden /> },
 ] as const;
 
 /**
@@ -241,19 +242,27 @@ function ThemeMenu() {
 
   return (
     <Menu.Root>
-      <Menu.Trigger aria-label={`主题：${current.label}`} {...stylex.props(styles.navItem)}>
-        {resolvedTheme === "dark" ? <Moon size={20} aria-hidden /> : <Sun size={20} aria-hidden />}
+      <Menu.Trigger aria-label={`主题：${current.label}`} {...stylex.props(text.label, styles.navItem)}>
+        {resolvedTheme === "dark" ? (
+          <Moon size={ICON_SIZE.nav} aria-hidden />
+        ) : (
+          <Sun size={ICON_SIZE.nav} aria-hidden />
+        )}
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={6} align="end" {...stylex.props(styles.menuPositioner)}>
           <Menu.Popup {...stylex.props(styles.menuPopup)}>
             <Menu.RadioGroup value={current.value} onValueChange={(value: string) => setTheme(value)}>
               {THEME_OPTIONS.map((option) => (
-                <Menu.RadioItem key={option.value} value={option.value} {...stylex.props(styles.menuItem)}>
+                <Menu.RadioItem
+                  key={option.value}
+                  value={option.value}
+                  {...stylex.props(text.body, styles.menuItem)}
+                >
                   {option.icon}
                   {option.label}
                   <Menu.RadioItemIndicator {...stylex.props(styles.menuCheck)}>
-                    <Check size={16} aria-hidden />
+                    <Check aria-hidden />
                   </Menu.RadioItemIndicator>
                 </Menu.RadioItem>
               ))}
@@ -312,22 +321,22 @@ function Sidebar() {
   return (
     <div {...stylex.props(styles.sidebarRail)}>
       <nav aria-label="侧边导航" {...stylex.props(styles.sidebar)}>
-        <Link to="/" {...stylex.props(styles.brand)}>
-          <span aria-hidden {...stylex.props(styles.logo)}>
+        <Link to="/" {...stylex.props(text.title, styles.brand)}>
+          <span aria-hidden {...stylex.props(text.label, styles.logo)}>
             R
           </span>
           会议室
         </Link>
         <div {...stylex.props(styles.sideGroup)}>
-          <span {...stylex.props(styles.sideHeading)}>会议室</span>
+          <span {...stylex.props(text.meta, styles.sideHeading)}>会议室</span>
           {rooms.map((room) => (
             <Link
               key={room.slug}
               to="/r/$slug"
               params={{ slug: room.slug }}
-              {...stylex.props(styles.sideItem)}
+              {...stylex.props(text.body, styles.sideItem)}
             >
-              <DoorOpen size={18} aria-hidden />
+              <DoorOpen size={ICON_SIZE.nav} aria-hidden />
               <span {...stylex.props(styles.sideItemText)}>{room.name ?? room.slug}</span>
             </Link>
           ))}
@@ -335,17 +344,17 @@ function Sidebar() {
             to="/"
             search={{ add: true }}
             activeOptions={{ includeSearch: true }}
-            {...stylex.props(styles.sideItem)}
+            {...stylex.props(text.body, styles.sideItem)}
           >
-            <Plus size={18} aria-hidden />
+            <Plus size={ICON_SIZE.nav} aria-hidden />
             添加会议室
           </Link>
         </div>
         {isAdmin ? (
           <div {...stylex.props(styles.sideGroup)}>
-            <span {...stylex.props(styles.sideHeading)}>管理</span>
+            <span {...stylex.props(text.meta, styles.sideHeading)}>管理</span>
             {ADMIN_SECTIONS.map((section) => (
-              <Link key={section.to} to={section.to} {...stylex.props(styles.sideItem)}>
+              <Link key={section.to} to={section.to} {...stylex.props(text.body, styles.sideItem)}>
                 {section.icon}
                 {section.label}
               </Link>
@@ -354,14 +363,14 @@ function Sidebar() {
         ) : null}
         <div {...stylex.props(styles.sideFooter)}>
           {platform().isApp ? (
-            <Link to="/settings" {...stylex.props(styles.sideItem)}>
-              <Settings size={18} aria-hidden />
+            <Link to="/settings" {...stylex.props(text.body, styles.sideItem)}>
+              <Settings size={ICON_SIZE.nav} aria-hidden />
               设置
             </Link>
           ) : null}
           {session === undefined ? (
             <div {...stylex.props(styles.themeRow)}>
-              <span {...stylex.props(styles.themeLabel)}>主题</span>
+              <span {...stylex.props(text.meta, styles.themeLabel)}>主题</span>
               <ThemeMenu />
             </div>
           ) : null}
@@ -389,16 +398,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div {...stylex.props(styles.page)}>
       <header {...stylex.props(styles.bar)}>
         <nav aria-label="主导航" {...stylex.props(styles.barInner)}>
-          <BackButton />
-          <Link to="/" {...stylex.props(styles.brand)}>
-            <span aria-hidden {...stylex.props(styles.logo)}>
+          <Link to="/" {...stylex.props(text.title, styles.brand)}>
+            <span aria-hidden {...stylex.props(text.label, styles.logo)}>
               R
             </span>
             会议室
           </Link>
           {isApp ? (
-            <Link to="/settings" aria-label="设置" {...stylex.props(styles.navItem)}>
-              <Settings size={20} aria-hidden />
+            <Link to="/settings" aria-label="设置" {...stylex.props(text.label, styles.navItem)}>
+              <Settings size={ICON_SIZE.nav} aria-hidden />
               <span {...stylex.props(styles.navLabel)}>设置</span>
             </Link>
           ) : null}
@@ -407,10 +415,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </header>
       <Sidebar />
-      <main {...stylex.props(styles.main)}>
-        <WideBack />
-        {children}
-      </main>
+      <main {...stylex.props(styles.main)}>{children}</main>
       <IdentitySheet />
       <DialogHost />
       <ThemeResync />
