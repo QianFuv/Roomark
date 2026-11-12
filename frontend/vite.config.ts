@@ -17,6 +17,7 @@ const CSS_TARGETS = browserslistToTargets(browserslist(BROWSER_QUERY));
 const API_PROXY = process.env["ROOMARK_API_PROXY"];
 
 const GENERATED_FILES = [
+  "assets/**",
   "dist/**",
   "bindings/**",
   "src/api/schema.d.ts",
