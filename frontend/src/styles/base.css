@@ -7,6 +7,7 @@
 
   html {
     color-scheme: light dark;
+    -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
@@ -39,5 +40,66 @@
   textarea {
     font: inherit;
     color: inherit;
+  }
+
+  /* Controls: no native tap artefacts (callout, text selection, double-tap zoom delay). */
+  :where(
+    button,
+    a[href],
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="menuitemradio"],
+    [role="menuitemcheckbox"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="checkbox"]
+  ) {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  /* Pressed feedback for every control, including Base UI parts rendered as spans and divs. */
+  :where(
+      button,
+      a[href],
+      summary,
+      [role="button"],
+      [role="tab"],
+      [role="menuitem"],
+      [role="menuitemradio"],
+      [role="menuitemcheckbox"],
+      [role="option"],
+      [role="radio"],
+      [role="switch"],
+      [role="checkbox"]
+    ):where(:active):where(:not(:disabled, [aria-disabled="true"], [data-disabled])) {
+    filter: brightness(0.92) saturate(1.05);
+  }
+
+  :where(.dark)
+    :where(
+      button,
+      a[href],
+      summary,
+      [role="button"],
+      [role="tab"],
+      [role="menuitem"],
+      [role="menuitemradio"],
+      [role="menuitemcheckbox"],
+      [role="option"],
+      [role="radio"],
+      [role="switch"],
+      [role="checkbox"]
+    ):where(:active):where(:not(:disabled, [aria-disabled="true"], [data-disabled])) {
+    filter: brightness(1.18);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 }
