@@ -231,6 +231,16 @@ export function formatDuration(totalMinutes: number): string {
 }
 
 /**
+ * Compact duration for buttons and chips: `30 分钟`, `1 小时`, `1.5 小时`.
+ *
+ * @param totalMinutes - Duration in minutes.
+ * @returns The label.
+ */
+export function formatShortDuration(totalMinutes: number): string {
+  return totalMinutes < 60 ? `${totalMinutes} 分钟` : `${Math.round((totalMinutes / 60) * 100) / 100} 小时`;
+}
+
+/**
  * Whole minutes between two timestamps.
  *
  * @param start - Start timestamp.
@@ -267,24 +277,6 @@ export function ceilToGrid(totalMinutes: number, step: number = GRID_MINUTES): n
  */
 export function floorToGrid(totalMinutes: number, step: number = GRID_MINUTES): number {
   return Math.floor(totalMinutes / step) * step;
-}
-
-/**
- * Every clock time on the grid from `open` to `close`, inclusive.
- *
- * @param open - Opening `HH:MM`.
- * @param close - Closing `HH:MM`.
- * @param step - Grid step.
- * @returns The list of `HH:MM` values.
- */
-export function gridClockOptions(open: string, close: string, step: number = GRID_MINUTES): string[] {
-  const options: string[] = [];
-
-  for (let minutes = clockToMinutes(open); minutes <= clockToMinutes(close); minutes += step) {
-    options.push(minutesToClock(minutes));
-  }
-
-  return options;
 }
 
 /**

@@ -18,6 +18,7 @@ import {
   clockToMinutes,
   formatClock,
   formatDuration,
+  formatShortDuration,
   minutesBetween,
   minutesOfDay,
   minutesToClock,
@@ -102,16 +103,25 @@ const styles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     lineHeight: 1.5,
   },
+  quickArea: { containerType: "inline-size" },
   quickGrid: {
     display: "grid",
     gap: 10,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
-      [media.narrow]: "repeat(4, minmax(0, 1fr))",
+      "@container (min-width: 480px)": "repeat(4, minmax(0, 1fr))",
     },
   },
-  quickButton: { flexDirection: "column", gap: 2, minHeight: 72 },
-  quickHint: { fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums", fontWeight: 500 },
+  quickButton: { flexDirection: "column", gap: 2, minHeight: 72, minWidth: 0, paddingInline: 8 },
+  quickLabel: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" },
+  quickHint: {
+    fontSize: fonts.sizeSm,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 500,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
   extendRow: { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
   sectionLabel: {
     alignItems: "center",
@@ -474,29 +484,31 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
             <Zap size={20} aria-hidden />
             马上使用
           </h2>
-          <div {...stylex.props(styles.quickGrid)}>
-            {options.map((option) => (
-              <Button
-                key={option.minutes}
-                variant="success"
-                size="lg"
-                xstyle={styles.quickButton}
-                disabled={!option.isEnabled || (pending !== undefined && pending !== option.minutes)}
-                isLoading={pending === option.minutes}
-                aria-label={`马上使用 ${formatDuration(option.minutes)}，到 ${option.endClock}`}
-                onClick={() => {
-                  setPending(option.minutes);
-                  void requestSession(room.slug)
-                    .then((session) => {
-                      if (session !== undefined) setMinutes(option.minutes);
-                    })
-                    .finally(() => setPending(undefined));
-                }}
-              >
-                {formatDuration(option.minutes)}
-                <span {...stylex.props(styles.quickHint)}>至 {option.endClock}</span>
-              </Button>
-            ))}
+          <div {...stylex.props(styles.quickArea)}>
+            <div {...stylex.props(styles.quickGrid)}>
+              {options.map((option) => (
+                <Button
+                  key={option.minutes}
+                  variant="success"
+                  size="lg"
+                  xstyle={styles.quickButton}
+                  disabled={!option.isEnabled || (pending !== undefined && pending !== option.minutes)}
+                  isLoading={pending === option.minutes}
+                  aria-label={`马上使用 ${formatDuration(option.minutes)}，到 ${option.endClock}`}
+                  onClick={() => {
+                    setPending(option.minutes);
+                    void requestSession(room.slug)
+                      .then((session) => {
+                        if (session !== undefined) setMinutes(option.minutes);
+                      })
+                      .finally(() => setPending(undefined));
+                  }}
+                >
+                  <span {...stylex.props(styles.quickLabel)}>{formatShortDuration(option.minutes)}</span>
+                  <span {...stylex.props(styles.quickHint)}>至 {option.endClock}</span>
+                </Button>
+              ))}
+            </div>
           </div>
         </>
       ) : null}
@@ -583,7 +595,7 @@ function QuickUseForm({
           size="lg"
           options={options.map((option) => ({
             value: String(option.minutes),
-            label: formatDuration(option.minutes),
+            label: formatShortDuration(option.minutes),
             hint: `至 ${option.endClock}`,
             isDisabled: !option.isEnabled,
           }))}
