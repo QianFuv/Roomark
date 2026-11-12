@@ -22,7 +22,7 @@ import { useState } from "react";
 import { api, errorMessage, fetchClient, serverUrl, type Booking } from "../api/client";
 import { cancelBooking } from "../features/booking/booking-actions";
 import { BookingDetailSheet } from "../features/booking/booking-detail";
-import { LengthChooser, NewPasscode, logout, requestSession } from "../features/identity/identity";
+import { NewPasscode, logout, requestSession } from "../features/identity/identity";
 import type { components } from "../api/schema";
 import { formatBookingWhen, formatMonthDay, nowZoned, parseZoned } from "../lib/time";
 import { useRememberedRooms, useSession, type StoredSession } from "../state/app-store";
@@ -30,7 +30,7 @@ import { colors, fonts, media, radii } from "../styles/tokens.stylex";
 import { Button } from "../ui/button";
 import { TabView } from "../ui/controls";
 import { Badge, Card, EmptyState, Notice, PageHeader, Row, Section, Skeleton, Stack } from "../ui/layout";
-import { PasscodeInput, type PasscodeLength } from "../ui/passcode";
+import { PASSCODE_LENGTH, PasscodeInput } from "../ui/passcode";
 import { Sheet } from "../ui/sheet";
 import { notify } from "../ui/toast";
 
@@ -45,21 +45,25 @@ const styles = stylex.create({
     alignItems: "start",
     display: "grid",
     gap: 16,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.desktop]: "minmax(0, 1.6fr) minmax(0, 1fr)" },
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [media.narrow]: "minmax(0, 1.4fr) minmax(300px, 1fr)",
+      [media.wide]: "minmax(0, 1.8fr) minmax(360px, 1fr)",
+    },
   },
   name: { fontSize: fonts.sizeXl, fontWeight: 800 },
   aside: {
-    gridColumnStart: { default: "auto", [media.desktop]: 2 },
-    gridRowStart: { default: "auto", [media.desktop]: 1 },
+    gridColumnStart: { default: "auto", [media.narrow]: 2 },
+    gridRowStart: { default: "auto", [media.narrow]: 1 },
     minWidth: 0,
   },
   mainColumn: {
-    gridColumnStart: { default: "auto", [media.desktop]: 1 },
-    gridRowStart: { default: "auto", [media.desktop]: 1 },
+    gridColumnStart: { default: "auto", [media.narrow]: 1 },
+    gridRowStart: { default: "auto", [media.narrow]: 1 },
     minWidth: 0,
   },
-  wideOnly: { display: { default: "none", [media.desktop]: "block" } },
-  narrowOnly: { display: { default: "block", [media.desktop]: "none" } },
+  wideOnly: { display: { default: "none", [media.narrow]: "block" } },
+  narrowOnly: { display: { default: "block", [media.narrow]: "none" } },
   identityActions: { display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
   list: { display: "flex", flexDirection: "column", gap: 8 },
   item: {
@@ -279,7 +283,6 @@ function IdentityCard({ session }: { session: StoredSession }) {
  * @returns The form.
  */
 function ChangePasscode({ onDone }: { onDone: () => void }) {
-  const [length, setLength] = useState<PasscodeLength>(4);
   const [current, setCurrent] = useState("");
   const [isCurrentEntered, setIsCurrentEntered] = useState(false);
   const [error, setError] = useState<string>();
@@ -287,35 +290,17 @@ function ChangePasscode({ onDone }: { onDone: () => void }) {
 
   if (!isCurrentEntered) {
     return (
-      <Stack gap="lg">
-        <LengthChooser
-          length={length}
-          onLengthChange={(next) => {
-            setLength(next);
-            setCurrent("");
-          }}
-        />
-        <PasscodeInput
-          label="当前口令"
-          length={length}
-          value={current}
-          onValueChange={setCurrent}
-          error={error}
-          isAutoFocus
-        />
-        <Button
-          variant="primary"
-          size="lg"
-          isFullWidth
-          disabled={current.length !== length}
-          onClick={() => {
-            setError(undefined);
-            setIsCurrentEntered(true);
-          }}
-        >
-          下一步
-        </Button>
-      </Stack>
+      <PasscodeInput
+        label={`输入当前的 ${PASSCODE_LENGTH} 位口令`}
+        value={current}
+        onValueChange={setCurrent}
+        onComplete={() => {
+          setError(undefined);
+          setIsCurrentEntered(true);
+        }}
+        error={error}
+        isAutoFocus
+      />
     );
   }
 

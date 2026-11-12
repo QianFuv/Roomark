@@ -1,6 +1,6 @@
 /**
- * Identity flow: claim a preset name by entering the passcode twice, log in with a claimed name,
- * and show the lockout message.
+ * Identity flow: claim a preset name by entering a 6-digit passcode twice, log in with a claimed
+ * name as soon as the sixth digit is typed, and show the lockout message.
  *
  * @module
  */
@@ -31,13 +31,13 @@ describe("identity sheet", () => {
     const { screen, pending } = await openSheet();
 
     await screen.getByRole("button", { name: /张三/ }).click();
-    await expect.element(screen.getByText("第一次使用这个名字")).toBeVisible();
-    await userEvent.keyboard("1357");
+    await expect.element(screen.getByText("设置 6 位数字口令")).toBeVisible();
+    await userEvent.keyboard("135724");
     await expect.element(screen.getByText("再输入一次确认")).toBeVisible();
-    await userEvent.keyboard("1358");
+    await userEvent.keyboard("135725");
     await expect.element(screen.getByText("两次输入不一致，请重新设置")).toBeVisible();
-    await userEvent.keyboard("1357");
-    await userEvent.keyboard("1357");
+    await userEvent.keyboard("135724");
+    await userEvent.keyboard("135724");
 
     const session = await pending;
 
@@ -45,13 +45,13 @@ describe("identity sheet", () => {
     expect(appStore.state.session?.person.name).toBe("张三");
   });
 
-  test("given a claimed name when the right passcode is confirmed then the session resolves", async () => {
+  test("given a claimed name when six digits are typed then the session resolves without a confirm button", async () => {
     const { screen, pending } = await openSheet();
 
     await screen.getByRole("searchbox", { name: "搜索姓名" }).fill("李");
     await screen.getByRole("button", { name: /李四/ }).click();
+    await expect.element(screen.getByText("输入你的 6 位口令")).toBeVisible();
     await userEvent.keyboard(MOCK_PASSCODE);
-    await screen.getByRole("button", { name: "确认" }).click();
 
     expect((await pending)?.person.name).toBe("李四");
   });
@@ -60,8 +60,7 @@ describe("identity sheet", () => {
     const { screen } = await openSheet();
 
     await screen.getByRole("button", { name: /赵六/ }).click();
-    await userEvent.keyboard("0000");
-    await screen.getByRole("button", { name: "确认" }).click();
+    await userEvent.keyboard("000000");
     await expect.element(screen.getByText(/已暂时锁定。请在 10:15 后再试/)).toBeVisible();
   });
 });
