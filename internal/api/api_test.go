@@ -16,6 +16,7 @@ import (
 
 	"roomark/internal/domain"
 	"roomark/internal/rules"
+	"roomark/internal/store"
 )
 
 type testClient struct {
@@ -142,6 +143,140 @@ func TestBookingHTTPFlow(t *testing.T) {
 	calendar := c.call("GET", "/ical/9070.ics?k="+c.roomToken, nil, 200, nil)
 	if !strings.Contains(calendar.Body.String(), "BEGIN:VCALENDAR") || !strings.Contains(calendar.Body.String(), "STATUS:CANCELLED") {
 		t.Fatalf("iCal=%s", calendar.Body)
+	}
+}
+
+// TestSuggestedFromAttribution counts live-check suggestions once per original range.
+func TestSuggestedFromAttribution(t *testing.T) {
+	for _, testCase := range []struct {
+		name      string
+		bookings  int
+		openEvent bool
+	}{
+		{name: "live check", bookings: 1},
+		{name: "second slot within 24 hours", bookings: 2},
+		{name: "reuse open conflict", bookings: 1, openEvent: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			c := newTestClient(t)
+			origin := bookingBody("14:00", "15:00")
+			c.call("POST", "/api/rooms/9070/bookings", origin, 201, nil)
+			var originalEventID int64
+			if testCase.openEvent {
+				var failure Problem
+				c.call("POST", "/api/rooms/9070/bookings", origin, 409, &failure)
+				originalEventID = failure.ConflictEventID
+			}
+			var firstBookingID int64
+			for attempt := 0; attempt < testCase.bookings; attempt++ {
+				var check domain.CheckResult
+				c.call("POST", "/api/rooms/9070/check", CheckRange{TimeRange: origin.TimeRange}, 200, &check)
+				if check.OK || check.Conflict == nil || check.Conflict.ConflictEventID != 0 || len(check.Conflict.Suggestions) == 0 {
+					t.Fatalf("live check=%+v", check)
+				}
+				if attempt == 0 && !testCase.openEvent {
+					var stats domain.Stats
+					c.call("GET", "/api/admin/stats?room=9070&from=2026-11-12&to=2026-12-12", nil, 200, &stats)
+					if stats.DemandGap.ConflictCount != 0 {
+						t.Fatalf("live check recorded a conflict: %+v", stats.DemandGap)
+					}
+				}
+				suggestion := check.Conflict.Suggestions[0]
+				body := CreateBooking{TimeRange: TimeRange{Start: suggestion.Start, End: suggestion.End}, Title: "Discussion", SuggestedFrom: &origin.TimeRange}
+				var booking domain.Booking
+				c.call("POST", "/api/rooms/9070/bookings", body, 201, &booking)
+				if attempt == 0 {
+					firstBookingID = booking.ID
+				}
+				var stats domain.Stats
+				c.call("GET", "/api/admin/stats?room=9070&from=2026-11-12&to=2026-12-12", nil, 200, &stats)
+				if stats.DemandGap.ConflictCount != 1 || stats.DemandGap.SuggestionAcceptanceRate != 1 {
+					t.Fatalf("attempt %d demand gap=%+v", attempt, stats.DemandGap)
+				}
+			}
+			events, err := store.New(c.service.db).ListConflictEvents(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(events) != 1 || events[0].Source != "single" || events[0].RequestedStart != origin.Start.Unix() || events[0].RequestedEnd != origin.End.Unix() || !events[0].AcceptedBookingID.Valid || events[0].AcceptedBookingID.Int64 != firstBookingID || originalEventID != 0 && events[0].ID != originalEventID {
+				t.Fatalf("events=%+v", events)
+			}
+		})
+	}
+}
+
+// TestSuggestedFromIgnored preserves bookings when the origin does not explain the slot.
+func TestSuggestedFromIgnored(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		conflict bool
+		start    string
+		end      string
+	}{
+		{name: "slot is not a suggestion", conflict: true, start: "16:00", end: "17:00"},
+		{name: "origin is not conflicting", start: "13:00", end: "14:00"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			c := newTestClient(t)
+			origin := bookingBody("14:00", "15:00")
+			if testCase.conflict {
+				c.call("POST", "/api/rooms/9070/bookings", origin, 201, nil)
+			}
+			body := bookingBody(testCase.start, testCase.end)
+			body.SuggestedFrom = &origin.TimeRange
+			c.call("POST", "/api/rooms/9070/bookings", body, 201, nil)
+			var stats domain.Stats
+			c.call("GET", "/api/admin/stats?room=9070&from=2026-11-12&to=2026-12-12", nil, 200, &stats)
+			if stats.DemandGap.ConflictCount != 0 || stats.DemandGap.SuggestionAcceptanceRate != 0 {
+				t.Fatalf("demand gap=%+v", stats.DemandGap)
+			}
+		})
+	}
+}
+
+// TestSuggestedFromInvalidRange rejects invalid origins without creating a booking.
+func TestSuggestedFromInvalidRange(t *testing.T) {
+	for _, testCase := range []struct {
+		name       string
+		rangeValue TimeRange
+	}{
+		{name: "equal endpoints", rangeValue: bookingBody("14:00", "14:00").TimeRange},
+		{name: "end before start", rangeValue: bookingBody("15:00", "14:00").TimeRange},
+		{name: "different local days", rangeValue: TimeRange{Start: bookingBody("14:00", "15:00").Start, End: bookingBody("14:00", "15:00").End.AddDate(0, 0, 1)}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			c := newTestClient(t)
+			body := bookingBody("16:00", "17:00")
+			body.SuggestedFrom = &testCase.rangeValue
+			var failure Problem
+			c.call("POST", "/api/rooms/9070/bookings", body, 422, &failure)
+			if failure.Code != "invalid_range" {
+				t.Fatalf("failure=%+v", failure)
+			}
+			var stats domain.Stats
+			c.call("GET", "/api/admin/stats?room=9070&from=2026-11-12&to=2026-12-12", nil, 200, &stats)
+			if stats.Overview.Bookings != 0 || stats.DemandGap.ConflictCount != 0 {
+				t.Fatalf("invalid origin persisted data: %+v", stats)
+			}
+		})
+	}
+}
+
+// TestConflictEventTakesPrecedence ignores suggestedFrom when an event ID is provided.
+func TestConflictEventTakesPrecedence(t *testing.T) {
+	c := newTestClient(t)
+	origin := bookingBody("14:00", "15:00")
+	c.call("POST", "/api/rooms/9070/bookings", origin, 201, nil)
+	var failure Problem
+	c.call("POST", "/api/rooms/9070/bookings", origin, 409, &failure)
+	suggestion := failure.Suggestions[0]
+	invalidOrigin := bookingBody("15:00", "14:00").TimeRange
+	body := CreateBooking{TimeRange: TimeRange{Start: suggestion.Start, End: suggestion.End}, Title: "Discussion", ConflictEventID: failure.ConflictEventID, SuggestedFrom: &invalidOrigin}
+	c.call("POST", "/api/rooms/9070/bookings", body, 201, nil)
+	var stats domain.Stats
+	c.call("GET", "/api/admin/stats?room=9070&from=2026-11-12&to=2026-12-12", nil, 200, &stats)
+	if stats.DemandGap.ConflictCount != 1 || stats.DemandGap.SuggestionAcceptanceRate != 1 {
+		t.Fatalf("demand gap=%+v", stats.DemandGap)
 	}
 }
 

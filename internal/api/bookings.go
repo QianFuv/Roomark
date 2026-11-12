@@ -156,6 +156,11 @@ func (s *Service) createBooking(ctx context.Context, q *store.Queries, r request
 			return nil, err
 		}
 	}
+	if origin := body.SuggestedFrom; body.ConflictEventID == 0 && origin != nil {
+		if !origin.End.After(origin.Start) || !rules.Day(origin.Start).Equal(rules.Day(origin.End)) {
+			return nil, violationsProblem([]domain.Violation{{Code: "invalid_range", Message: "预约必须在同一天且结束晚于开始"}})
+		}
+	}
 	body.Title, err = normalizeTitle(body.Title)
 	if err != nil {
 		return nil, err
@@ -203,6 +208,28 @@ func (s *Service) createBooking(ctx context.Context, q *store.Queries, r request
 		if isSuggestion {
 			if _, err := q.AcceptSuggestion(ctx, store.AcceptSuggestionParams{ID: body.ConflictEventID, RoomID: room.ID, PersonID: nullable(person.ID), AcceptedBookingID: nullable(row.ID)}); err != nil {
 				return nil, err
+			}
+		}
+	} else if origin := body.SuggestedFrom; origin != nil {
+		checkOptions := rules.Options{Now: s.now(), Active: activeCount(bookings, room.Slug, person.ID, s.now())}
+		originCheck := s.check(origin.Start, origin.End, room, roomBookings, checkOptions)
+		if conflict := originCheck.Conflict; conflict != nil && slices.ContainsFunc(conflict.Suggestions, func(candidate domain.Suggestion) bool {
+			return candidate.Start.Equal(body.Start) && candidate.End.Equal(body.End)
+		}) {
+			events, err := q.ListConflictEvents(ctx)
+			if err != nil {
+				return nil, err
+			}
+			isAccepted := slices.ContainsFunc(events, func(event store.ConflictEvent) bool {
+				return event.RoomID == room.ID && event.PersonID.Int64 == person.ID && event.RequestedStart == origin.Start.Unix() && event.RequestedEnd == origin.End.Unix() && event.Source == "single" && event.AcceptedBookingID.Valid && event.CreatedAt >= s.now().Add(-24*time.Hour).Unix()
+			})
+			if !isAccepted {
+				if err := s.recordConflict(ctx, q, conflict, room, person, origin.Start, origin.End, "single"); err != nil {
+					return nil, err
+				}
+				if _, err := q.AcceptSuggestion(ctx, store.AcceptSuggestionParams{ID: conflict.ConflictEventID, RoomID: room.ID, PersonID: nullable(person.ID), AcceptedBookingID: nullable(row.ID)}); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

@@ -501,6 +501,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "suggestedFrom": {
+            "$ref": "#/components/schemas/TimeRange"
+          },
           "title": {
             "description": "Meeting purpose, 1–200 characters after trimming surrounding whitespace.",
             "minLength": 1,
@@ -2014,6 +2017,24 @@
           "start",
           "end",
           "kind"
+        ],
+        "type": "object"
+      },
+      "TimeRange": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
         ],
         "type": "object"
       },

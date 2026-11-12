@@ -136,6 +136,8 @@ type CreateBooking struct {
 	Title string `json:"title" minLength:"1" doc:"Meeting purpose, 1–200 characters after trimming surrounding whitespace."`
 	// ConflictEventID attributes a subsequently accepted suggestion.
 	ConflictEventID int64 `json:"conflictEventId,omitempty"`
+	// SuggestedFrom is the original conflicting range from a live availability check.
+	SuggestedFrom *TimeRange `json:"suggestedFrom,omitempty"`
 	// OnBehalfOf selects the booker for an administrative reservation.
 	OnBehalfOf int64 `json:"onBehalfOf,omitempty"`
 	// Kind distinguishes normal reservations from administrative blocks.
