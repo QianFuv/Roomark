@@ -134,9 +134,11 @@ export async function seed(request: APIRequestContext): Promise<Seeded> {
  * Assert that a page has no serious or critical axe violations.
  *
  * @param page - The page.
+ * @param include - Only check inside this selector, e.g. an open overlay window above a dimmed page.
  */
-export async function expectAccessible(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+export async function expectAccessible(page: Page, include?: string): Promise<void> {
+  const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]);
+  const results = await (include === undefined ? builder : builder.include(include)).analyze();
 
   const serious = results.violations.filter(
     (violation) => violation.impact === "serious" || violation.impact === "critical",

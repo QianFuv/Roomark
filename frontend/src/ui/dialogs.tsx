@@ -1,18 +1,17 @@
 /**
- * Promise-based confirmation and choice dialogs (Animate UI alert dialog on Base UI).
+ * Promise-based confirmation and choice dialogs, shown in the shared {@link Sheet} overlay.
  *
  * Call {@link confirmAction} or {@link chooseAction} from anywhere; render {@link DialogHost} once.
  *
  * @module
  */
-import { AlertDialog } from "@animate-ui/react/primitives/base-ui/alert-dialog";
 import * as stylex from "@stylexjs/stylex";
 import { createStore, useSelector } from "@tanstack/react-store";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { useOverlayHistory } from "../app/overlay-history";
-import { colors, fonts, media, radii, space } from "../styles/tokens.stylex";
+import { colors, space } from "../styles/tokens.stylex";
 import { Button, type ButtonVariant } from "./button";
+import { Sheet } from "./sheet";
 import { text } from "./typography";
 
 /** One button of a choice dialog. */
@@ -94,43 +93,22 @@ export async function confirmAction(
 }
 
 const styles = stylex.create({
-  backdrop: { backgroundColor: colors.scrim, inset: 0, position: "fixed", zIndex: 60 },
-  popup: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.extraLarge,
-    bottom: { default: space.md, [media.narrow]: "auto" },
-    boxShadow: `0 20px 60px ${colors.shadowStrong}`,
-    color: colors.text,
-    display: "flex",
-    flexDirection: "column",
-    fontFamily: fonts.sans,
-    gap: space.cardGap,
-    insetInline: { default: space.md, [media.narrow]: "auto" },
-    left: { default: null, [media.narrow]: "50%" },
-    maxWidth: { default: null, [media.narrow]: 440 },
-    outline: "none",
-    padding: space.cardPadding,
-    position: "fixed",
-    top: { default: "auto", [media.narrow]: "30%" },
-    translate: { default: null, [media.narrow]: "-50% 0" },
-    width: { default: "auto", [media.narrow]: "100%" },
-    zIndex: 60,
-  },
-  description: { color: colors.textMuted },
   actions: { display: "flex", flexDirection: "column", gap: space.controlGap, marginTop: space.xs },
   optionHint: { color: colors.textMuted },
   optionLabel: { alignItems: "center", display: "flex", flexDirection: "column" },
 });
 
 /**
- * Renders the pending confirmation or choice dialog.
+ * Renders the pending confirmation or choice dialog in the shared overlay window (a drawer on
+ * mobile, a centered modal from 768 px).
  *
  * @returns The dialog host.
  */
 export function DialogHost() {
   const request = useSelector(dialogStore, (state) => state.request);
+  const [shown, setShown] = useState(request);
 
-  useOverlayHistory(request !== undefined && request.isHistoryEntry, () => settle(undefined));
+  if (request !== undefined && request !== shown) setShown(request);
 
   /**
    * Close the dialog and settle its promise.
@@ -143,44 +121,37 @@ export function DialogHost() {
   }
 
   return (
-    <AlertDialog.Root
-      open={request !== undefined}
+    <Sheet
+      isAlert
+      isOpen={request !== undefined}
+      isHistoryEntry={request?.isHistoryEntry ?? false}
       onOpenChange={(open) => {
         if (!open) settle(undefined);
       }}
+      title={shown?.title}
+      description={shown?.description}
     >
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop {...stylex.props(styles.backdrop)} />
-        <AlertDialog.Popup from="bottom" {...stylex.props(styles.popup)}>
-          <AlertDialog.Title {...stylex.props(text.title)}>{request?.title}</AlertDialog.Title>
-          {request?.description === undefined ? null : (
-            <AlertDialog.Description {...stylex.props(text.body, styles.description)}>
-              {request.description}
-            </AlertDialog.Description>
-          )}
-          <div {...stylex.props(styles.actions)}>
-            {(request?.options ?? []).map((option, index) => (
-              <Button
-                key={option.value}
-                size="lg"
-                isFullWidth
-                variant={option.variant ?? (index === 0 ? "primary" : "secondary")}
-                onClick={() => settle(option.value)}
-              >
-                <span {...stylex.props(styles.optionLabel)}>
-                  {option.label}
-                  {option.description === undefined ? null : (
-                    <span {...stylex.props(text.meta, styles.optionHint)}>{option.description}</span>
-                  )}
-                </span>
-              </Button>
-            ))}
-            <AlertDialog.Close render={<Button size="lg" isFullWidth variant="ghost" />}>
-              {request?.cancelLabel ?? "取消"}
-            </AlertDialog.Close>
-          </div>
-        </AlertDialog.Popup>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+      <div {...stylex.props(styles.actions)}>
+        {(shown?.options ?? []).map((option, index) => (
+          <Button
+            key={option.value}
+            size="lg"
+            isFullWidth
+            variant={option.variant ?? (index === 0 ? "primary" : "secondary")}
+            onClick={() => settle(option.value)}
+          >
+            <span {...stylex.props(styles.optionLabel)}>
+              {option.label}
+              {option.description === undefined ? null : (
+                <span {...stylex.props(text.meta, styles.optionHint)}>{option.description}</span>
+              )}
+            </span>
+          </Button>
+        ))}
+        <Button size="lg" isFullWidth variant="ghost" onClick={() => settle(undefined)}>
+          {shown?.cancelLabel ?? "取消"}
+        </Button>
+      </div>
+    </Sheet>
   );
 }

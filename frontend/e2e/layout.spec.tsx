@@ -9,14 +9,21 @@
  *   `data-fill="viewport"` workspace reaches the bottom of the window, and the side navigation's
  *   background reaches the bottom of the document.
  *
+ * It also opens one overlay window of each kind (login, booking detail, confirmation, admin
+ * editor) at 390×844, 1024×768 and 1440×900, checks it with axe, and saves screenshots when
+ * `ROOMARK_SCREENSHOT_DIR` is set.
+ *
  * @module
  */
+import path from "node:path";
+
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
 import {
   ADMIN_PASSCODE,
   LISI_PASSCODE,
   ROOM_SLUG,
+  expectAccessible,
   findBlankBands,
   findOverflow,
   seed,
@@ -293,4 +300,74 @@ test("given the main pages at every tier, height and theme when audited then not
   }
 
   expect(findings).toEqual([]);
+});
+
+test("given each kind of overlay window at every tier when opened then it passes axe (and is captured on request)", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(600_000);
+
+  const lisi = await sessionFor(request, "李四", LISI_PASSCODE);
+  const admin = await sessionFor(request, "管理员", ADMIN_PASSCODE);
+  const directory = process.env["ROOMARK_SCREENSHOT_DIR"];
+
+  /**
+   * Check the open overlay window with axe and save a screenshot when a directory is configured.
+   *
+   * @param page - The page.
+   * @param name - File name without extension.
+   */
+  async function capture(page: Page, name: string): Promise<void> {
+    await page.waitForTimeout(600);
+    await expectAccessible(page, '[role="dialog"], [role="alertdialog"]');
+
+    if (directory !== undefined) await page.screenshot({ path: path.join(directory, `${name}.png`) });
+  }
+
+  for (const [viewport, schemes] of [
+    [{ width: 390, height: 844 }, ["light", "dark"]],
+    [{ width: 1024, height: 768 }, ["light"]],
+    [{ width: 1440, height: 900 }, ["light", "dark"]],
+  ] as const) {
+    for (const scheme of schemes) {
+      const tag = `${viewport.width}x${viewport.height}-${scheme}`;
+      const base = { baseURL: baseURL ?? "", viewport, scheme };
+      const anonymous = await openAs(browser, { ...base, session: undefined });
+
+      await anonymous.goto(`/r/${ROOM_SLUG}`);
+      await anonymous.getByRole("button", { name: "登录" }).first().click();
+      await expect(anonymous.getByRole("dialog", { name: "登录" })).toBeVisible();
+      await capture(anonymous, `login-${tag}`);
+      await anonymous.context().close();
+
+      const member = await openAs(browser, { ...base, session: lisi });
+
+      await member.goto("/me");
+      await member.getByRole("tabpanel").getByRole("button").first().click();
+
+      const detail = member.getByRole("dialog");
+
+      await expect(detail).toBeVisible();
+      await capture(member, `booking-detail-${tag}`);
+      await detail.getByRole("button", { name: /^(取消预约|提前结束)$/ }).click();
+
+      const confirm = member.getByRole("alertdialog");
+
+      await expect(confirm).toBeVisible();
+      await capture(member, `confirm-${tag}`);
+      await confirm.getByRole("button", { name: "取消", exact: true }).click();
+      await expect(confirm).toBeHidden();
+      await member.context().close();
+
+      const manager = await openAs(browser, { ...base, session: admin });
+
+      await manager.goto("/admin/rooms");
+      await manager.getByRole("button", { name: "编辑", exact: true }).first().click();
+      await expect(manager.getByRole("dialog", { name: "编辑房间" })).toBeVisible();
+      await capture(manager, `admin-room-editor-${tag}`);
+      await manager.context().close();
+    }
+  }
 });

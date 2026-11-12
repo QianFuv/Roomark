@@ -1,11 +1,12 @@
 /**
  * Account menu, logout and switching identity, history-only back (overlays first, tabs, no back
  * arrow, sub-pages leavable through visible navigation, unsaved-form prompt), binding a room by its
- * code, recovering from a stale stored token, and theme switching while a menu item is hovered.
+ * code, recovering from a stale stored token, theme switching while a menu item is hovered, and
+ * overlay windows by tier (a bottom drawer on phones, a centered modal from 768 px).
  *
  * @module
  */
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { ADMIN_PASSCODE, LISI_PASSCODE, ROOM_NAME, ROOM_SLUG, seed, type Seeded } from "./support";
 
@@ -305,4 +306,175 @@ test("given the pointer on a theme item when the theme switches then its highlig
 
     expect(leftovers).toBe(0);
   }
+});
+
+/** Distance from each edge of an overlay window to the same edge of the viewport. */
+interface EdgeGaps {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * Gaps between an overlay window and the viewport edges.
+ *
+ * @param dialog - The overlay window.
+ * @returns The gaps in CSS pixels.
+ */
+async function edgeGaps(dialog: Locator): Promise<EdgeGaps> {
+  return dialog.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+
+    return {
+      top: rect.top,
+      bottom: window.innerHeight - rect.bottom,
+      left: rect.left,
+      right: window.innerWidth - rect.right,
+    };
+  });
+}
+
+/**
+ * Wait until an overlay window rests docked to the bottom edge, full width.
+ *
+ * @param dialog - The overlay window.
+ */
+async function expectDocked(dialog: Locator): Promise<void> {
+  await expect
+    .poll(async () => {
+      const gaps = await edgeGaps(dialog);
+
+      return Math.max(Math.abs(gaps.bottom), Math.abs(gaps.left), Math.abs(gaps.right));
+    })
+    .toBeLessThanOrEqual(1);
+}
+
+/**
+ * Wait until an overlay window rests centered in the viewport, clear of every edge.
+ *
+ * @param dialog - The overlay window.
+ */
+async function expectCentered(dialog: Locator): Promise<void> {
+  await expect
+    .poll(async () => {
+      const gaps = await edgeGaps(dialog);
+
+      if (Math.min(gaps.top, gaps.bottom, gaps.left, gaps.right) < 8) return Number.POSITIVE_INFINITY;
+
+      return Math.max(Math.abs(gaps.top - gaps.bottom), Math.abs(gaps.left - gaps.right));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
+/**
+ * Open the login overlay from the anonymous room overview.
+ *
+ * @param page - The page.
+ * @returns The overlay window.
+ */
+async function openLogin(page: Page): Promise<Locator> {
+  await page.getByRole("button", { name: "登录" }).first().click();
+
+  const dialog = page.getByRole("dialog", { name: "登录" });
+
+  await expect(dialog).toBeVisible();
+
+  return dialog;
+}
+
+/**
+ * Drag a finger down the screen through Chrome's touch input.
+ *
+ * @param page - The page.
+ * @param start - Where the finger lands.
+ * @param start.x - Horizontal position.
+ * @param start.y - Vertical position.
+ * @param distance - How far it moves down.
+ */
+async function swipeDown(page: Page, start: { x: number; y: number }, distance: number): Promise<void> {
+  const cdp = await page.context().newCDPSession(page);
+  const steps = 12;
+
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+
+  for (let step = 1; step <= steps; step += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: start.x, y: start.y + (distance * step) / steps }],
+    });
+  }
+
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+test("given a phone when an overlay window opens then it is a bottom drawer with a handle that a swipe down or back closes", async ({
+  page,
+  isMobile,
+}) => {
+  // oxlint-disable-next-line anti-slop/tests-require-given-when-then
+  test.skip(!isMobile, "Phone tier only.");
+  await storeState(page, { rooms: { [ROOM_SLUG]: { token: seeded.roomToken } } });
+  await page.goto(`/r/${ROOM_SLUG}`);
+
+  let dialog = await openLogin(page);
+
+  await expectDocked(dialog);
+  expect(await dialog.evaluate((element) => element.firstElementChild?.getBoundingClientRect().height)).toBe(
+    5,
+  );
+
+  const box = await dialog.boundingBox();
+
+  expect(box).not.toBeNull();
+  await swipeDown(page, { x: (box?.x ?? 0) + (box?.width ?? 0) / 2, y: (box?.y ?? 0) + 8 }, 320);
+  await expect(dialog).toBeHidden();
+
+  dialog = await openLogin(page);
+  await expectDocked(dialog);
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
+});
+
+test("given a desktop window when an overlay window opens then it is centered, Esc and the backdrop close it, and resizing to a phone docks it without losing input", async ({
+  page,
+  isMobile,
+}) => {
+  // oxlint-disable-next-line anti-slop/tests-require-given-when-then
+  test.skip(isMobile, "Narrow and wide tiers only.");
+  await storeState(page, { rooms: { [ROOM_SLUG]: { token: seeded.roomToken } } });
+  await page.goto(`/r/${ROOM_SLUG}`);
+
+  for (const viewport of [
+    { width: 1280, height: 860 },
+    { width: 1024, height: 768 },
+  ]) {
+    await page.setViewportSize(viewport);
+
+    const dialog = await openLogin(page);
+
+    await expectCentered(dialog);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  }
+
+  let dialog = await openLogin(page);
+
+  await expectCentered(dialog);
+  await page.mouse.click(4, 4);
+  await expect(dialog).toBeHidden();
+
+  dialog = await openLogin(page);
+  await dialog.getByRole("searchbox", { name: "搜索姓名" }).fill("李");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectDocked(dialog);
+  await expect(dialog.getByRole("searchbox", { name: "搜索姓名" })).toHaveValue("李");
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await expectCentered(dialog);
+  await expect(dialog.getByRole("searchbox", { name: "搜索姓名" })).toHaveValue("李");
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
 });
