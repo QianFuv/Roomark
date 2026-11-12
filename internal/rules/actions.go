@@ -27,10 +27,10 @@ func QuickRange(now time.Time, minutes int, limits domain.Rules, bookings []doma
 // ExtendEnd computes an ongoing booking's requested new end time.
 func ExtendEnd(start, end, now time.Time, minutes int) (time.Time, []domain.Violation) {
 	if start.After(now) || !end.After(now) {
-		return end, []domain.Violation{{Code: "not_ongoing", Message: "只有进行中的预约可以续时"}}
+		return end, []domain.Violation{{Code: "not_ongoing", Message: "只有进行中的预约才能续时"}}
 	}
 	if minutes != 15 && minutes != 30 && minutes != 60 {
-		return end, []domain.Violation{{Code: "invalid_duration", Message: "续时时长无效"}}
+		return end, []domain.Violation{{Code: "invalid_duration", Message: "续时请选择 15、30 或 60 分钟"}}
 	}
 	return end.Add(time.Duration(minutes) * time.Minute), nil
 }
@@ -39,7 +39,7 @@ func ExtendEnd(start, end, now time.Time, minutes int) (time.Time, []domain.Viol
 func EarlyEnd(start, end, now time.Time) (time.Time, int, []domain.Violation) {
 	now = Local(now.Truncate(time.Minute))
 	if start.After(now) || !end.After(now) {
-		return end, 0, []domain.Violation{{Code: "not_ongoing", Message: "只有进行中的预约可以提前结束"}}
+		return end, 0, []domain.Violation{{Code: "not_ongoing", Message: "只有进行中的预约才能提前结束"}}
 	}
 	return now, int(end.Sub(now) / time.Minute), nil
 }

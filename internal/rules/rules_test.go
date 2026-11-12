@@ -53,6 +53,38 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+// TestViolationMessages checks that booking limits appear in concise user-facing messages.
+func TestViolationMessages(t *testing.T) {
+	now := localTime("2026-11-12 09:00")
+	for _, test := range []struct {
+		name, start, end, open, close, code, message string
+		maxMinutes, maxDays                          int
+	}{
+		{"grid", "2026-11-12 10:01", "2026-11-12 11:00", "08:00", "22:00", "misaligned", "时间要按 15 分钟取整", 240, 14},
+		{"opening", "2026-11-13 08:00", "2026-11-13 10:00", "09:30", "18:15", "outside_open_hours", "开放时间是 09:30–18:15", 240, 14},
+		{"closing", "2026-11-13 18:00", "2026-11-13 19:00", "09:30", "18:15", "outside_open_hours", "开放时间是 09:30–18:15", 240, 14},
+		{"minutes", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 30 分钟", 30, 14},
+		{"one hour", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 1 小时", 60, 14},
+		{"ninety minutes", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 90 分钟", 90, 14},
+		{"two hours", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 2 小时", 120, 14},
+		{"mixed duration", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 2 小时 30 分钟", 150, 14},
+		{"four hours", "2026-11-12 10:00", "2026-11-12 15:00", "08:00", "22:00", "too_long", "单次最长 4 小时", 240, 14},
+		{"advance", "2026-11-27 10:00", "2026-11-27 11:00", "08:00", "22:00", "too_far_ahead", "最多提前 14 天预约", 240, 14},
+		{"custom advance", "2026-11-20 10:00", "2026-11-20 11:00", "08:00", "22:00", "too_far_ahead", "最多提前 7 天预约", 240, 7},
+		{"same day only", "2026-11-13 10:00", "2026-11-13 11:00", "08:00", "22:00", "too_far_ahead", "最多提前 0 天预约", 240, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			limits := domain.DefaultRules()
+			limits.OpenTime, limits.CloseTime = test.open, test.close
+			limits.MaxDurationMinutes, limits.MaxAdvanceDays = test.maxMinutes, test.maxDays
+			violations := Validate(localTime(test.start), localTime(test.end), limits, Options{Now: now})
+			if len(violations) != 1 || violations[0].Code != test.code || violations[0].Message != test.message {
+				t.Fatalf("violations=%+v, want %s: %s", violations, test.code, test.message)
+			}
+		})
+	}
+}
+
 // TestHalfOpenAndSuggestions verifies the named behavioral regression.
 func TestHalfOpenAndSuggestions(t *testing.T) {
 	start, end := localTime("2026-11-12 14:00"), localTime("2026-11-12 15:00")

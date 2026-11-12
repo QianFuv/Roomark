@@ -81,10 +81,10 @@ func (s *Service) createRoom(ctx context.Context, q *store.Queries, r request) (
 		limits = *body.Rules
 	}
 	if err := rules.ValidateRules(limits); err != nil {
-		return nil, problem(422, "invalid_rules", "房间预约规则无效")
+		return nil, problem(422, "invalid_rules", "房间预约规则不正确")
 	}
 	if strings.TrimSpace(body.Name) == "" {
-		return nil, problem(422, "invalid_name", "名称不能为空")
+		return nil, problem(422, "invalid_name", "请填写名称")
 	}
 	for {
 		code, err := roomcode.New()
@@ -114,7 +114,7 @@ func (s *Service) editRoom(ctx context.Context, q *store.Queries, r request) (an
 	if body.Name != nil {
 		room.Name = strings.TrimSpace(*body.Name)
 		if room.Name == "" {
-			return nil, problem(422, "invalid_name", "名称不能为空")
+			return nil, problem(422, "invalid_name", "请填写名称")
 		}
 	}
 	if body.Location != nil {
@@ -134,7 +134,7 @@ func (s *Service) editRoom(ctx context.Context, q *store.Queries, r request) (an
 		limits = *body.Rules
 	}
 	if err := rules.ValidateRules(limits); err != nil {
-		return nil, problem(422, "invalid_rules", "房间预约规则无效")
+		return nil, problem(422, "invalid_rules", "房间预约规则不正确")
 	}
 	updated, err := q.UpdateRoom(ctx, store.UpdateRoomParams{ID: room.ID, Slug: room.Slug, Name: room.Name, Location: room.Location, Capacity: room.Capacity, Description: room.Description, ArchivedAt: room.ArchivedAt, OpenTime: limits.OpenTime, CloseTime: limits.CloseTime, MaxDurationMin: int64(limits.MaxDurationMinutes), MaxAdvanceDays: int64(limits.MaxAdvanceDays), MaxActivePerPerson: int64(limits.MaxActivePerPerson), RecurringMaxWeeks: int64(limits.RecurringMaxWeeks)})
 	return adminRoomView(updated), err
@@ -143,7 +143,7 @@ func (s *Service) editRoom(ctx context.Context, q *store.Queries, r request) (an
 func (s *Service) createPreset(ctx context.Context, q *store.Queries, body PresetPerson) (domain.Person, error) {
 	name := strings.TrimSpace(body.Name)
 	if name == "" {
-		return domain.Person{}, problem(422, "invalid_name", "姓名不能为空")
+		return domain.Person{}, problem(422, "invalid_name", "请填写姓名")
 	}
 	person, err := q.CreatePerson(ctx, store.CreatePersonParams{Name: name, Role: body.Role, IsAdmin: integer(body.IsAdmin), FeedToken: token(), Source: "preset", CreatedAt: s.now().Unix()})
 	return personView(person), err
@@ -182,7 +182,7 @@ func (s *Service) adminPerson(ctx context.Context, q *store.Queries, op string, 
 	if body.Name != nil {
 		person.Name = strings.TrimSpace(*body.Name)
 		if person.Name == "" {
-			return nil, problem(422, "invalid_name", "姓名不能为空")
+			return nil, problem(422, "invalid_name", "请填写姓名")
 		}
 	}
 	if body.Role != nil {
@@ -257,7 +257,7 @@ func (s *Service) adminAnnouncement(ctx context.Context, q *store.Queries, op st
 		}
 	}
 	if row.EndsAt <= row.StartsAt {
-		return nil, problem(422, "invalid_range", "公告结束时间必须晚于开始时间")
+		return nil, problem(422, "invalid_range", "公告结束时间要晚于开始时间")
 	}
 	var err error
 	if op == "create-announcement" {

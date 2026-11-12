@@ -80,7 +80,7 @@ func Validate(start, end time.Time, limits domain.Rules, options Options) []doma
 	}
 	start, end = Local(start), Local(end)
 	if !end.After(start) || !Day(start).Equal(Day(end)) {
-		add("invalid_range", "预约必须在同一天且结束晚于开始")
+		add("invalid_range", "预约要在同一天，结束时间要晚于开始时间")
 		return violations
 	}
 	if options.Block {
@@ -95,30 +95,36 @@ func Validate(start, end time.Time, limits domain.Rules, options Options) []doma
 	}
 	if (!options.Quick && (start.Minute()%15 != 0 || start.Second() != 0 || start.Nanosecond() != 0)) || end.Minute()%15 != 0 || end.Second() != 0 || end.Nanosecond() != 0 {
 		if !options.Quick {
-			add("misaligned", "开始和结束时间需对齐十五分钟")
+			add("misaligned", "时间要按 15 分钟取整")
 		}
 	}
 	open, err := At(start, limits.OpenTime)
 	if err != nil {
-		add("invalid_range", "房间开放时间无效")
+		add("invalid_range", "房间的开放时间不正确")
 		return violations
 	}
 	closeTime, err := At(start, limits.CloseTime)
 	if err != nil {
-		add("invalid_range", "房间关闭时间无效")
+		add("invalid_range", "房间的关闭时间不正确")
 		return violations
 	}
 	if start.Before(open) || end.After(closeTime) {
-		add("outside_open_hours", "不在会议室开放时间内")
+		add("outside_open_hours", fmt.Sprintf("开放时间是 %s–%s", limits.OpenTime, limits.CloseTime))
 	}
 	if end.Sub(start) > time.Duration(limits.MaxDurationMinutes)*time.Minute {
-		add("too_long", "超过单次预约最长时长")
+		duration := fmt.Sprintf("%d 分钟", limits.MaxDurationMinutes)
+		if limits.MaxDurationMinutes%60 == 0 {
+			duration = fmt.Sprintf("%d 小时", limits.MaxDurationMinutes/60)
+		} else if limits.MaxDurationMinutes > 120 {
+			duration = fmt.Sprintf("%d 小时 %d 分钟", limits.MaxDurationMinutes/60, limits.MaxDurationMinutes%60)
+		}
+		add("too_long", "单次最长 "+duration)
 	}
 	if !options.Recurring && Day(start).After(Day(options.Now).AddDate(0, 0, limits.MaxAdvanceDays)) {
-		add("too_far_ahead", "超过可提前预约的天数")
+		add("too_far_ahead", fmt.Sprintf("最多提前 %d 天预约", limits.MaxAdvanceDays))
 	}
 	if !options.Existing && limits.MaxActivePerPerson > 0 && options.Active >= limits.MaxActivePerPerson {
-		add("too_many_active", "超过个人有效预约数量限制")
+		add("too_many_active", "有效预约数量已达上限")
 	}
 	return violations
 }
@@ -220,26 +226,26 @@ func Expand(rule domain.SeriesRule, limits domain.Rules, now time.Time) ([]domai
 	}
 	start, err := time.ParseInLocation("2006-01-02", rule.StartDate, Shanghai)
 	if err != nil {
-		return fail("invalid_range", "重复预约起始日期无效")
+		return fail("invalid_range", "重复预约的开始日期不正确")
 	}
 	if (rule.Count > 0) == (rule.UntilDate != "") || (rule.Freq != "weekly" && rule.Freq != "biweekly") || len(rule.Weekdays) == 0 || rule.Count > 728 {
-		return fail("invalid_range", "请指定有效重复规则及次数或截止日期")
+		return fail("invalid_range", "请设置重复规则，并选择次数或截止日期")
 	}
 	for index, weekday := range rule.Weekdays {
 		if weekday < 1 || weekday > 7 || slices.Index(rule.Weekdays, weekday) != index {
-			return fail("invalid_range", "星期必须为一至七")
+			return fail("invalid_range", "星期请填 1–7，不能重复")
 		}
 	}
 	until := start.AddDate(0, 0, limits.RecurringMaxWeeks*7)
 	if rule.UntilDate != "" {
 		until, err = time.ParseInLocation("2006-01-02", rule.UntilDate, Shanghai)
 		if err != nil || until.Before(start) {
-			return fail("invalid_range", "重复预约截止日期无效")
+			return fail("invalid_range", "重复预约的截止日期不正确")
 		}
 	}
 	ceiling := Day(now).AddDate(0, 0, limits.RecurringMaxWeeks*7)
 	if until.After(ceiling) && rule.UntilDate != "" || start.After(ceiling) {
-		return fail("series_too_long", "超过重复预约最大周数")
+		return fail("series_too_long", "重复预约超出时间范围")
 	}
 	if until.After(ceiling) {
 		until = ceiling
@@ -254,11 +260,11 @@ func Expand(rule domain.SeriesRule, limits domain.Rules, now time.Time) ([]domai
 		}
 		begin, err := At(day, rule.StartTime)
 		if err != nil {
-			return fail("invalid_range", "开始时间无效")
+			return fail("invalid_range", "开始时间不正确")
 		}
 		end, err := At(day, rule.EndTime)
 		if err != nil || !end.After(begin) {
-			return fail("invalid_range", "结束时间必须晚于开始时间")
+			return fail("invalid_range", "结束时间要晚于开始时间")
 		}
 		result = append(result, domain.Occurrence{Date: day.Format("2006-01-02"), Start: begin, End: end, Status: "ok"})
 		if rule.Count > 0 && len(result) == rule.Count {
@@ -266,7 +272,7 @@ func Expand(rule domain.SeriesRule, limits domain.Rules, now time.Time) ([]domai
 		}
 	}
 	if rule.Count > len(result) {
-		return fail("series_too_long", "重复次数超过允许周数")
+		return fail("series_too_long", "重复预约超出时间范围")
 	}
 	return result, nil
 }

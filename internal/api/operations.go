@@ -62,7 +62,7 @@ func (s *Service) execute(ctx context.Context, q *store.Queries, op string, r re
 	switch op {
 	case "list-people":
 		if r.Room == "" {
-			return nil, problem(400, "room_required", "请指定会议室")
+			return nil, problem(400, "room_required", "请选择房间")
 		}
 		if _, err := s.roomAccess(ctx, q, r.Room, r, person); err != nil {
 			return nil, err
@@ -147,7 +147,7 @@ func dateRange(from, to string, now time.Time, maxDays int) (time.Time, time.Tim
 	if from != "" {
 		parsed, err := time.ParseInLocation("2006-01-02", from, rules.Shanghai)
 		if err != nil {
-			return time.Time{}, time.Time{}, problem(422, "invalid_range", "日期格式必须为 YYYY-MM-DD")
+			return time.Time{}, time.Time{}, problem(422, "invalid_range", "日期请用 YYYY-MM-DD 格式")
 		}
 		start = parsed
 	}
@@ -155,7 +155,7 @@ func dateRange(from, to string, now time.Time, maxDays int) (time.Time, time.Tim
 	if to != "" {
 		parsed, err := time.ParseInLocation("2006-01-02", to, rules.Shanghai)
 		if err != nil {
-			return time.Time{}, time.Time{}, problem(422, "invalid_range", "日期格式必须为 YYYY-MM-DD")
+			return time.Time{}, time.Time{}, problem(422, "invalid_range", "日期请用 YYYY-MM-DD 格式")
 		}
 		end = parsed.AddDate(0, 0, 1)
 	}

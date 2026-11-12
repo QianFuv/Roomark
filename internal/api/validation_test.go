@@ -30,7 +30,7 @@ func TestSixDigitPasscodes(t *testing.T) {
 			} {
 				var failure Problem
 				c.call(target.method, target.path, target.body, 422, &failure)
-				if failure.Code != "invalid_passcode" || failure.Detail != "口令必须为六位数字" {
+				if failure.Code != "invalid_passcode" || failure.Detail != "口令要用 6 位数字" {
 					t.Fatalf("%s: %+v", target.path, failure)
 				}
 			}
@@ -46,7 +46,7 @@ func TestSixDigitPasscodes(t *testing.T) {
 				}
 				t.Fatal("bootstrap accepted an invalid passcode")
 			}
-			if !strings.Contains(err.Error(), "ROOMARK_ADMIN_PASSCODE") || !strings.Contains(err.Error(), "口令必须为六位数字") {
+			if !strings.Contains(err.Error(), "ROOMARK_ADMIN_PASSCODE") || !strings.Contains(err.Error(), "口令要用 6 位数字") {
 				t.Fatalf("bootstrap: %v", err)
 			}
 		})
@@ -102,7 +102,7 @@ func TestBookingTitlesRequired(t *testing.T) {
 				}
 				var failure Problem
 				c.call("POST", path, body, 422, &failure)
-				if failure.Code != "title_required" || len(failure.Violations) != 1 || failure.Violations[0].Code != "title_required" || !strings.Contains(failure.Detail, "用途") {
+				if failure.Code != "title_required" || len(failure.Violations) != 1 || failure.Violations[0].Code != "title_required" || failure.Detail != "请填写用途（最多 200 字）" || failure.Violations[0].Message != failure.Detail {
 					t.Fatalf("title %v: %+v", title, failure)
 				}
 			}

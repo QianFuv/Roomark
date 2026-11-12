@@ -25,7 +25,7 @@ func violationsProblem(violations []domain.Violation) *Problem {
 func normalizeTitle(title string) (string, error) {
 	title = strings.TrimSpace(title)
 	if length := utf8.RuneCountInString(title); length == 0 || length > 200 {
-		return "", violationsProblem([]domain.Violation{{Code: "title_required", Message: "用途不能为空，且不能超过200个字符"}})
+		return "", violationsProblem([]domain.Violation{{Code: "title_required", Message: "请填写用途（最多 200 字）"}})
 	}
 	return title, nil
 }
@@ -91,7 +91,7 @@ func bookingOwner(ctx context.Context, q *store.Queries, person store.Person, on
 		kind = "normal"
 	}
 	if (onBehalfOf != 0 || kind == "block") && person.IsAdmin == 0 {
-		return sql.NullInt64{}, kind, problem(403, "admin_required", "仅管理员可以代约或设置不可预约时段")
+		return sql.NullInt64{}, kind, problem(403, "admin_required", "只有管理员能代约或设置不可预约时段")
 	}
 	if kind == "block" {
 		return sql.NullInt64{}, kind, nil
@@ -130,7 +130,7 @@ func (s *Service) conflictProblem(ctx context.Context, q *store.Queries, result 
 	if err := s.recordConflict(ctx, q, result.Conflict, room, person, start, end, source); err != nil {
 		return err
 	}
-	p := problem(409, "booking_conflict", "此时段已有预约，请选择其他时间")
+	p := problem(409, "booking_conflict", "这个时段已被约了")
 	p.Conflict = result.Conflict
 	p.persist = true
 	return p
@@ -145,7 +145,7 @@ func (s *Service) createBooking(ctx context.Context, q *store.Queries, r request
 			return nil, err
 		}
 		if !slices.Contains([]int{30, 60, 90, 120}, quick.Minutes) {
-			return nil, problem(422, "invalid_duration", "立即使用时长无效")
+			return nil, problem(422, "invalid_duration", "请选择 30、60、90 或 120 分钟")
 		}
 		body.Start = rules.Local(s.now().Truncate(time.Minute))
 		body.End = body.Start.Add(time.Duration(quick.Minutes) * time.Minute)
@@ -158,7 +158,7 @@ func (s *Service) createBooking(ctx context.Context, q *store.Queries, r request
 	}
 	if origin := body.SuggestedFrom; body.ConflictEventID == 0 && origin != nil {
 		if !origin.End.After(origin.Start) || !rules.Day(origin.Start).Equal(rules.Day(origin.End)) {
-			return nil, violationsProblem([]domain.Violation{{Code: "invalid_range", Message: "预约必须在同一天且结束晚于开始"}})
+			return nil, violationsProblem([]domain.Violation{{Code: "invalid_range", Message: "预约要在同一天，结束时间要晚于开始时间"}})
 		}
 	}
 	body.Title, err = normalizeTitle(body.Title)
@@ -326,7 +326,7 @@ func (s *Service) series(ctx context.Context, q *store.Queries, r request, room 
 		if err := q.SetPreview(ctx, store.SetPreviewParams{PreviewKey: key, Signature: signature, CreatedAt: s.now().Unix()}); err != nil {
 			return nil, err
 		}
-		p := problem(409, "preview_changed", "预约情况已变化，请确认最新预览")
+		p := problem(409, "preview_changed", "预约有变化，请重新确认")
 		p.Occurrences = preview.Occurrences
 		p.persist = true
 		for index := range p.Occurrences {
@@ -342,7 +342,7 @@ func (s *Service) series(ctx context.Context, q *store.Queries, r request, room 
 	overrides := map[string]domain.Override{}
 	for _, override := range body.Overrides {
 		if _, exists := overrides[override.Date]; exists {
-			return nil, problem(422, "invalid_override", "重复的单次调整")
+			return nil, problem(422, "invalid_override", "同一天的预约只能调整一次")
 		}
 		found := false
 		for _, item := range occurrences {
@@ -351,7 +351,7 @@ func (s *Service) series(ctx context.Context, q *store.Queries, r request, room 
 			}
 		}
 		if !found || override.Action != "skip" && override.Action != "move" {
-			return nil, problem(422, "invalid_override", "单次调整日期或动作无效")
+			return nil, problem(422, "invalid_override", "调整的日期或方式不正确")
 		}
 		overrides[override.Date] = override
 	}
@@ -365,12 +365,12 @@ func (s *Service) series(ctx context.Context, q *store.Queries, r request, room 
 		}
 		if exists && override.Action == "move" {
 			if override.Start == nil || override.End == nil {
-				return nil, problem(422, "invalid_override", "移动预约需要开始和结束时间")
+				return nil, problem(422, "invalid_override", "调整时间时，请填写开始和结束时间")
 			}
 			item.Start = *override.Start
 			item.End = *override.End
 			if rules.Day(item.Start).After(rules.Day(s.now()).AddDate(0, 0, int(room.RecurringMaxWeeks)*7)) {
-				return nil, violationsProblem([]domain.Violation{{Code: "series_too_long", Message: "超过重复预约允许周数"}})
+				return nil, violationsProblem([]domain.Violation{{Code: "series_too_long", Message: "重复预约超出时间范围"}})
 			}
 		}
 		check := s.check(item.Start, item.End, room, roomBookings, options)
@@ -464,7 +464,7 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 		return nil, problem(403, "not_owner", "只能修改自己的预约")
 	}
 	if person.IsAdmin == 0 && room.ArchivedAt.Valid {
-		return nil, problem(403, "room_token_invalid", "会议室二维码已失效")
+		return nil, problem(403, "room_token_invalid", "房间码已失效")
 	}
 	now := s.now().Truncate(time.Minute)
 	if row.Status != "confirmed" || row.EndAt <= now.Unix() {
@@ -493,7 +493,7 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 	}
 	if op == "end-booking" || op == "extend-booking" {
 		if row.StartAt > now.Unix() {
-			return nil, problem(422, "not_ongoing", "只有进行中的预约可以续时或提前结束")
+			return nil, problem(422, "not_ongoing", "只有进行中的预约才能续时或提前结束")
 		}
 		if op == "end-booking" {
 			end, _, violations := rules.EarlyEnd(timestamp(row.StartAt), timestamp(row.EndAt), s.now())
@@ -528,7 +528,7 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 				continue
 			}
 			if op == "cancel-booking" && candidate.StartAt <= now.Unix() {
-				return nil, problem(422, "booking_ongoing", "进行中的预约请使用提前结束")
+				return nil, problem(422, "booking_ongoing", "预约已开始，请用“提前结束”")
 			}
 			targets = append(targets, candidate)
 			excluded[candidate.ID] = true
@@ -554,17 +554,17 @@ func (s *Service) mutateBooking(ctx context.Context, q *store.Queries, r request
 	for _, candidate := range targets {
 		start, end := rules.ShiftRange(timestamp(row.StartAt), timestamp(row.EndAt), timestamp(candidate.StartAt), timestamp(candidate.EndAt), edit.Start, edit.End)
 		if candidate.StartAt < now.Unix() && edit.Start != nil && startDelta != 0 {
-			return nil, problem(422, "booking_ongoing", "进行中的预约不能修改开始时间")
+			return nil, problem(422, "booking_ongoing", "预约已开始，不能修改开始时间")
 		}
 		if candidate.StartAt < now.Unix() && op == "edit-booking" && endDelta != 0 {
-			return nil, problem(422, "booking_ongoing", "进行中的预约请使用续时或提前结束")
+			return nil, problem(422, "booking_ongoing", "预约已开始，请用“续时”或“提前结束”")
 		}
 		options := rules.Options{Now: s.now(), Recurring: candidate.SeriesID.Valid, Block: candidate.Kind == "block", Existing: true, Quick: candidate.StartAt%900 != 0}
 		if startDelta != 0 && start.Before(now) {
 			return nil, violationsProblem([]domain.Violation{{Code: "in_past", Message: "不能预约过去的时间"}})
 		}
 		if candidate.SeriesID.Valid && rules.Day(start).After(rules.Day(s.now()).AddDate(0, 0, int(room.RecurringMaxWeeks)*7)) {
-			return nil, violationsProblem([]domain.Violation{{Code: "series_too_long", Message: "超过重复预约允许周数"}})
+			return nil, violationsProblem([]domain.Violation{{Code: "series_too_long", Message: "重复预约超出时间范围"}})
 		}
 		check := s.check(start, end, room, roomBookings, options)
 		if !check.OK {

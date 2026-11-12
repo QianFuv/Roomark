@@ -57,7 +57,7 @@ func init() {
 			switch ctx.Operation().OperationID {
 			case "create-booking", "quick-booking", "create-series", "edit-booking":
 				if status == 422 && (fieldError.Location == "body.title" || ctx.Operation().OperationID != "edit-booking" && isBodyFieldError(fieldError, "title")) {
-					return violationsProblem([]domain.Violation{{Code: "title_required", Message: "用途不能为空，且不能超过200个字符"}})
+					return violationsProblem([]domain.Violation{{Code: "title_required", Message: "请填写用途（最多 200 字）"}})
 				}
 			case "login":
 				if status == 422 && isBodyFieldError(fieldError, "passcode") {
@@ -69,7 +69,7 @@ func init() {
 					field = "next"
 				}
 				if status == 422 && isBodyFieldError(fieldError, field) {
-					return problem(422, "invalid_passcode", "口令必须为六位数字")
+					return problem(422, "invalid_passcode", "口令要用 6 位数字")
 				}
 			}
 		}

@@ -18,7 +18,7 @@ var passcodePattern = regexp.MustCompile(`^[0-9]{6}$`)
 
 func hashPasscode(value string) (string, error) {
 	if !passcodePattern.MatchString(value) {
-		return "", problem(422, "invalid_passcode", "口令必须为六位数字")
+		return "", problem(422, "invalid_passcode", "口令要用 6 位数字")
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 	return string(hash), err
@@ -68,7 +68,7 @@ func (s *Service) login(ctx context.Context, q *store.Queries, r request) (any, 
 		return nil, lockedProblem(person.LockedUntil)
 	}
 	if person.PasscodeHash == "" {
-		return nil, problem(409, "passcode_not_set", "请先为此姓名设置口令")
+		return nil, problem(409, "passcode_not_set", "请先设置口令")
 	}
 	if !passcodePattern.MatchString(body.Passcode) || bcrypt.CompareHashAndPassword([]byte(person.PasscodeHash), []byte(body.Passcode)) != nil {
 		failures := person.FailedAttempts + 1
@@ -98,7 +98,7 @@ func (s *Service) login(ctx context.Context, q *store.Queries, r request) (any, 
 }
 
 func lockedProblem(until int64) *Problem {
-	p := problem(423, "locked", "口令连续错误五次，请十五分钟后重试")
+	p := problem(423, "locked", "口令错太多次，15 分钟后再试")
 	value := timestamp(until)
 	p.LockedUntil = &value
 	return p
@@ -109,7 +109,7 @@ func (s *Service) claim(ctx context.Context, q *store.Queries, r request) (any, 
 		return nil, err
 	}
 	if !s.allowedIP(ctx) {
-		return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
+		return nil, problem(429, "rate_limited", "试得太频繁，请稍后再试")
 	}
 	body, err := bodyAs[Passcode](r)
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *Service) claim(ctx context.Context, q *store.Queries, r request) (any, 
 		return nil, err
 	}
 	if person.PasscodeHash != "" {
-		return nil, problem(409, "already_claimed", "此姓名已设置口令，请输入原口令")
+		return nil, problem(409, "already_claimed", "这个姓名已设口令，请输入原口令")
 	}
 	hash, err := hashPasscode(body.Passcode)
 	if err != nil {
@@ -138,7 +138,7 @@ func (s *Service) selfPerson(ctx context.Context, q *store.Queries, r request) (
 		return nil, err
 	}
 	if !s.allowedIP(ctx) {
-		return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
+		return nil, problem(429, "rate_limited", "试得太频繁，请稍后再试")
 	}
 	body, err := bodyAs[SelfPerson](r)
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *Service) selfPerson(ctx context.Context, q *store.Queries, r request) (
 	}
 	name := strings.TrimSpace(body.Name)
 	if name == "" {
-		return nil, problem(422, "invalid_name", "姓名不能为空")
+		return nil, problem(422, "invalid_name", "请填写姓名")
 	}
 	hash, err := hashPasscode(body.Passcode.Passcode)
 	if err != nil {

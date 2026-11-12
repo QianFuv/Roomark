@@ -108,7 +108,7 @@ func TestBookingHTTPFlow(t *testing.T) {
 	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &booking)
 	var conflict Problem
 	response := c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 409, &conflict)
-	if conflict.Code != "booking_conflict" || conflict.Conflict == nil || len(conflict.Suggestions) != 5 || conflict.ConflictEventID == 0 || !strings.Contains(response.Header().Get("Content-Type"), "application/problem+json") {
+	if conflict.Code != "booking_conflict" || conflict.Detail != "这个时段已被约了" || conflict.Conflict == nil || len(conflict.Suggestions) != 5 || conflict.ConflictEventID == 0 || !strings.Contains(response.Header().Get("Content-Type"), "application/problem+json") {
 		t.Fatalf("conflict=%s", response.Body)
 	}
 	suggestion := conflict.Suggestions[0]
@@ -287,7 +287,11 @@ func TestAuthorizationLockoutAndRevocation(t *testing.T) {
 	c.session = ""
 	savedToken := c.roomToken
 	c.roomToken = ""
-	c.call("GET", "/api/rooms/9070", nil, 403, nil)
+	var failure Problem
+	c.call("GET", "/api/rooms/9070", nil, 403, &failure)
+	if failure.Code != "room_token_required" || failure.Detail != "请输入房间码" {
+		t.Fatalf("missing room code: %+v", failure)
+	}
 	c.roomToken = "wrong"
 	c.call("GET", "/api/rooms/9070", nil, 403, nil)
 	c.roomToken = savedToken
@@ -300,7 +304,10 @@ func TestAuthorizationLockoutAndRevocation(t *testing.T) {
 		}
 		c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "000000"}, expected, nil)
 	}
-	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 423, nil)
+	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 423, &failure)
+	if failure.Code != "locked" || failure.Detail != "口令错太多次，15 分钟后再试" || failure.LockedUntil == nil || !failure.LockedUntil.Equal(c.service.now().Add(15*time.Minute)) {
+		t.Fatalf("lockout: %+v", failure)
+	}
 	now := c.service.now().Add(16 * time.Minute)
 	c.service.now = func() time.Time { return now }
 	var second domain.Session
@@ -308,8 +315,15 @@ func TestAuthorizationLockoutAndRevocation(t *testing.T) {
 	c.session = admin
 	c.call("POST", fmt.Sprintf("/api/admin/people/%d/reset-passcode", first.Person.ID), nil, 200, nil)
 	c.session = second.Token
-	c.call("GET", "/api/me", nil, 401, nil)
+	c.call("GET", "/api/me", nil, 401, &failure)
+	if failure.Code != "session_invalid" || failure.Detail != "登录已过期，请重新登录" {
+		t.Fatalf("expired session: %+v", failure)
+	}
 	c.session = ""
+	c.call("GET", "/api/me", nil, 401, &failure)
+	if failure.Code != "session_required" || failure.Detail != "请先登录" {
+		t.Fatalf("missing session: %+v", failure)
+	}
 	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 409, nil)
 	c.session = admin
 	c.call("POST", "/api/admin/rooms/1/rotate-token", nil, 404, nil)
@@ -486,7 +500,11 @@ func TestIPRateLimitAndOwnership(t *testing.T) {
 	for range 8 {
 		c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "123456"}, 401, nil)
 	}
-	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "123456"}, 429, nil)
+	var failure Problem
+	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "123456"}, 429, &failure)
+	if failure.Code != "rate_limited" || failure.Detail != "试得太频繁，请稍后再试" {
+		t.Fatalf("rate limit: %+v", failure)
+	}
 }
 
 // TestCheckExcludesEditedBooking lets the edit form check a new time without colliding with the booking's own slot.

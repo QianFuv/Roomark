@@ -230,7 +230,7 @@ func (s *Service) invalidRoomCode(ctx context.Context, status int, code, detail 
 			return problem(status, code, detail)
 		}
 	}
-	return problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
+	return problem(429, "rate_limited", "试得太频繁，请稍后再试")
 }
 
 func token() string { return base64.RawURLEncoding.EncodeToString(randomBytes(32)) }
@@ -269,7 +269,7 @@ func adminRoomView(room store.Room) domain.AdminRoom {
 func (s *Service) dispatch(ctx context.Context, op string, r request) (any, error) {
 	if op == "login" {
 		if !s.allowedIP(ctx) {
-			return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
+			return nil, problem(429, "rate_limited", "试得太频繁，请稍后再试")
 		}
 	}
 	s.mu.Lock()
@@ -301,7 +301,7 @@ func (s *Service) databaseError(err error) error {
 		return problem(404, "not_found", "记录不存在")
 	}
 	if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-		return problem(409, "name_taken", "名称或标识已被使用")
+		return problem(409, "name_taken", "名称或短名已被使用")
 	}
 	slog.Error("database operation failed", "error", err)
 	return problem(500, "internal_error", "服务暂时无法处理请求")
@@ -313,18 +313,18 @@ func (s *Service) authenticate(ctx context.Context, q *store.Queries, r request,
 		return person, nil
 	}
 	if !strings.HasPrefix(r.Authorization, "Bearer ") {
-		return person, problem(401, "session_required", "请先选择姓名并输入口令")
+		return person, problem(401, "session_required", "请先登录")
 	}
 	session, err := q.GetSession(ctx, store.GetSessionParams{TokenHash: tokenHash(strings.TrimPrefix(r.Authorization, "Bearer ")), ExpiresAt: s.now().Unix()})
 	if errors.Is(err, sql.ErrNoRows) {
-		return person, problem(401, "session_invalid", "身份已失效，请重新输入口令")
+		return person, problem(401, "session_invalid", "登录已过期，请重新登录")
 	}
 	if err != nil {
 		return person, err
 	}
 	person, err = q.PersonByID(ctx, session.PersonID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return person, problem(401, "session_invalid", "身份已失效")
+		return person, problem(401, "session_invalid", "登录已过期，请重新登录")
 	}
 	if err != nil {
 		return person, err
@@ -336,7 +336,7 @@ func (s *Service) authenticate(ctx context.Context, q *store.Queries, r request,
 func (s *Service) roomAccess(ctx context.Context, q *store.Queries, slug string, r request, person store.Person) (store.Room, error) {
 	r.RoomToken = roomcode.Normalize(r.RoomToken)
 	if person.IsAdmin == 0 && r.RoomToken == "" {
-		return store.Room{}, problem(403, "room_token_required", "请扫描会议室二维码")
+		return store.Room{}, problem(403, "room_token_required", "请输入房间码")
 	}
 	room, err := q.RoomBySlug(ctx, slug)
 	if err != nil || room.ArchivedAt.Valid && person.IsAdmin == 0 {
@@ -354,7 +354,7 @@ func (s *Service) roomAccess(ctx context.Context, q *store.Queries, slug string,
 func (s *Service) anyRoomAccess(ctx context.Context, q *store.Queries, r request) error {
 	r.RoomToken = roomcode.Normalize(r.RoomToken)
 	if r.RoomToken == "" {
-		return problem(403, "room_token_required", "请扫描会议室二维码")
+		return problem(403, "room_token_required", "请输入房间码")
 	}
 	_, err := q.RoomByToken(ctx, r.RoomToken)
 	if errors.Is(err, sql.ErrNoRows) {

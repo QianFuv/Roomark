@@ -51,7 +51,7 @@ func (s *Service) publicHeatmap(ctx context.Context, q *store.Queries, room stor
 	if week != "" {
 		parsed, err := time.ParseInLocation("2006-01-02", week, rules.Shanghai)
 		if err != nil || parsed.Format("2006-01-02") != week {
-			return domain.RoomHeatmap{}, problem(422, "invalid_range", "日期格式必须为 YYYY-MM-DD")
+			return domain.RoomHeatmap{}, problem(422, "invalid_range", "日期请用 YYYY-MM-DD 格式")
 		}
 		day = parsed
 	}
