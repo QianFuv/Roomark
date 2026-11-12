@@ -4,7 +4,7 @@ includes:
   common: ../Taskfile.yml
 
 vars:
-  APP_ID: '{{.APP_ID | default "com.wails.app"}}'
+  APP_ID: '{{.APP_ID | default "com.roomark.app"}}'
   MIN_SDK: '21'
   TARGET_SDK: '35'
   # The emulator runs the host architecture; physical devices are arm64
@@ -42,15 +42,14 @@ tasks:
       - task: generate:android:overlay
       - task: common:build:frontend
         vars:
-          BUILD_FLAGS:
-            ref: .BUILD_FLAGS
-          PRODUCTION:
-            ref: .PRODUCTION
+          BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production{{end}}'
+          DEV: '{{if eq .PRODUCTION "true"}}false{{else}}true{{end}}'
     cmds:
       - echo "Building Android app {{.APP_NAME}}..."
       - task: compile:go:shared
         vars:
           ARCH: '{{.ARCH | default .HOST_ARCH}}'
+          PRODUCTION: '{{.PRODUCTION}}'
     vars:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
     env:
@@ -76,6 +75,7 @@ tasks:
         case "$(uname -s)" in
           Darwin) HOST_TAG="darwin-x86_64" ;;
           Linux)  HOST_TAG="linux-x86_64" ;;
+          MINGW*|MSYS*|CYGWIN*) HOST_TAG="windows-x86_64" ;;
           *)      echo "Unsupported host OS"; exit 1 ;;
         esac
 
@@ -100,6 +100,11 @@ tasks:
             exit 1
             ;;
         esac
+
+        if [ "$HOST_TAG" = "windows-x86_64" ]; then
+          export CC="$CC.cmd"
+          export CXX="$CXX.cmd"
+        fi
 
         export CGO_ENABLED=1
         export GOOS=android
@@ -186,8 +191,8 @@ tasks:
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
-        chmod +x ./gradlew
-        ./gradlew assembleDebug
+        {{if eq OS "windows"}}cmd.exe /c '{{.ROOT_DIR}}\build\android\gradlew.bat' assembleDebug{{else}}chmod +x ./gradlew
+        ./gradlew assembleDebug{{end}}
         cp app/build/outputs/apk/debug/app-debug.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}.apk"
         echo "APK created: {{.BIN_DIR}}/{{.APP_NAME}}.apk"
 
@@ -201,8 +206,8 @@ tasks:
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
-        chmod +x ./gradlew
-        ./gradlew assembleRelease
+        {{if eq OS "windows"}}cmd.exe /c '{{.ROOT_DIR}}\build\android\gradlew.bat' assembleRelease{{else}}chmod +x ./gradlew
+        ./gradlew assembleRelease{{end}}
         cp app/build/outputs/apk/release/app-release.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}.apk"
         echo "Release APK created: {{.BIN_DIR}}/{{.APP_NAME}}.apk"
 
@@ -216,8 +221,8 @@ tasks:
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
-        chmod +x ./gradlew
-        ./gradlew bundleDebug
+        {{if eq OS "windows"}}cmd.exe /c '{{.ROOT_DIR}}\build\android\gradlew.bat' bundleDebug{{else}}chmod +x ./gradlew
+        ./gradlew bundleDebug{{end}}
         cp app/build/outputs/bundle/debug/app-debug.aab "../../{{.BIN_DIR}}/{{.APP_NAME}}.aab"
         echo "AAB created: {{.BIN_DIR}}/{{.APP_NAME}}.aab"
 
@@ -240,8 +245,8 @@ tasks:
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
-        chmod +x ./gradlew
-        ./gradlew bundleRelease
+        {{if eq OS "windows"}}cmd.exe /c '{{.ROOT_DIR}}\build\android\gradlew.bat' bundleRelease{{else}}chmod +x ./gradlew
+        ./gradlew bundleRelease{{end}}
         cp app/build/outputs/bundle/release/app-release.aab "../../{{.BIN_DIR}}/{{.APP_NAME}}.aab"
         echo "Release AAB created: {{.BIN_DIR}}/{{.APP_NAME}}.aab"
 
@@ -268,9 +273,8 @@ tasks:
     cmds:
       # Bindings are generated from the Go AST; CGO is disabled so the NDK
       # is not required for this step
-      - wails3 generate bindings -f '-tags android' -clean=true
+      - wails3 generate bindings -ts -clean=true
     env:
-      GOOS: android
       CGO_ENABLED: 0
 
   ensure-emulator:

@@ -80,8 +80,16 @@ tasks:
     run: once
     dir: frontend
     sources:
-      - "**/*"
-      - exclude: node_modules/**/*
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .pnpmfile.cjs
+      - index.html
+      - vite.config.ts
+      - tsconfig.json
+      - src/**/*
+      - public/**/*
+      - bindings/roomark/**/*.ts
     generates:
       - dist/**/*
     deps:
@@ -179,10 +187,9 @@ tasks:
     deps:
       - task: go:mod:tidy
     sources:
-      - "**/*.[jt]s"
-      - exclude: frontend/**/*
-      - frontend/bindings/**/*  # Rerun when switching between dev/production mode causes changes in output
-      - "**/*.go"
+      - "*.go"
+      - internal/**/*.go
+      - db/**/*.go
       - go.mod
       - go.sum
     generates:

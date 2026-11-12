@@ -452,6 +452,25 @@ public class WailsBridge {
         mainHandler.post(() -> {
             try {
                 JSONObject opts = new JSONObject(json);
+                String filePath = opts.optString("file", "");
+                if (!filePath.isEmpty()) {
+                    java.io.File file = new java.io.File(filePath).getCanonicalFile();
+                    java.io.File exports = new java.io.File(activity.getFilesDir(), "exports").getCanonicalFile();
+                    if (!file.getPath().startsWith(exports.getPath() + java.io.File.separator)) {
+                        throw new SecurityException("File is outside app exports");
+                    }
+                    Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                            activity, activity.getPackageName() + ".fileprovider", file);
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType(opts.optString("mimeType", "application/octet-stream"));
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    send.setClipData(android.content.ClipData.newRawUri("Roomark export", uri));
+                    Intent chooser = Intent.createChooser(send, "保存或分享导出文件");
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    activity.startActivity(chooser);
+                    return;
+                }
                 String text = opts.optString("text", "");
                 String url = opts.optString("url", "");
                 StringBuilder body = new StringBuilder();
