@@ -132,6 +132,11 @@ test("given the main pages at every tier and theme when audited then no content 
 
       await anonymous.goto(`/r/${ROOM_SLUG}`);
       await expect(anonymous.getByRole("region", { name: "当前状态" })).toBeVisible();
+      await anonymous
+        .getByRole("region", { name: "会议热力图" })
+        .getByRole("button", { name: /会议热力图/ })
+        .click();
+      await expect(anonymous.getByText(/ 10:00 已预约 /).first()).toBeAttached();
       await audit(anonymous, `room home ${tag}`);
       await anonymous.goto(`/r/${ROOM_SLUG}/book?date=${tomorrow()}&start=10:00&end=11:00`);
       await expect(anonymous.getByRole("region", { name: "时段冲突" })).toBeVisible();

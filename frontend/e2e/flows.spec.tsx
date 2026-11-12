@@ -1,5 +1,6 @@
 /**
- * Main user flows against a real server: scan link, room status, quick use with first-time
+ * Main user flows against a real server: scan link, room status, the dated next booking and the
+ * weekly meeting heatmap, calendar paging (touch swipe and arrows), quick use with first-time
  * identity and a required purpose, the calendar updating right after an early end, conflict
  * suggestion, recurring preview, admin QR export and stats, and the admin booking filters.
  *
@@ -71,6 +72,97 @@ test("given a QR link when the room opens then the token leaves the address bar 
   await openRoom(page);
   await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
   await expect(page.getByRole("region", { name: "当前状态" })).toContainText(/空闲|使用中/);
+  await expectAccessible(page);
+});
+
+test("given tomorrow's booking when the room home opens then 下一场 names the day and the heatmap pages weeks and opens the calendar", async ({
+  page,
+}, testInfo) => {
+  await openRoom(page);
+  await expect(page.getByRole("button", { name: /^明天 \d{2}:\d{2}–\d{2}:\d{2} / })).toBeVisible();
+
+  const heatmap = page.getByRole("region", { name: "会议热力图" });
+  const thisWeek = heatmap.getByRole("button", { name: "本周" });
+  const weekLabel = heatmap.locator("[aria-live=polite]");
+
+  await heatmap.getByRole("button", { name: /会议热力图/ }).click();
+  await expect(thisWeek).toBeDisabled();
+
+  const currentLabel = (await weekLabel.textContent()) ?? "";
+
+  await heatmap.getByRole("button", { name: "下一周" }).click();
+  await expect(weekLabel).not.toHaveText(currentLabel);
+  await expect(thisWeek).toBeEnabled();
+  await thisWeek.click();
+  await expect(weekLabel).toHaveText(currentLabel);
+  await expectAccessible(page);
+
+  const [year = 0, month = 1, day = 1] = tomorrow().split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+
+  if (weekday === 1) await heatmap.getByRole("button", { name: "下一周" }).click();
+
+  const cellText = `${["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday]} 10:00 已预约 100%`;
+
+  await expect(heatmap.getByText(cellText, { exact: true })).toBeAttached();
+  await heatmap.locator(`td[title="${cellText}"]`).click();
+
+  if (testInfo.project.name === "mobile") await expect(page).toHaveURL(new RegExp(`date=${tomorrow()}`));
+
+  await expect(page.getByRole("button", { name: /^10:00–11:00 组会/ }).first()).toBeVisible();
+});
+
+test("given the calendar when paging then the content slides to the new range and leaves no stale page", async ({
+  page,
+}, testInfo) => {
+  await openRoom(page);
+  await page.getByRole("link", { name: "日历" }).click();
+
+  const region = page.getByRole("region", { name: /的预约$/ });
+  const columns = page.getByRole("group", { name: /，\d+ 个预约$/ });
+  const before = (await region.getAttribute("aria-label")) ?? "";
+
+  if (testInfo.project.name === "mobile") {
+    await expect(columns).toHaveCount(1);
+    await region.scrollIntoViewIfNeeded();
+
+    const box = await region.boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    const y = (box?.y ?? 0) + 120;
+    const startX = (box?.x ?? 0) + (box?.width ?? 0) * 0.85;
+
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: startX, y }] });
+
+    for (let step = 1; step <= 10; step += 1) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: startX - step * 18, y }],
+      });
+    }
+
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+    const [, month = 1, day = 1] = tomorrow().split("-").map(Number);
+
+    await expect(region).toHaveAttribute("aria-label", new RegExp(` ${month}月${day}日 `));
+    await expect(columns).toHaveCount(1);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    return;
+  }
+
+  await expect(columns).toHaveCount(7);
+  await region
+    .getByRole("button", { name: /^\d{2}:\d{2}/ })
+    .first()
+    .waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "下一周" }).click();
+  await expect(region).not.toHaveAttribute("aria-label", before);
+  await expect(columns).toHaveCount(7);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "今天", exact: true }).click();
+  await expect(region).toHaveAttribute("aria-label", before);
+  await expect(columns).toHaveCount(7, { timeout: 100 });
   await expectAccessible(page);
 });
 
