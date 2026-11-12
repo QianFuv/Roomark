@@ -104,7 +104,7 @@ Admin-managed. Fields: room (or all rooms), title, body (plain text), `startsAt`
 
 ### 2.8 Statistics
 
-Admin-only full stats; everyone with the room token sees the public "通常空闲时段" heatmap.
+Admin-only full stats; everyone with the room token sees the public "会议热力图" (this week's bookings by weekday × hour, see §4.2).
 
 Filters: room (or all), date range (presets: 本周 / 本月 / 本学期 / 自定义), role (all / teacher / student / other).
 
@@ -171,7 +171,7 @@ Room scope (`X-Room-Token` or admin):
 | --- | --- | --- |
 | GET | `/api/rooms/{slug}` | `{ room, status, announcements }` |
 | GET | `/api/rooms/{slug}/bookings?from&to` | confirmed bookings in date range (max 62 days) |
-| GET | `/api/rooms/{slug}/heatmap?weeks=8` | public occupancy `[7][14]` ratios |
+| GET | `/api/rooms/{slug}/heatmap?week=YYYY-MM-DD` | public 会议热力图 for the Monday–Sunday week containing `week` (default: current week): `{ weekStart, days: date[7], hours: int[] (room open hour .. last hour before close), cells: number[7][hours] }` where each cell is the booked share (0–1) of that hour on that day, counting confirmed bookings and blocks |
 | POST | `/api/rooms/{slug}/check` | `{start,end,excludeBookingId?}` → `{ ok, violations, conflict? }` (no write; for live form feedback; `excludeBookingId` ignores the booking being edited) |
 | GET | `/api/people` | preset + self-added people `{ id, name, role, hasPasscode }` (needs any valid room token via `X-Room-Token` + `?room={slug}`) |
 
@@ -235,7 +235,7 @@ Light and dark themes. Colors follow the T3 Soft palette in `docs/design/t3-soft
 | Route | Content |
 | --- | --- |
 | `/` | No stored room: "请扫描会议室门口的二维码" (apps: 扫码绑定 / 粘贴链接). One room: redirect. Several: room cards with live status. |
-| `/r/$slug` | Room home: big status (空闲 / 使用中：某某 到 15:30, "空闲至 16:00"), primary action 马上使用 (30/60/90/120, options beyond the free window disabled), 预约 button, next booking, today's timeline, announcement banner, "通常空闲时段" heatmap (collapsible). Mine-and-ongoing: 续时 / 提前结束. |
+| `/r/$slug` | Room home: big status (空闲 / 使用中：某某 到 15:30, "空闲至 16:00"), primary action 马上使用 (30/60/90/120, options beyond the free window disabled), 预约 button, next booking (with its date when it is not today: 今天/明天/后天 or `11月14日 周五`), today's timeline, announcement banner, "会议热力图" for the week with previous/next week controls (collapsible). Room tabs order: 概况 · 预约 · 日历. Calendar day/week changes animate (slide) with Motion. Mine-and-ongoing: 续时 / 提前结束. |
 | `/r/$slug/calendar` | 3-day view on phones (swipe), week view ≥ 768 px. Tap empty slot → booking sheet prefilled. Booking blocks show name, title, 🔁 for series. Tap → detail sheet. |
 | `/r/$slug/book` | Booking form: date, start/end (15-min steps), 用途, 重复 toggle. Live check via `/check`. Conflict → suggestion chips (one tap books). Recurring → preview list (see below). |
 | `/me` | Identity (name, switch, logout, change passcode), 我的预约: upcoming / past tabs; series collapse into one card ("组会 · 每周三 14:00–16:00 · 11/19–1/7 · 还剩 6 次"), expandable. iCal feed links with copy buttons. |
