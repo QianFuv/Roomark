@@ -19,6 +19,7 @@ import (
 	_ "modernc.org/sqlite"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"roomark/db"
 	"roomark/internal/domain"
@@ -41,6 +42,8 @@ type Config struct {
 	AdminName string
 	// AdminPasscode is the optional first administrator numeric passcode.
 	AdminPasscode string
+	// TrustedProxies lists reverse-proxy networks whose X-Real-IP header carries the client address.
+	TrustedProxies []netip.Prefix
 }
 
 // Service owns the business database and serializes transactions.
@@ -115,11 +118,7 @@ func (s *Service) Handler() http.Handler {
 	}
 	handler := cors.New(cors.Options{AllowedOrigins: origins, AllowedMethods: []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"}, AllowedHeaders: []string{"Authorization", "Content-Type", "X-Room-Token"}, ExposedHeaders: []string{"Content-Disposition"}, MaxAge: 600}).Handler(mux)
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
-		}
-		ctx := context.WithValue(r.Context(), ipContextKey{}, ip)
+		ctx := context.WithValue(r.Context(), ipContextKey{}, s.clientIP(r))
 		scheme := "http"
 		if r.TLS != nil {
 			scheme = "https"
@@ -127,6 +126,51 @@ func (s *Service) Handler() http.Handler {
 		ctx = context.WithValue(ctx, publicURLContextKey{}, scheme+"://"+r.Host)
 		handler.ServeHTTP(writer, r.WithContext(ctx))
 	})
+}
+
+func (s *Service) clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	for _, network := range s.config.TrustedProxies {
+		if network.Contains(peer.Unmap()) {
+			if forwarded, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Real-IP"))); err == nil {
+				return forwarded.Unmap().String()
+			}
+			break
+		}
+	}
+	return peer.Unmap().String()
+}
+
+// ParseTrustedProxies parses a comma-separated list of CIDR prefixes or single addresses.
+func ParseTrustedProxies(value string) ([]netip.Prefix, error) {
+	result := []netip.Prefix{}
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if !strings.Contains(item, "/") {
+			address, err := netip.ParseAddr(item)
+			if err != nil {
+				return nil, fmt.Errorf("invalid trusted proxy %q: %w", item, err)
+			}
+			result = append(result, netip.PrefixFrom(address.Unmap(), address.Unmap().BitLen()))
+			continue
+		}
+		prefix, err := netip.ParsePrefix(item)
+		if err != nil {
+			return nil, fmt.Errorf("invalid trusted proxy %q: %w", item, err)
+		}
+		result = append(result, prefix.Masked())
+	}
+	return result, nil
 }
 
 func (s *Service) publicURL(ctx context.Context) string {

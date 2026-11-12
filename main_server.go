@@ -15,7 +15,11 @@ import (
 const platformName = "web"
 
 func run() error {
-	service, err := api.Open(context.Background(), api.Config{Database: os.Getenv("ROOMARK_DB"), PublicURL: os.Getenv("ROOMARK_PUBLIC_URL"), AllowedOrigins: strings.Split(os.Getenv("ROOMARK_ALLOWED_ORIGINS"), ","), AdminName: os.Getenv("ROOMARK_ADMIN_NAME"), AdminPasscode: os.Getenv("ROOMARK_ADMIN_PASSCODE")})
+	trustedProxies, err := api.ParseTrustedProxies(os.Getenv("ROOMARK_TRUSTED_PROXIES"))
+	if err != nil {
+		return err
+	}
+	service, err := api.Open(context.Background(), api.Config{Database: os.Getenv("ROOMARK_DB"), PublicURL: os.Getenv("ROOMARK_PUBLIC_URL"), AllowedOrigins: strings.Split(os.Getenv("ROOMARK_ALLOWED_ORIGINS"), ","), AdminName: os.Getenv("ROOMARK_ADMIN_NAME"), AdminPasscode: os.Getenv("ROOMARK_ADMIN_PASSCODE"), TrustedProxies: trustedProxies})
 	if err != nil {
 		return err
 	}

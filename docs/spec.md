@@ -27,6 +27,7 @@ One Go module (`roomark`), one React frontend, three build targets:
   - `ROOMARK_PUBLIC_URL` — public base URL used in QR links and iCal URLs (e.g. `https://rooms.example.com`). Required for QR export.
   - `ROOMARK_ALLOWED_ORIGINS` — extra CORS origins, comma separated. The Wails desktop and Android app origins are always allowed.
   - `ROOMARK_ADMIN_NAME`, `ROOMARK_ADMIN_PASSCODE` — on startup, if no admin exists, create this admin person.
+  - `ROOMARK_TRUSTED_PROXIES` — comma-separated CIDRs or addresses of reverse proxies (e.g. the Docker network of Nginx Proxy Manager, `172.20.0.0/16`). Only requests from these peers may supply the client address through `X-Real-IP`; it feeds the per-IP login rate limit.
   - `WAILS_SERVER_HOST`, `WAILS_SERVER_PORT` — Wails server mode listen address.
 - Desktop/Android: the default server URL is injected at build time (`-ldflags "-X main.defaultServerURL=..."`) and can be changed in Settings.
 

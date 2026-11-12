@@ -357,6 +357,39 @@ func TestIPRateLimitAndOwnership(t *testing.T) {
 	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "1234"}, 429, nil)
 }
 
+// TestClientIPTrustsOnlyConfiguredProxies keeps per-client throttling behind a reverse proxy without letting direct clients spoof X-Real-IP.
+func TestClientIPTrustsOnlyConfiguredProxies(t *testing.T) {
+	proxies, err := ParseTrustedProxies("172.20.0.0/16, 10.0.0.5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{config: Config{TrustedProxies: proxies}}
+	cases := []struct {
+		name, remote, realIP, want string
+	}{
+		{"trusted network", "172.20.0.4:5123", "203.0.113.7", "203.0.113.7"},
+		{"trusted single address", "10.0.0.5:80", "198.51.100.2", "198.51.100.2"},
+		{"untrusted peer spoofing", "203.0.113.9:4000", "1.2.3.4", "203.0.113.9"},
+		{"trusted peer without header", "172.20.0.4:5123", "", "172.20.0.4"},
+		{"trusted peer with garbage header", "172.20.0.4:5123", "not-an-ip", "172.20.0.4"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest("GET", "/api/me", nil)
+			request.RemoteAddr = testCase.remote
+			if testCase.realIP != "" {
+				request.Header.Set("X-Real-IP", testCase.realIP)
+			}
+			if got := service.clientIP(request); got != testCase.want {
+				t.Fatalf("clientIP=%q want %q", got, testCase.want)
+			}
+		})
+	}
+	if _, err := ParseTrustedProxies("172.20.0.0/99"); err == nil {
+		t.Fatal("invalid prefix must fail")
+	}
+}
+
 // TestSeriesOverrideConflictReturnsOccurrences verifies the recurring conflict envelope.
 func TestSeriesOverrideConflictReturnsOccurrences(t *testing.T) {
 	c := newTestClient(t)
