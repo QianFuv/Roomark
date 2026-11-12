@@ -9,13 +9,13 @@ import {
   asProblem,
   errorMessage,
   fetchClient,
-  invalidateBookings,
+  refreshBookings,
   type Booking,
   type Conflict,
   type Suggestion,
 } from "../../api/client";
 import { formatBookingWhen, formatClockRange } from "../../lib/time";
-import { roomToken } from "../../state/app-store";
+import { rememberTitle, roomToken } from "../../state/app-store";
 import { chooseAction, confirmAction } from "../../ui/dialogs";
 import { notify } from "../../ui/toast";
 import { requestSession } from "../identity/identity";
@@ -43,27 +43,33 @@ export function roomHeader(slug: string): { "X-Room-Token"?: string } {
 }
 
 /**
- * Start using a free room right now.
+ * Start using a free room right now. The caller makes sure there is a session first, so the
+ * purpose sheet can open after identification.
  *
  * @param slug - Room slug.
  * @param minutes - Duration.
- * @returns The booking, or `undefined` on failure or cancel.
+ * @param title - Purpose (用途).
+ * @returns The booking, or `undefined` on failure.
  */
-export async function quickUse(slug: string, minutes: 30 | 60 | 90 | 120): Promise<Booking | undefined> {
-  if ((await requestSession(slug)) === undefined) return undefined;
-
+export async function quickUse(
+  slug: string,
+  minutes: 30 | 60 | 90 | 120,
+  title: string,
+): Promise<Booking | undefined> {
   const result = await fetchClient.POST("/api/rooms/{slug}/quick", {
     params: { path: { slug } },
-    body: { minutes },
+    body: { minutes, title: title.trim() },
   });
 
-  await invalidateBookings();
+  await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data === undefined) {
     notify("error", "没能开始使用", errorMessage(result.error));
 
     return undefined;
   }
+
+  rememberTitle(result.data.title);
 
   notify(
     "success",
@@ -78,7 +84,7 @@ export async function quickUse(slug: string, minutes: 30 | 60 | 90 | 120): Promi
 export interface NewBooking {
   start: string;
   end: string;
-  title?: string | undefined;
+  title: string;
   conflictEventId?: number | undefined;
   onBehalfOf?: number | undefined;
   kind?: "normal" | "block" | undefined;
@@ -99,16 +105,17 @@ export async function createBooking(slug: string, booking: NewBooking): Promise<
     body: {
       start: booking.start,
       end: booking.end,
-      title: booking.title === undefined || booking.title.trim() === "" ? undefined : booking.title.trim(),
+      title: booking.title.trim(),
       conflictEventId: booking.conflictEventId,
       onBehalfOf: booking.onBehalfOf,
       kind: booking.kind,
     },
   });
 
-  await invalidateBookings();
+  await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data !== undefined) {
+    rememberTitle(result.data.title);
     notify("success", "预约成功", formatBookingWhen(result.data.start, result.data.end));
 
     return { kind: "created", booking: result.data };
@@ -143,7 +150,7 @@ export function bookSuggestion(
   slug: string,
   suggestion: Suggestion,
   conflictEventId: number,
-  title?: string,
+  title: string,
 ): Promise<CreateOutcome> {
   return createBooking(slug, {
     start: suggestion.start,
@@ -206,7 +213,7 @@ export async function cancelBooking(booking: Booking): Promise<boolean> {
     body: { scope },
   });
 
-  await invalidateBookings();
+  await refreshBookings({ removedIds: result.data === undefined ? [] : [booking.id] });
 
   if (result.data === undefined) {
     notify("error", "取消失败", errorMessage(result.error));
@@ -232,7 +239,7 @@ export async function extendBooking(booking: Booking, minutes: 15 | 30 | 60): Pr
     body: { minutes },
   });
 
-  await invalidateBookings();
+  await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data === undefined) {
     notify("error", "续时失败", errorMessage(result.error));
@@ -264,7 +271,7 @@ export async function endBooking(booking: Booking): Promise<boolean> {
     params: { path: { id: booking.id }, header: roomHeader(booking.roomSlug) },
   });
 
-  await invalidateBookings();
+  await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
   if (result.data === undefined) {
     notify("error", "操作失败", errorMessage(result.error));

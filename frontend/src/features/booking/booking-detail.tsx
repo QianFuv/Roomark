@@ -6,6 +6,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarClock, Pencil, Repeat, Square, Timer, Trash2, UserRound } from "lucide-react";
+import { useState } from "react";
 
 import type { Booking } from "../../api/client";
 import { isFinished, isOngoing } from "../../lib/schedule";
@@ -54,7 +55,7 @@ export function BookingDetailSheet({ booking, onClose }: BookingDetailSheetProps
       }}
       title={booking === undefined ? "" : bookingHeading(booking)}
     >
-      {booking === undefined ? null : <BookingDetail booking={booking} onClose={onClose} />}
+      {booking === undefined ? null : <BookingDetail key={booking.id} booking={booking} onClose={onClose} />}
     </Sheet>
   );
 }
@@ -75,11 +76,12 @@ export function bookingHeading(booking: Booking): string {
  * Detail body.
  *
  * @param props - Body props.
- * @param props.booking - The booking.
+ * @param props.booking - The booking as opened; extending updates the shown copy.
  * @param props.onClose - Close the sheet.
  * @returns The body.
  */
-function BookingDetail({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+function BookingDetail({ booking: initial, onClose }: { booking: Booking; onClose: () => void }) {
+  const [booking, setBooking] = useState(initial);
   const now = useNow();
   const navigate = useNavigate();
   const isNow = isOngoing(booking, now);
@@ -147,7 +149,11 @@ function BookingDetail({ booking, onClose }: { booking: Booking; onClose: () => 
                     key={minutes}
                     variant="soft"
                     icon={<Timer size={16} aria-hidden />}
-                    onClick={() => void extendBooking(booking, minutes)}
+                    onClick={() => {
+                      void extendBooking(booking, minutes).then((updated) => {
+                        if (updated !== undefined) setBooking(updated);
+                      });
+                    }}
                   >
                     +{minutes} 分钟
                   </Button>

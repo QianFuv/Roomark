@@ -192,20 +192,93 @@ export function isRoomTokenError(error: unknown): boolean {
   return code === "room_token_required" || code === "room_token_invalid";
 }
 
-/**
- * Refetch everything that shows bookings after a write.
- *
- * @returns A promise that resolves when invalidation is scheduled.
- */
-export function invalidateBookings(): Promise<void> {
-  return queryClient.invalidateQueries({
-    predicate: (query) => {
-      const path = query.queryKey[1];
+/** What a booking write changed, used to update cached views before the refetch lands. */
+export interface BookingChange {
+  updated?: readonly Booking[] | undefined;
+  removedIds?: readonly number[] | undefined;
+}
 
-      return (
-        isString(path) &&
-        (path.startsWith("/api/rooms") || path.startsWith("/api/me") || path.startsWith("/api/admin"))
-      );
-    },
-  });
+/**
+ * Whether a value is a booking object from the API.
+ *
+ * @param value - Any cached value.
+ * @returns `true` for booking records.
+ */
+function isBookingRecord(value: unknown): value is Booking {
+  return isRecord(value) && "roomSlug" in value && "id" in value && "start" in value && "end" in value;
+}
+
+/**
+ * Replace changed bookings and drop removed ones anywhere inside a cached response (lists, my
+ * bookings with series, room status). Unchanged branches keep their identity.
+ *
+ * @param value - Cached data.
+ * @param updated - Changed bookings by id.
+ * @param removed - Removed booking ids.
+ * @returns The patched data.
+ */
+function patchBookings(
+  value: unknown,
+  updated: ReadonlyMap<number, Booking>,
+  removed: ReadonlySet<number>,
+): unknown {
+  if (isBookingRecord(value)) return updated.get(value.id) ?? value;
+
+  if (Array.isArray(value)) {
+    const kept = value.filter((entry) => !(isBookingRecord(entry) && removed.has(entry.id)));
+    const next = kept.map((entry) => patchBookings(entry, updated, removed));
+
+    return next.length === value.length && next.every((entry, index) => entry === value[index])
+      ? value
+      : next;
+  }
+
+  if (!isRecord(value)) return value;
+
+  let isChanged = false;
+  const next: Record<string, unknown> = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    next[key] = patchBookings(entry, updated, removed);
+    isChanged ||= next[key] !== entry;
+  }
+
+  return isChanged ? next : value;
+}
+
+/**
+ * Whether a cached query shows bookings, room status or statistics derived from them.
+ *
+ * @param queryKey - The query key (`[method, path, init]`).
+ * @returns `true` for room, my and admin queries.
+ */
+function showsBookings(queryKey: readonly unknown[]): boolean {
+  const path = queryKey[1];
+
+  return (
+    isString(path) &&
+    (path.startsWith("/api/rooms") || path.startsWith("/api/me") || path.startsWith("/api/admin"))
+  );
+}
+
+/**
+ * Bring every view of bookings up to date after a write: patch cached responses with the
+ * server's result right away (also queries of pages that are not mounted), then refetch the
+ * mounted ones and mark the rest stale. Room status, room bookings for every cached range, my
+ * bookings, the heatmap and admin lists are all covered.
+ *
+ * @param change - Bookings the server returned or removed, if known.
+ * @returns A promise that resolves when mounted queries have refetched.
+ */
+export async function refreshBookings(change?: BookingChange): Promise<void> {
+  const updated = new Map((change?.updated ?? []).map((booking) => [booking.id, booking]));
+  const removed = new Set(change?.removedIds ?? []);
+
+  if (updated.size > 0 || removed.size > 0) {
+    queryClient.setQueriesData({ predicate: (query) => showsBookings(query.queryKey) }, (data: unknown) =>
+      data === undefined ? data : patchBookings(data, updated, removed),
+    );
+  }
+
+  await queryClient.invalidateQueries({ predicate: (query) => showsBookings(query.queryKey) });
 }
