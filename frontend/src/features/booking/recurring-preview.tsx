@@ -15,7 +15,6 @@ import {
   initialChoices,
   reconcileChoices,
   summarize,
-  suggestionLabel,
   summaryLine,
   toOverrides,
   type ChoiceMap,
@@ -24,11 +23,12 @@ import {
   type SeriesOverride,
   type SeriesRule,
 } from "../../lib/recurring";
-import { formatClockRange, formatDateLabel } from "../../lib/time";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { formatClockRange, formatDateLabel, todayDate } from "../../lib/time";
+import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Card, Notice, Skeleton, Stack } from "../../ui/layout";
 import { requestSession } from "../identity/identity";
+import { SuggestionCard, SuggestionGrid, SuggestionOption } from "./suggestion-list";
 
 const styles = stylex.create({
   header: { color: colors.text, fontSize: fonts.sizeMd, fontVariantNumeric: "tabular-nums", fontWeight: 700 },
@@ -67,29 +67,7 @@ const styles = stylex.create({
   bad: { color: colors.busy },
   skipped: { color: colors.textSubtle },
   moved: { color: colors.primaryText },
-  detail: { color: colors.busyStrong, fontSize: fonts.sizeSm, lineHeight: 1.5 },
-  chips: { display: "flex", flexWrap: "wrap", gap: 6 },
-  chip: {
-    backgroundColor: { default: colors.surface, ":hover": colors.surfaceHover },
-    borderColor: colors.borderStrong,
-    borderRadius: radii.pill,
-    borderStyle: "solid",
-    borderWidth: 1,
-    color: colors.text,
-    cursor: "pointer",
-    fontFamily: fonts.sans,
-    fontSize: fonts.sizeSm,
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: 600,
-    minHeight: 40,
-    outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
-    paddingInline: 12,
-  },
-  chipActive: {
-    backgroundColor: { default: colors.primary, ":hover": colors.primaryHover },
-    borderColor: colors.primary,
-    color: colors.onPrimary,
-  },
+  detail: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.5 },
   toggle: {
     backgroundColor: "transparent",
     borderWidth: 0,
@@ -143,6 +121,7 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
   }
 
   const list = occurrences ?? [];
+  const today = todayDate();
   const summary = summarize(list, choices);
 
   useEffect(() => {
@@ -258,44 +237,34 @@ export function RecurringPreview({ slug, rule, onChoicesChange }: RecurringPrevi
                     )}{" "}
                     已占用
                   </span>
-                  <div
-                    role="group"
-                    aria-label={`${formatDateLabel(occurrence.date)} 的处理方式`}
-                    {...stylex.props(styles.chips)}
-                  >
-                    {(occurrence.conflict.suggestions ?? []).map((suggestion) => {
-                      const isActive =
-                        choice.action === "move" &&
-                        choice.start === suggestion.start &&
-                        choice.end === suggestion.end;
-
-                      return (
-                        <button
-                          key={`${suggestion.start}-${suggestion.end}`}
-                          type="button"
-                          aria-pressed={isActive}
-                          onClick={() =>
-                            choose(occurrence.date, {
-                              action: "move",
-                              start: suggestion.start,
-                              end: suggestion.end,
-                            })
-                          }
-                          {...stylex.props(styles.chip, isActive && styles.chipActive)}
-                        >
-                          {suggestionLabel(suggestion.start, suggestion.end, suggestion.kind)}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      aria-pressed={isSkipped}
-                      onClick={() => choose(occurrence.date, { action: "skip" })}
-                      {...stylex.props(styles.chip, isSkipped && styles.chipActive)}
-                    >
-                      跳过这次
-                    </button>
-                  </div>
+                  <SuggestionGrid ariaLabel={`${formatDateLabel(occurrence.date)} 的处理方式`}>
+                    {(occurrence.conflict.suggestions ?? []).map((suggestion) => (
+                      <SuggestionCard
+                        key={`${suggestion.start}-${suggestion.end}`}
+                        suggestion={suggestion}
+                        today={today}
+                        isSelected={
+                          choice.action === "move" &&
+                          choice.start === suggestion.start &&
+                          choice.end === suggestion.end
+                        }
+                        onSelect={() =>
+                          choose(occurrence.date, {
+                            action: "move",
+                            start: suggestion.start,
+                            end: suggestion.end,
+                          })
+                        }
+                      />
+                    ))}
+                    <SuggestionOption
+                      time="跳过这次"
+                      detail="这一次不预约"
+                      ariaLabel={`跳过 ${formatDateLabel(occurrence.date)} 这次`}
+                      isSelected={isSkipped}
+                      onSelect={() => choose(occurrence.date, { action: "skip" })}
+                    />
+                  </SuggestionGrid>
                 </>
               ) : null}
               {occurrence.status === "violation" ? (

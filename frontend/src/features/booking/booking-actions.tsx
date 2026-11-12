@@ -12,7 +12,6 @@ import {
   refreshBookings,
   type Booking,
   type Conflict,
-  type Suggestion,
 } from "../../api/client";
 import { formatBookingWhen, formatClockRange } from "../../lib/time";
 import { rememberTitle, roomToken } from "../../state/app-store";
@@ -135,29 +134,6 @@ export async function createBooking(slug: string, booking: NewBooking): Promise<
   }
 
   return { kind: "invalid", message: errorMessage(result.error) };
-}
-
-/**
- * Book a conflict suggestion with one tap.
- *
- * @param slug - Room slug.
- * @param suggestion - The suggested window.
- * @param conflictEventId - Id of the conflict that produced the suggestion.
- * @param title - Purpose carried over from the form.
- * @returns What happened.
- */
-export function bookSuggestion(
-  slug: string,
-  suggestion: Suggestion,
-  conflictEventId: number,
-  title: string,
-): Promise<CreateOutcome> {
-  return createBooking(slug, {
-    start: suggestion.start,
-    end: suggestion.end,
-    title,
-    conflictEventId: conflictEventId === 0 ? undefined : conflictEventId,
-  });
 }
 
 /**

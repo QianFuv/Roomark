@@ -10,7 +10,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { CalendarCheck, Check, CircleAlert, LoaderCircle, Repeat } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 
 import {
@@ -21,11 +21,11 @@ import {
   type Booking,
   type Conflict,
   type Room,
+  type Suggestion,
 } from "../../api/client";
 import {
   DEFAULT_SERIES_COUNT,
   describeRule,
-  suggestionLabel,
   type SeriesOverride,
   type SeriesRule,
 } from "../../lib/recurring";
@@ -34,7 +34,6 @@ import {
   GRID_MINUTES,
   clockToMinutes,
   formatBookingWhen,
-  formatClockRange,
   formatDuration,
   formatMonthDay,
   minutesOfDay,
@@ -49,15 +48,16 @@ import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure, Stepper, SwitchRow } from "../../ui/controls";
 import { DatePicker } from "../../ui/date-picker";
-import { SelectField, type SelectOption } from "../../ui/field";
-import { Card, Notice, Row, Stack } from "../../ui/layout";
+import { ComboboxField, type SelectOption } from "../../ui/field";
+import { Card, Notice, Stack } from "../../ui/layout";
 import { ChipGroup, Segmented } from "../../ui/segmented";
 import { notify } from "../../ui/toast";
 import { requestSession } from "../identity/identity";
 import { useNow, useRoomBookings } from "../room/room-data";
-import { askScope, bookSuggestion, createBooking, roomHeader } from "./booking-actions";
+import { askScope, createBooking, roomHeader } from "./booking-actions";
 import { PurposeField, TITLE_MAX_LENGTH, TITLE_REQUIRED_MESSAGE } from "./purpose-field";
 import { RecurringPreview } from "./recurring-preview";
+import { ConflictSuggestions } from "./suggestion-list";
 import { TimePicker } from "./time-picker";
 
 /** Initial values of the form. */
@@ -136,9 +136,21 @@ const styles = stylex.create({
   checkWarn: { backgroundColor: colors.warningSoft, color: colors.warning },
   checkPending: { backgroundColor: colors.surfaceMuted, color: colors.textMuted },
   checkIcon: { display: "inline-flex", flexShrink: 0, marginTop: 2 },
-  checkBody: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
-  suggestionsLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
-  suggestionChip: { borderRadius: radii.pill },
+  panelStatus: {
+    alignItems: "flex-start",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: 1,
+    display: "flex",
+    fontSize: fonts.sizeSm,
+    gap: 6,
+    lineHeight: 1.5,
+    paddingTop: 12,
+  },
+  panelStatusOk: { color: colors.freeStrong },
+  panelStatusWarn: { color: colors.warning },
+  panelStatusPending: { color: colors.textMuted },
+  panelStatusIcon: { display: "inline-flex", flexShrink: 0, marginTop: 1 },
   repeatBox: { display: "flex", flexDirection: "column", gap: 16 },
   spin: {
     animationDuration: "800ms",
@@ -178,6 +190,46 @@ function ruleFromValues(values: FormValues): SeriesRule {
   };
 }
 
+/** Date and clock times of the form, as `YYYY-MM-DD` and `HH:MM`. */
+interface FormSlot {
+  date: string;
+  start: string;
+  end: string;
+}
+
+/**
+ * Form date and clock times of a suggested window.
+ *
+ * @param suggestion - The suggestion.
+ * @returns `date`, `start` and `end` as form values.
+ */
+function suggestionSlot(suggestion: Suggestion): FormSlot {
+  const start = parseZoned(suggestion.start);
+
+  return {
+    date: start.toPlainDate().toString(),
+    start: minutesToClock(minutesOfDay(start)),
+    end: minutesToClock(minutesOfDay(parseZoned(suggestion.end))),
+  };
+}
+
+/**
+ * Key identifying a date and time range of the form.
+ *
+ * @param slot - Date and clock times.
+ * @returns The key.
+ */
+function slotKey(slot: FormSlot): string {
+  return `${slot.date}|${slot.start}|${slot.end}`;
+}
+
+/** A suggestion applied to the form, kept so the booking is attributed to its conflict. */
+interface AppliedSuggestion {
+  conflict: Conflict;
+  index: number;
+  key: string;
+}
+
 /**
  * The booking form.
  *
@@ -192,6 +244,8 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   const [submitError, setSubmitError] = useState<string>();
   const [submitConflict, setSubmitConflict] = useState<Conflict>();
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
+  const [applied, setApplied] = useState<AppliedSuggestion>();
+  const purposeRef = useRef<HTMLInputElement>(null);
 
   const [seriesOverrides, setSeriesOverrides] = useState<{ overrides: SeriesOverride[]; willBook: number }>({
     overrides: [],
@@ -224,7 +278,11 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       setSubmitConflict(undefined);
       setHasTriedSubmit(true);
 
-      if (value.title.trim() === "") return;
+      if (value.title.trim() === "") {
+        revealPurpose();
+
+        return;
+      }
 
       if ((await requestSession(room.slug)) === undefined) return;
 
@@ -233,7 +291,11 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       try {
         if (editing !== undefined) await submitEdit(value);
         else if (value.isRepeat) await submitSeries(value);
-        else await submitSingle(value);
+        else
+          await submitSingle(
+            value,
+            applied?.key === slotKey(value) ? applied.conflict.conflictEventId : undefined,
+          );
       } finally {
         setIsBusy(false);
       }
@@ -321,22 +383,43 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   }
 
   /**
+   * Bring the purpose field into view and focus it, so a missing 用途 is never off-screen.
+   */
+  function revealPurpose(): void {
+    const input = purposeRef.current;
+
+    if (input === null) return;
+
+    const isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    input.focus({ preventScroll: true });
+    input.scrollIntoView({ block: "center", behavior: isReducedMotion ? "auto" : "smooth" });
+  }
+
+  /**
    * Submit a single booking.
    *
    * @param value - Form values.
+   * @param conflictEventId - Conflict that produced the chosen slot.
    */
-  async function submitSingle(value: FormValues): Promise<void> {
+  async function submitSingle(value: FormValues, conflictEventId: number | undefined): Promise<void> {
     const outcome = await createBooking(room.slug, {
       start: toTimestamp(value.date, value.start),
       end: toTimestamp(value.date, value.end),
       title: value.title,
+      conflictEventId: conflictEventId === 0 ? undefined : conflictEventId,
       kind: value.kind === "block" ? "block" : undefined,
       onBehalfOf: value.onBehalfOf === "" ? undefined : Number(value.onBehalfOf),
     });
 
-    if (outcome.kind === "created") onDone({ kind: "single", booking: outcome.booking });
-    else if (outcome.kind === "conflict") setSubmitConflict(outcome.conflict);
-    else if (outcome.kind === "invalid") setSubmitError(outcome.message);
+    if (outcome.kind === "created") {
+      onDone({ kind: "single", booking: outcome.booking });
+    } else if (outcome.kind === "conflict") {
+      setApplied(undefined);
+      setSubmitConflict(outcome.conflict);
+    } else if (outcome.kind === "invalid") {
+      setSubmitError(outcome.message);
+    }
   }
 
   /**
@@ -428,47 +511,39 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   }
 
   /**
-   * Book a suggestion right away (or, when editing, move the form to it).
+   * Apply a suggestion's date and time to the form. It never books: the user confirms with the main
+   * button, which then attributes the booking to the conflict.
    *
    * @param conflict - The conflict.
    * @param index - Suggestion index.
    */
-  async function takeSuggestion(conflict: Conflict, index: number): Promise<void> {
+  function takeSuggestion(conflict: Conflict, index: number): void {
     const suggestion = conflict.suggestions?.[index];
 
     if (suggestion === undefined) return;
 
-    if (editing !== undefined) {
-      const start = parseZoned(suggestion.start);
+    const slot = suggestionSlot(suggestion);
 
-      form.setFieldValue("date", start.toPlainDate().toString());
-      form.setFieldValue("start", minutesToClock(minutesOfDay(start)));
-      form.setFieldValue("end", minutesToClock(minutesOfDay(parseZoned(suggestion.end))));
-      setSubmitConflict(undefined);
-
-      return;
-    }
-
-    if (values.title.trim() === "") {
-      setHasTriedSubmit(true);
-
-      return;
-    }
-
-    setIsBusy(true);
-
-    const outcome = await bookSuggestion(room.slug, suggestion, conflict.conflictEventId, values.title);
-
-    setIsBusy(false);
-
-    if (outcome.kind === "created") onDone({ kind: "single", booking: outcome.booking });
-    else if (outcome.kind === "conflict") setSubmitConflict(outcome.conflict);
-    else if (outcome.kind === "invalid") setSubmitError(outcome.message);
+    form.setFieldValue("date", slot.date);
+    form.setFieldValue("weekdays", [String(parseDate(slot.date).dayOfWeek)]);
+    form.setFieldValue("start", slot.start);
+    form.setFieldValue("end", slot.end);
+    setSubmitConflict(undefined);
+    setSubmitError(undefined);
+    setApplied({ conflict, index, key: slotKey(slot) });
   }
 
-  const visibleConflict = submitConflict ?? check.data?.conflict;
+  const isOnApplied = applied !== undefined && applied.key === slotKey(values);
+  const freshConflict = isCheckStale ? undefined : check.data?.conflict;
+
+  const visibleConflict =
+    submitConflict ?? (isOnApplied ? (freshConflict ?? applied.conflict) : check.data?.conflict);
+
+  const blockingConflict = submitConflict ?? (isOnApplied ? freshConflict : check.data?.conflict);
+  const selectedIndex = isOnApplied && visibleConflict === applied.conflict ? applied.index : undefined;
   const violations = check.data?.violations ?? [];
-  const isCheckOk = check.data !== undefined && visibleConflict === undefined && violations.length === 0;
+  const isCheckOk = check.data !== undefined && blockingConflict === undefined && violations.length === 0;
+  const isTitleEmpty = values.title.trim() === "";
 
   const submitLabel =
     editing !== undefined
@@ -528,11 +603,34 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
                   <span>{submitError}</span>
                 </div>
               ) : visibleConflict !== undefined ? (
-                <ConflictPanel
+                <ConflictSuggestions
                   conflict={visibleConflict}
-                  isEditing={editing !== undefined}
+                  today={today}
+                  selectedIndex={selectedIndex}
+                  hint="点一下改到这个时间"
                   isBusy={isBusy}
-                  onTake={(index) => void takeSuggestion(visibleConflict, index)}
+                  onTake={(index) => takeSuggestion(visibleConflict, index)}
+                  footer={
+                    selectedIndex === undefined ? null : (
+                      <AppliedStatus
+                        label={`${formatMonthDay(values.date)} ${values.start}–${values.end}`}
+                        state={
+                          isCheckStale
+                            ? "pending"
+                            : violations.length > 0
+                              ? violations.map((violation) => violation.message).join("；")
+                              : "ok"
+                        }
+                        confirmText={
+                          editing !== undefined
+                            ? "点「保存修改」确认"
+                            : isTitleEmpty
+                              ? "填写用途后点「预约」"
+                              : "点「预约」确认"
+                        }
+                      />
+                    )
+                  }
                 />
               ) : violations.length > 0 ? (
                 <div {...stylex.props(styles.check, styles.checkWarn)}>
@@ -564,6 +662,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       </div>
 
       <PurposeField
+        inputRef={purposeRef}
         value={values.title}
         onValueChange={(next) => form.setFieldValue("title", next)}
         error={titleError}
@@ -666,7 +765,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
             !isRangeValid ||
             (values.isRepeat
               ? seriesOverrides.willBook === 0 || values.weekdays.length === 0
-              : violations.length > 0 || visibleConflict !== undefined)
+              : violations.length > 0 || blockingConflict !== undefined)
           }
         >
           {submitLabel}
@@ -677,63 +776,41 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
 }
 
 /**
- * Conflict message with one-tap suggestions.
+ * Status line under the conflict panel once a suggestion is applied.
  *
- * @param props - Panel props.
- * @param props.conflict - The conflict.
- * @param props.isEditing - Suggestions fill the form instead of booking.
- * @param props.isBusy - A booking is in flight.
- * @param props.onTake - Take suggestion by index.
- * @returns The panel.
+ * @param props - Status props.
+ * @param props.label - The applied date and time.
+ * @param props.state - `ok`, `pending`, or a rule violation message.
+ * @param props.confirmText - What the user does next to confirm.
+ * @returns The status line.
  */
-function ConflictPanel({
-  conflict,
-  isEditing,
-  isBusy,
-  onTake,
-}: {
-  conflict: Conflict;
-  isEditing: boolean;
-  isBusy: boolean;
-  onTake: (index: number) => void;
-}) {
-  const other = conflict.conflictWith;
-  const suggestions = conflict.suggestions ?? [];
+function AppliedStatus({ label, state, confirmText }: { label: string; state: string; confirmText: string }) {
+  const tone =
+    state === "ok"
+      ? styles.panelStatusOk
+      : state === "pending"
+        ? styles.panelStatusPending
+        : styles.panelStatusWarn;
+
+  const message =
+    state === "ok" ? `，可以预约。${confirmText}` : state === "pending" ? "，正在检查…" : `：${state}`;
 
   return (
-    <div {...stylex.props(styles.check, styles.checkBad)}>
-      <span {...stylex.props(styles.checkIcon)}>
-        <CircleAlert size={18} aria-hidden />
-      </span>
-      <div {...stylex.props(styles.checkBody)}>
-        <span>
-          {other.name === "" ? "该时段" : other.name} {formatClockRange(other.start, other.end)}
-          {other.title === "" ? "" : `「${other.title}」`} 已占用
-        </span>
-        {suggestions.length === 0 ? (
-          <span>附近没有同样长度的空闲时段，试试换一天或缩短时长。</span>
+    <p {...stylex.props(styles.panelStatus, tone)}>
+      <span {...stylex.props(styles.panelStatusIcon)}>
+        {state === "ok" ? (
+          <Check size={16} aria-hidden />
+        ) : state === "pending" ? (
+          <LoaderCircle size={16} aria-hidden {...stylex.props(styles.spin)} />
         ) : (
-          <>
-            <span {...stylex.props(styles.suggestionsLabel)}>
-              {isEditing ? "改到这些时间：" : "一键预约这些时间："}
-            </span>
-            <Row gap="sm">
-              {suggestions.map((suggestion, index) => (
-                <Button
-                  key={`${suggestion.start}-${suggestion.end}`}
-                  variant="secondary"
-                  xstyle={styles.suggestionChip}
-                  disabled={isBusy}
-                  onClick={() => onTake(index)}
-                >
-                  {suggestionLabel(suggestion.start, suggestion.end, suggestion.kind)}
-                </Button>
-              ))}
-            </Row>
-          </>
+          <CircleAlert size={16} aria-hidden />
         )}
-      </div>
-    </div>
+      </span>
+      <span>
+        已改到 {label}
+        {message}
+      </span>
+    </p>
   );
 }
 
@@ -777,10 +854,12 @@ function AdminOptions({
             onCheckedChange={(isChecked) => onKindChange(isChecked ? "block" : "normal")}
           />
           {values.kind === "block" ? null : (
-            <SelectField
+            <ComboboxField
               label="代人预约"
               value={values.onBehalfOf}
               options={options}
+              placeholder="搜索姓名"
+              emptyText="没有找到这个人"
               onValueChange={onBehalfChange}
             />
           )}

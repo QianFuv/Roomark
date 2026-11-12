@@ -12,7 +12,13 @@ import { useId } from "react";
 
 import type { Booking } from "../../api/client";
 import { latestEnd, nextBusy, slotState, type DayAvailability, type SlotState } from "../../lib/schedule";
-import { GRID_MINUTES, clockToMinutes, formatDuration, minutesToClock } from "../../lib/time";
+import {
+  GRID_MINUTES,
+  clockToMinutes,
+  formatDuration,
+  formatShortDuration,
+  minutesToClock,
+} from "../../lib/time";
 import { colors, fonts, radii } from "../../styles/tokens.stylex";
 
 const DURATIONS = [30, 60, 90, 120, 180, 240] as const;
@@ -135,16 +141,6 @@ const BAR_STYLES: Record<SlotState, stylex.StyleXStyles> = {
   past: styles.barOff,
   closed: styles.barOff,
 };
-
-/**
- * Short duration label for chips: `30 分钟`, `1 小时`, `1.5 小时`.
- *
- * @param minutes - Duration.
- * @returns The label.
- */
-function durationChipLabel(minutes: number): string {
-  return minutes < 60 ? `${minutes} 分钟` : `${minutes / 60} 小时`;
-}
 
 /** Props of {@link TimePicker}. */
 export interface TimePickerProps {
@@ -318,7 +314,7 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
                 startMinutes + minutes > latest && latest > startMinutes && styles.choiceTaken,
               )}
             >
-              {durationChipLabel(minutes)}
+              {formatShortDuration(minutes)}
             </button>
           ))}
         </div>

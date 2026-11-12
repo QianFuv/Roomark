@@ -5,6 +5,7 @@
  */
 import * as stylex from "@stylexjs/stylex";
 import { History } from "lucide-react";
+import type { Ref } from "react";
 
 import { useRecentTitles } from "../../state/app-store";
 import { colors, fonts, radii } from "../../styles/tokens.stylex";
@@ -46,6 +47,7 @@ export interface PurposeFieldProps {
   error?: string | undefined;
   placeholder?: string;
   isAutoFocus?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 /**
@@ -60,12 +62,14 @@ export function PurposeField({
   error,
   placeholder = "例如：组会、答辩、面试",
   isAutoFocus = false,
+  inputRef,
 }: PurposeFieldProps) {
   const recent = useRecentTitles().filter((title) => title !== value.trim());
 
   return (
     <div {...stylex.props(styles.root)}>
       <TextField
+        ref={inputRef}
         label="用途"
         placeholder={placeholder}
         value={value}
