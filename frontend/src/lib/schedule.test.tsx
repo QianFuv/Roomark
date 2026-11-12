@@ -8,10 +8,13 @@ import { describe, expect, test } from "vite-plus/test";
 
 import {
   dayAgenda,
+  dayAvailability,
+  latestEnd,
   layoutDay,
   minutesAtRatio,
   proposeSlot,
   quickUseOptions,
+  slotState,
   type TimedItem,
 } from "./schedule";
 import { TIME_ZONE, toTimestamp } from "./time";
@@ -123,5 +126,42 @@ describe("dayAgenda", () => {
       ["booking", 15, 16],
       ["free", 16, 22],
     ]);
+  });
+});
+
+describe("day availability", () => {
+  const items = [item("10:00", "11:00"), item("14:00", "15:30")];
+
+  test("given today at 09:07 when steps are classified then past, free, busy and closed are told apart", () => {
+    const availability = dayAvailability(items, DAY, "08:00", "22:00", at("09:07"));
+
+    expect(slotState(availability, 7 * 60 + 45)).toBe("closed");
+    expect(slotState(availability, 9 * 60)).toBe("past");
+    expect(slotState(availability, 9 * 60 + 15)).toBe("free");
+    expect(slotState(availability, 9 * 60 + 45)).toBe("free");
+    expect(slotState(availability, 10 * 60 + 45)).toBe("busy");
+    expect(slotState(availability, 21 * 60 + 45)).toBe("free");
+    expect(slotState(availability, 22 * 60)).toBe("closed");
+  });
+
+  test("given a later day when the latest end is asked then the next booking, max duration and closing cap it", () => {
+    const availability = dayAvailability(
+      items,
+      DAY,
+      "08:00",
+      "22:00",
+      at("09:00", DAY.subtract({ days: 1 })),
+    );
+
+    expect(latestEnd(availability, 8 * 60, 240)).toBe(10 * 60);
+    expect(latestEnd(availability, 11 * 60, 120)).toBe(13 * 60);
+    expect(latestEnd(availability, 20 * 60, 240)).toBe(22 * 60);
+    expect(latestEnd(availability, 10 * 60 + 30, 240)).toBe(10 * 60 + 30);
+  });
+
+  test("given a past day when steps are classified then every open step is past", () => {
+    const availability = dayAvailability([], DAY, "08:00", "22:00", at("09:00", DAY.add({ days: 1 })));
+
+    expect(slotState(availability, 12 * 60)).toBe("past");
   });
 });

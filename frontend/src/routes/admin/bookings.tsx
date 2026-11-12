@@ -31,7 +31,8 @@ const styles = stylex.create({
     gap: 12,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
-      [media.desktop]: "repeat(5, minmax(0, 1fr))",
+      [media.narrow]: "repeat(3, minmax(0, 1fr))",
+      [media.wide]: "repeat(5, minmax(0, 1fr))",
     },
   },
   title: {

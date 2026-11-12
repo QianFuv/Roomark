@@ -3,6 +3,7 @@
  *
  * @module
  */
+import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
@@ -19,7 +20,21 @@ import {
   nowZoned,
   parseZoned,
 } from "../../../lib/time";
+import { colors, media, radii } from "../../../styles/tokens.stylex";
 import { EmptyState, Notice, Skeleton, Stack } from "../../../ui/layout";
+
+const styles = stylex.create({
+  frame: {
+    backgroundColor: { default: "transparent", [media.narrow]: colors.surface },
+    borderColor: colors.border,
+    borderRadius: radii.extraLarge,
+    borderStyle: "solid",
+    borderWidth: { default: 0, [media.narrow]: 1 },
+    maxWidth: 1000,
+    padding: { default: 0, [media.narrow]: 24, [media.wide]: 32 },
+    width: "100%",
+  },
+});
 
 const searchSchema = z.object({
   date: z
@@ -126,7 +141,7 @@ function BookPage() {
         };
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" xstyle={styles.frame}>
       {editing?.series === undefined ? null : (
         <Notice tone="info" title="这是周期预约中的一次">
           保存时可以选择只改这一次，或这次及以后全部。

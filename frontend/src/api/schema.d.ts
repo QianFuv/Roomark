@@ -730,7 +730,8 @@ export interface components {
             onBehalfOf?: number;
             /** Format: date-time */
             start: string;
-            title?: string;
+            /** @description Meeting purpose, 1–200 characters after trimming surrounding whitespace. */
+            title: string;
         };
         CreateSeries: {
             /**
@@ -745,7 +746,8 @@ export interface components {
             onBehalfOf?: number;
             overrides: components["schemas"]["Override"][] | null;
             rule: components["schemas"]["SeriesRule"];
-            title?: string;
+            /** @description Meeting purpose, 1–200 characters after trimming surrounding whitespace. */
+            title: string;
         };
         DemandGap: {
             /** Format: int64 */
@@ -783,6 +785,7 @@ export interface components {
             scope?: "this" | "following";
             /** Format: date-time */
             start?: string;
+            /** @description Meeting purpose, 1–200 characters after trimming surrounding whitespace; omit to keep the existing title. */
             title?: string;
         };
         EditPerson: {
@@ -858,7 +861,14 @@ export interface components {
              * @example https://example.com/api/schemas/ImportPeople.json
              */
             readonly $schema?: string;
-            people: components["schemas"]["PresetPerson"][] | null;
+            people: components["schemas"]["ImportPerson"][] | null;
+        };
+        ImportPerson: {
+            /** @default false */
+            isAdmin: boolean;
+            name: string;
+            /** @enum {string} */
+            role: "teacher" | "student" | "other";
         };
         Login: {
             /**
@@ -1041,6 +1051,8 @@ export interface components {
              * @enum {integer}
              */
             minutes: 30 | 60 | 90 | 120;
+            /** @description Meeting purpose, 1–200 characters after trimming surrounding whitespace. */
+            title: string;
         };
         Ranking: {
             byBookingCount: components["schemas"]["RankingEntry"][] | null;

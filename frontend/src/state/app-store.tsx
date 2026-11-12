@@ -20,6 +20,7 @@ const persistedSchema = z.object({
   session: z.object({ token: z.string(), person: personSchema }).optional(),
   rooms: z.record(z.string(), z.object({ token: z.string(), name: z.string().optional() })).default({}),
   lastRoomSlug: z.string().optional(),
+  recentTitles: z.array(z.string()).default([]),
 });
 
 /** Person stored with the session. */
@@ -42,6 +43,7 @@ export interface AppState {
   session?: StoredSession | undefined;
   rooms: Record<string, StoredRoom>;
   lastRoomSlug?: string | undefined;
+  recentTitles?: string[] | undefined;
 }
 
 /**
@@ -179,3 +181,35 @@ export function useRememberedRooms(): ({ slug: string } & StoredRoom)[] {
 
   return Object.entries(rooms).map(([slug, room]) => ({ slug, ...room }));
 }
+
+/** How many recent purposes are kept for one-tap reuse. */
+const RECENT_TITLE_LIMIT = 6;
+
+/**
+ * Remember a purpose (用途) for the recent-purpose chips, newest first.
+ *
+ * @param title - The purpose just used.
+ */
+export function rememberTitle(title: string): void {
+  const trimmed = title.trim();
+
+  if (trimmed === "") return;
+  appStore.setState((state) => ({
+    ...state,
+    recentTitles: [trimmed, ...(state.recentTitles ?? []).filter((item) => item !== trimmed)].slice(
+      0,
+      RECENT_TITLE_LIMIT,
+    ),
+  }));
+}
+
+/**
+ * Recently used purposes on this device, newest first.
+ *
+ * @returns The purposes.
+ */
+export function useRecentTitles(): readonly string[] {
+  return useSelector(appStore, (state) => state.recentTitles ?? EMPTY_TITLES);
+}
+
+const EMPTY_TITLES: readonly string[] = [];

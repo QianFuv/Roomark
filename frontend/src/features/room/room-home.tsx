@@ -11,7 +11,7 @@ import { CalendarPlus, Megaphone, Pin, Repeat, Square, Timer, Zap } from "lucide
 import { useEffect, useRef, useState } from "react";
 
 import type { Announcement, Booking, Room, RoomStatus } from "../../api/client";
-import { dayAgenda, isFinished, isOngoing, quickUseOptions } from "../../lib/schedule";
+import { dayAgenda, isFinished, isOngoing, quickUseOptions, type QuickUseOption } from "../../lib/schedule";
 import { usuallyFreeRanges, heatCells } from "../../lib/stats";
 import {
   ceilToGrid,
@@ -29,17 +29,36 @@ import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Disclosure } from "../../ui/controls";
 import { Card, EmptyState, Notice, Section, Skeleton, Stack } from "../../ui/layout";
+import { Segmented } from "../../ui/segmented";
+import { Sheet } from "../../ui/sheet";
+import { useLayoutTier } from "../../ui/tier";
 import { endBooking, extendBooking, quickUse } from "../booking/booking-actions";
 import { BookingDetailSheet, bookingHeading } from "../booking/booking-detail";
+import { PurposeField, TITLE_REQUIRED_MESSAGE } from "../booking/purpose-field";
+import { requestSession } from "../identity/identity";
 import { HeatmapGrid } from "./heatmap";
+import { RoomCalendar } from "./room-calendar";
 import { useNow, useRoomBookings, useRoomDetail, useRoomHeatmap } from "./room-data";
 
 const styles = stylex.create({
   layout: {
     alignItems: "start",
     display: "grid",
-    gap: 16,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.desktop]: "minmax(0, 1.1fr) minmax(0, 1fr)" },
+    gap: { default: 16, [media.wide]: 24 },
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [media.narrow]: "minmax(0, 1fr) minmax(0, 1fr)",
+      [media.wide]: "minmax(320px, 360px) minmax(0, 1fr)",
+    },
+  },
+  calendarColumn: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.extraLarge,
+    borderStyle: "solid",
+    borderWidth: 1,
+    minWidth: 0,
+    padding: 16,
   },
   column: { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 },
   hero: {
@@ -77,7 +96,8 @@ const styles = stylex.create({
     lineHeight: 1.35,
   },
   heroSub: {
-    color: colors.textMuted,
+    color: colors.text,
+    opacity: 0.8,
     fontSize: fonts.sizeMd,
     fontVariantNumeric: "tabular-nums",
     lineHeight: 1.5,
@@ -87,7 +107,7 @@ const styles = stylex.create({
     gap: 10,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
-      [media.tablet]: "repeat(4, minmax(0, 1fr))",
+      [media.narrow]: "repeat(4, minmax(0, 1fr))",
     },
   },
   quickButton: { flexDirection: "column", gap: 2, minHeight: 72 },
@@ -187,8 +207,10 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
   const now = useNow();
   const detail = useRoomDetail(slug);
   const today = now.toPlainDate().toString();
-  const bookings = useRoomBookings(slug, today, today);
+  const tier = useLayoutTier();
+  const bookings = useRoomBookings(slug, today, today, tier !== "wide");
   const [selected, setSelected] = useState<Booking>();
+  const [calendarDate, setCalendarDate] = useState<string>();
   const quickRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -242,21 +264,28 @@ export function RoomHome({ slug, isQuickRequested }: { slug: string; isQuickRequ
               <AgendaBookingRow booking={status.next} now={now} onSelect={setSelected} />
             </Section>
           )}
+          {tier === "wide" ? <UsuallyFree slug={slug} now={now} /> : null}
         </div>
-        <div {...stylex.props(styles.column)}>
-          <Section title="今天" aside={weekdayLabel(now.dayOfWeek)}>
-            {bookings.data === undefined ? (
-              <Stack gap="sm">
-                <Skeleton height={56} />
-                <Skeleton height={56} />
-                <Skeleton height={56} />
-              </Stack>
-            ) : (
-              <TodayAgenda room={room} bookings={bookings.data ?? []} now={now} onSelect={setSelected} />
-            )}
-          </Section>
-          <UsuallyFree slug={slug} now={now} />
-        </div>
+        {tier === "wide" ? (
+          <section aria-label="日程" {...stylex.props(styles.calendarColumn)}>
+            <RoomCalendar slug={slug} anchorDate={calendarDate} onAnchorChange={setCalendarDate} />
+          </section>
+        ) : (
+          <div {...stylex.props(styles.column)}>
+            <Section title="今天" aside={weekdayLabel(now.dayOfWeek)}>
+              {bookings.data === undefined ? (
+                <Stack gap="sm">
+                  <Skeleton height={56} />
+                  <Skeleton height={56} />
+                  <Skeleton height={56} />
+                </Stack>
+              ) : (
+                <TodayAgenda room={room} bookings={bookings.data ?? []} now={now} onSelect={setSelected} />
+              )}
+            </Section>
+            <UsuallyFree slug={slug} now={now} />
+          </div>
+        )}
       </div>
       <BookingDetailSheet booking={selected} onClose={() => setSelected(undefined)} />
     </>
@@ -417,7 +446,8 @@ function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now
 }
 
 /**
- * Quick-use buttons for a free room, or a booking entry for a busy one.
+ * Quick-use buttons for a free room, or a booking entry for a busy one. A duration button
+ * identifies the user first, then asks for 用途 in a small sheet.
  *
  * @param props - Component props.
  * @param props.room - The room.
@@ -426,6 +456,7 @@ function StatusHero({ room, status, now }: { room: Room; status: RoomStatus; now
  * @returns The actions.
  */
 function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: Temporal.ZonedDateTime }) {
+  const [minutes, setMinutes] = useState<QuickUseOption["minutes"]>();
   const [pending, setPending] = useState<number>();
   const nowMinutes = minutesOfDay(now);
 
@@ -455,7 +486,11 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
                 aria-label={`马上使用 ${formatDuration(option.minutes)}，到 ${option.endClock}`}
                 onClick={() => {
                   setPending(option.minutes);
-                  void quickUse(room.slug, option.minutes).finally(() => setPending(undefined));
+                  void requestSession(room.slug)
+                    .then((session) => {
+                      if (session !== undefined) setMinutes(option.minutes);
+                    })
+                    .finally(() => setPending(undefined));
                 }}
               >
                 {formatDuration(option.minutes)}
@@ -475,7 +510,107 @@ function QuickUse({ room, status, now }: { room: Room; status: RoomStatus; now: 
       >
         {canQuickUse ? "预约其他时间" : "预约"}
       </Button>
+      <Sheet
+        isOpen={minutes !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setMinutes(undefined);
+        }}
+        title="马上使用"
+        description="填写用途后即可开始，用完可以提前结束。"
+      >
+        {minutes === undefined ? null : (
+          <QuickUseForm
+            slug={room.slug}
+            options={options}
+            initialMinutes={minutes}
+            onDone={() => setMinutes(undefined)}
+          />
+        )}
+      </Sheet>
     </Card>
+  );
+}
+
+/**
+ * Duration and 用途 for quick use; starts in one tap.
+ *
+ * @param props - Form props.
+ * @param props.slug - Room slug.
+ * @param props.options - Duration options.
+ * @param props.initialMinutes - Duration tapped on the room page.
+ * @param props.onDone - Close the sheet after starting.
+ * @returns The form.
+ */
+function QuickUseForm({
+  slug,
+  options,
+  initialMinutes,
+  onDone,
+}: {
+  slug: string;
+  options: readonly QuickUseOption[];
+  initialMinutes: QuickUseOption["minutes"];
+  onDone: () => void;
+}) {
+  const [minutes, setMinutes] = useState(initialMinutes);
+  const [title, setTitle] = useState("");
+  const [hasTried, setHasTried] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const chosen = options.find((option) => option.minutes === minutes);
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setHasTried(true);
+
+        if (title.trim() === "") return;
+
+        setIsSubmitting(true);
+        void quickUse(slug, minutes, title).then((booking) => {
+          setIsSubmitting(false);
+
+          if (booking !== undefined) onDone();
+        });
+      }}
+    >
+      <Stack gap="lg">
+        <Segmented
+          label="使用时长"
+          value={String(minutes)}
+          isFullWidth
+          size="lg"
+          options={options.map((option) => ({
+            value: String(option.minutes),
+            label: formatDuration(option.minutes),
+            hint: `至 ${option.endClock}`,
+            isDisabled: !option.isEnabled,
+          }))}
+          onValueChange={(value) => {
+            const next = options.find((option) => String(option.minutes) === value);
+
+            if (next !== undefined) setMinutes(next.minutes);
+          }}
+        />
+        <PurposeField
+          value={title}
+          onValueChange={setTitle}
+          error={hasTried && title.trim() === "" ? TITLE_REQUIRED_MESSAGE : undefined}
+          isAutoFocus
+        />
+        <Button
+          type="submit"
+          variant="primary"
+          size="xl"
+          isFullWidth
+          isLoading={isSubmitting}
+          icon={<Zap size={20} aria-hidden />}
+        >
+          开始使用{chosen === undefined ? "" : `，至 ${chosen.endClock}`}
+        </Button>
+      </Stack>
+    </form>
   );
 }
 

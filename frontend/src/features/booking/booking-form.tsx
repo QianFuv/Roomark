@@ -1,10 +1,10 @@
 /**
- * Booking form: date, start/end on the 15-minute grid, purpose, optional repeat. Single bookings
- * are checked live and conflicts offer one-tap suggestions; recurring bookings show a preview.
+ * Booking form: date picker, start / duration picker, required purpose and optional repeat.
+ * Single bookings are checked live and conflicts offer one-tap suggestions; recurring bookings
+ * show a preview. In a container at least 640 px wide the date and time sit side by side.
  *
  * @module
  */
-import { Temporal } from "@js-temporal/polyfill";
 import * as stylex from "@stylexjs/stylex";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -17,7 +17,7 @@ import {
   api,
   errorMessage,
   fetchClient,
-  invalidateBookings,
+  refreshBookings,
   type Booking,
   type Conflict,
   type Room,
@@ -29,36 +29,36 @@ import {
   type SeriesOverride,
   type SeriesRule,
 } from "../../lib/recurring";
+import { dayAvailability, slotState } from "../../lib/schedule";
 import {
   GRID_MINUTES,
-  ceilToGrid,
   clockToMinutes,
-  dateRange,
   formatBookingWhen,
   formatClockRange,
   formatDuration,
   formatMonthDay,
   minutesOfDay,
   minutesToClock,
-  nowZoned,
   parseDate,
   parseZoned,
-  todayDate,
   toTimestamp,
   weekdayLabel,
 } from "../../lib/time";
-import { useSession } from "../../state/app-store";
-import { colors, fonts, radii } from "../../styles/tokens.stylex";
+import { rememberTitle, useSession } from "../../state/app-store";
+import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
-import { Disclosure, SwitchRow } from "../../ui/controls";
-import { SelectField, TextField, type SelectOption } from "../../ui/field";
+import { Disclosure, Stepper, SwitchRow } from "../../ui/controls";
+import { DatePicker } from "../../ui/date-picker";
+import { SelectField, type SelectOption } from "../../ui/field";
 import { Card, Notice, Row, Stack } from "../../ui/layout";
 import { ChipGroup, Segmented } from "../../ui/segmented";
 import { notify } from "../../ui/toast";
 import { requestSession } from "../identity/identity";
+import { useNow, useRoomBookings } from "../room/room-data";
 import { askScope, bookSuggestion, createBooking, roomHeader } from "./booking-actions";
-import { DateStrip } from "./date-strip";
+import { PurposeField, TITLE_MAX_LENGTH, TITLE_REQUIRED_MESSAGE } from "./purpose-field";
 import { RecurringPreview } from "./recurring-preview";
+import { TimePicker } from "./time-picker";
 
 /** Initial values of the form. */
 export interface BookingDraft {
@@ -85,12 +85,12 @@ const formSchema = z.object({
   date: z.string(),
   start: z.string(),
   end: z.string(),
-  title: z.string().max(60, "用途最多 60 个字"),
+  title: z.string().max(TITLE_MAX_LENGTH, `用途最多 ${TITLE_MAX_LENGTH} 个字`),
   isRepeat: z.boolean(),
   freq: z.enum(["weekly", "biweekly"]),
   weekdays: z.array(z.string()).min(1, "至少选择一天"),
   endMode: z.enum(["count", "until"]),
-  count: z.string(),
+  count: z.number(),
   untilDate: z.string(),
   kind: z.enum(["normal", "block"]),
   onBehalfOf: z.string(),
@@ -104,16 +104,23 @@ const WEEKDAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
   ariaLabel: weekdayLabel(weekday),
 }));
 
-const COUNT_OPTIONS: SelectOption<string>[] = Array.from({ length: 24 }, (_unused, index) => ({
-  value: String(index + 2),
-  label: `${index + 2} 次`,
-}));
+/** Days a block (admin "不可预约") may be placed ahead; blocks ignore the booking rules. */
+const BLOCK_HORIZON_DAYS = 366;
 
 const styles = stylex.create({
-  form: { display: "flex", flexDirection: "column", gap: 18 },
-  times: { display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" },
-  duration: { color: colors.textMuted, fontSize: fonts.sizeSm, fontVariantNumeric: "tabular-nums" },
-  checkBox: { minHeight: 52 },
+  form: { containerType: "inline-size", display: "flex", flexDirection: "column", gap: 20 },
+  when: {
+    alignItems: "start",
+    display: "grid",
+    gap: 20,
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [media.formTwoColumn]: "minmax(260px, 320px) minmax(0, 1fr)",
+    },
+  },
+  timeColumn: { display: "flex", flexDirection: "column", gap: 14, minWidth: 0 },
+  rules: { color: colors.textMuted, fontSize: fonts.sizeXs, lineHeight: 1.5 },
+  checkBox: { minHeight: 48 },
   check: {
     alignItems: "flex-start",
     borderRadius: radii.medium,
@@ -132,7 +139,7 @@ const styles = stylex.create({
   checkBody: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
   suggestionsLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
   suggestionChip: { borderRadius: radii.pill },
-  repeatBox: { display: "flex", flexDirection: "column", gap: 14 },
+  repeatBox: { display: "flex", flexDirection: "column", gap: 16 },
   spin: {
     animationDuration: "800ms",
     animationIterationCount: "infinite",
@@ -143,7 +150,7 @@ const styles = stylex.create({
     animationTimingFunction: "linear",
   },
   sticky: {
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.surface,
     bottom: 0,
     paddingBottom: "max(8px, env(safe-area-inset-bottom))",
     paddingTop: 8,
@@ -151,56 +158,6 @@ const styles = stylex.create({
     zIndex: 2,
   },
 });
-
-/**
- * Start options on the grid; past times on today are disabled.
- *
- * @param room - The room.
- * @param date - Selected date.
- * @param now - Current time.
- * @returns Options.
- */
-function startOptions(room: Room, date: string, now: Temporal.ZonedDateTime): SelectOption<string>[] {
-  const isToday = date === now.toPlainDate().toString();
-  const earliest = isToday ? ceilToGrid(minutesOfDay(now)) : 0;
-  const options: SelectOption<string>[] = [];
-
-  for (
-    let minutes = clockToMinutes(room.rules.openTime);
-    minutes < clockToMinutes(room.rules.closeTime);
-    minutes += GRID_MINUTES
-  ) {
-    options.push({
-      value: minutesToClock(minutes),
-      label: minutesToClock(minutes),
-      isDisabled: minutes < earliest,
-    });
-  }
-
-  return options;
-}
-
-/**
- * End options after a start, limited by closing time and maximum duration.
- *
- * @param room - The room.
- * @param start - Start `HH:MM`.
- * @returns Options with durations.
- */
-function endOptions(room: Room, start: string): SelectOption<string>[] {
-  const startMinutes = clockToMinutes(start);
-  const last = Math.min(clockToMinutes(room.rules.closeTime), startMinutes + room.rules.maxDurationMinutes);
-  const options: SelectOption<string>[] = [];
-
-  for (let minutes = startMinutes + GRID_MINUTES; minutes <= last; minutes += GRID_MINUTES) {
-    options.push({
-      value: minutesToClock(minutes),
-      label: `${minutesToClock(minutes)}（${formatDuration(minutes - startMinutes)}）`,
-    });
-  }
-
-  return options;
-}
 
 /**
  * Build the series rule from form values.
@@ -217,7 +174,7 @@ function ruleFromValues(values: FormValues): SeriesRule {
     endTime: values.end,
     ...(values.endMode === "until" && values.untilDate !== ""
       ? { untilDate: values.untilDate }
-      : { count: Number(values.count) || DEFAULT_SERIES_COUNT }),
+      : { count: values.count || DEFAULT_SERIES_COUNT }),
   };
 }
 
@@ -230,10 +187,11 @@ function ruleFromValues(values: FormValues): SeriesRule {
 export function BookingForm({ room, draft, editing, initialKind = "normal", onDone }: BookingFormProps) {
   const session = useSession();
   const isAdmin = session?.person.isAdmin === true;
-  const now = nowZoned();
-  const today = todayDate();
+  const now = useNow(30_000);
+  const today = now.toPlainDate();
   const [submitError, setSubmitError] = useState<string>();
   const [submitConflict, setSubmitConflict] = useState<Conflict>();
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
 
   const [seriesOverrides, setSeriesOverrides] = useState<{ overrides: SeriesOverride[]; willBook: number }>({
     overrides: [],
@@ -242,12 +200,6 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
 
   const [isBusy, setIsBusy] = useState(false);
   const firstDate = parseDate(draft.date);
-  const advanceDays = Math.max(room.rules.maxAdvanceDays, 1);
-  const dates = dateRange(today, advanceDays + 1);
-
-  if (!dates.some((date) => date.equals(firstDate))) dates.push(firstDate);
-
-  dates.sort((left, right) => Temporal.PlainDate.compare(left, right));
 
   const defaults: FormValues = {
     date: draft.date,
@@ -258,7 +210,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     freq: "weekly",
     weekdays: [String(firstDate.dayOfWeek)],
     endMode: "count",
-    count: String(DEFAULT_SERIES_COUNT),
+    count: DEFAULT_SERIES_COUNT,
     untilDate: "",
     kind: editing?.kind ?? initialKind,
     onBehalfOf: "",
@@ -270,6 +222,9 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
     onSubmit: async ({ value }) => {
       setSubmitError(undefined);
       setSubmitConflict(undefined);
+      setHasTriedSubmit(true);
+
+      if (value.title.trim() === "") return;
 
       if ((await requestSession(room.slug)) === undefined) return;
 
@@ -286,9 +241,33 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   });
 
   const values = useStore(form.store, (state) => state.values);
+  const isBlock = values.kind === "block";
+  const selectedDate = parseDate(values.date);
+
+  const advanceMax = today.add({
+    days: isBlock ? BLOCK_HORIZON_DAYS : Math.max(room.rules.maxAdvanceDays, 0),
+  });
+
+  const maxDate = firstDate.until(advanceMax).days < 0 ? firstDate : advanceMax;
+
+  const maxDuration = isBlock
+    ? clockToMinutes(room.rules.closeTime) - clockToMinutes(room.rules.openTime)
+    : room.rules.maxDurationMinutes;
+
+  const dayBookings = useRoomBookings(room.slug, values.date, values.date);
+
+  const availability = dayAvailability(
+    (dayBookings.data ?? []).filter((booking) => booking.id !== editing?.id),
+    selectedDate,
+    room.rules.openTime,
+    room.rules.closeTime,
+    now,
+  );
+
   const [checkKey] = useDebouncedValue(`${values.date}|${values.start}|${values.end}`, { wait: 250 });
   const [checkDate = "", checkStart = "", checkEnd = ""] = checkKey.split("|");
   const isRangeValid = clockToMinutes(values.end) > clockToMinutes(values.start);
+  const titleError = hasTriedSubmit && values.title.trim() === "" ? TITLE_REQUIRED_MESSAGE : undefined;
 
   const check = api.useQuery(
     "post",
@@ -309,6 +288,37 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   );
 
   const isCheckStale = checkKey !== `${values.date}|${values.start}|${values.end}` || check.isFetching;
+
+  /**
+   * Change the date; on today a start that has already passed moves to the next grid step.
+   *
+   * @param next - New `YYYY-MM-DD`.
+   */
+  function changeDate(next: string): void {
+    form.setFieldValue("date", next);
+    form.setFieldValue("weekdays", [String(parseDate(next).dayOfWeek)]);
+
+    const nextAvailability = dayAvailability(
+      [],
+      parseDate(next),
+      room.rules.openTime,
+      room.rules.closeTime,
+      now,
+    );
+
+    const startMinutes = clockToMinutes(values.start);
+
+    if (slotState(nextAvailability, startMinutes) !== "past") return;
+
+    const earliest = Math.max(nextAvailability.earliestMinutes, nextAvailability.openMinutes);
+    const duration = Math.max(clockToMinutes(values.end) - startMinutes, GRID_MINUTES);
+    const end = Math.min(earliest + duration, nextAvailability.closeMinutes);
+
+    if (end - earliest < GRID_MINUTES) return;
+
+    form.setFieldValue("start", minutesToClock(earliest));
+    form.setFieldValue("end", minutesToClock(end));
+  }
 
   /**
    * Submit a single booking.
@@ -339,19 +349,20 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       params: { path: { slug: room.slug } },
       body: {
         rule: ruleFromValues(value),
-        title: value.title.trim() === "" ? undefined : value.title.trim(),
+        title: value.title.trim(),
         overrides: seriesOverrides.overrides,
         kind: value.kind === "block" ? "block" : undefined,
         onBehalfOf: value.onBehalfOf === "" ? undefined : Number(value.onBehalfOf),
       },
     });
 
-    await invalidateBookings();
+    await refreshBookings({ updated: result.data?.created ?? [] });
 
     if (result.data !== undefined) {
       const created = result.data.created?.length ?? 0;
       const skipped = result.data.skipped?.length ?? 0;
 
+      rememberTitle(value.title);
       notify(
         "success",
         `已预约 ${created} 次`,
@@ -393,9 +404,10 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       },
     });
 
-    await invalidateBookings();
+    await refreshBookings({ updated: result.data === undefined ? [] : [result.data] });
 
     if (result.data !== undefined) {
+      rememberTitle(result.data.title);
       notify("success", "已保存修改", formatBookingWhen(result.data.start, result.data.end));
       onDone({ kind: "single", booking: result.data });
 
@@ -416,7 +428,7 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   }
 
   /**
-   * Book a suggestion right away.
+   * Book a suggestion right away (or, when editing, move the form to it).
    *
    * @param conflict - The conflict.
    * @param index - Suggestion index.
@@ -437,6 +449,12 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       return;
     }
 
+    if (values.title.trim() === "") {
+      setHasTriedSubmit(true);
+
+      return;
+    }
+
     setIsBusy(true);
 
     const outcome = await bookSuggestion(room.slug, suggestion, conflict.conflictEventId, values.title);
@@ -449,19 +467,19 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
   }
 
   const visibleConflict = submitConflict ?? check.data?.conflict;
-
   const violations = check.data?.violations ?? [];
   const isCheckOk = check.data !== undefined && visibleConflict === undefined && violations.length === 0;
-  const durationMinutes = clockToMinutes(values.end) - clockToMinutes(values.start);
 
   const submitLabel =
     editing !== undefined
       ? "保存修改"
       : values.isRepeat
         ? `预约 ${seriesOverrides.willBook} 次`
-        : values.kind === "block"
+        : isBlock
           ? "设为不可预约"
           : "预约";
+
+  const repeatHorizon = selectedDate.add({ days: room.rules.recurringMaxWeeks * 7 - 1 });
 
   return (
     <form
@@ -472,79 +490,85 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       }}
       {...stylex.props(styles.form)}
     >
-      <form.Field name="date">
-        {(field) => (
-          <DateStrip
-            label={values.isRepeat ? "从哪天开始" : "日期"}
-            dates={dates}
-            value={field.state.value}
-            today={today}
-            onValueChange={(next) => {
-              field.handleChange(next);
-              form.setFieldValue("weekdays", [String(parseDate(next).dayOfWeek)]);
+      <div {...stylex.props(styles.when)}>
+        <DatePicker
+          label={values.isRepeat ? "从哪天开始" : "日期"}
+          value={values.date}
+          min={today}
+          max={maxDate}
+          today={today}
+          onValueChange={changeDate}
+        />
+        <div {...stylex.props(styles.timeColumn)}>
+          <TimePicker
+            availability={availability}
+            start={values.start}
+            end={values.end}
+            maxDurationMinutes={maxDuration}
+            onChange={(start, end) => {
+              form.setFieldValue("start", start);
+              form.setFieldValue("end", end);
+              setSubmitConflict(undefined);
+              setSubmitError(undefined);
             }}
           />
-        )}
-      </form.Field>
-
-      <Stack gap="xs">
-        <div {...stylex.props(styles.times)}>
-          <form.Field name="start">
-            {(field) => (
-              <SelectField
-                label="开始"
-                value={field.state.value}
-                options={startOptions(room, values.date, now)}
-                onValueChange={(next) => {
-                  const keep = Math.max(GRID_MINUTES, durationMinutes);
-                  const close = clockToMinutes(room.rules.closeTime);
-
-                  field.handleChange(next);
-                  form.setFieldValue(
-                    "end",
-                    minutesToClock(
-                      Math.min(
-                        clockToMinutes(next) + keep,
-                        close,
-                        clockToMinutes(next) + room.rules.maxDurationMinutes,
-                      ),
-                    ),
-                  );
-                }}
-              />
-            )}
-          </form.Field>
-          <form.Field name="end">
-            {(field) => (
-              <SelectField
-                label="结束"
-                isValueCompact
-                value={field.state.value}
-                options={endOptions(room, values.start)}
-                onValueChange={(next) => field.handleChange(next)}
-              />
-            )}
-          </form.Field>
+          <p {...stylex.props(styles.rules)}>
+            开放时间 {room.rules.openTime}–{room.rules.closeTime}
+            {isBlock
+              ? ""
+              : `，单次最长 ${formatDuration(maxDuration)}，最多提前 ${room.rules.maxAdvanceDays} 天预约`}
+          </p>
+          {values.isRepeat && editing === undefined ? null : (
+            <div aria-live="polite" {...stylex.props(styles.checkBox)}>
+              {submitError !== undefined ? (
+                <div {...stylex.props(styles.check, styles.checkBad)}>
+                  <span {...stylex.props(styles.checkIcon)}>
+                    <CircleAlert size={18} aria-hidden />
+                  </span>
+                  <span>{submitError}</span>
+                </div>
+              ) : visibleConflict !== undefined ? (
+                <ConflictPanel
+                  conflict={visibleConflict}
+                  isEditing={editing !== undefined}
+                  isBusy={isBusy}
+                  onTake={(index) => void takeSuggestion(visibleConflict, index)}
+                />
+              ) : violations.length > 0 ? (
+                <div {...stylex.props(styles.check, styles.checkWarn)}>
+                  <span {...stylex.props(styles.checkIcon)}>
+                    <CircleAlert size={18} aria-hidden />
+                  </span>
+                  <span>{violations.map((violation) => violation.message).join("；")}</span>
+                </div>
+              ) : isCheckOk && !isCheckStale ? (
+                <div {...stylex.props(styles.check, styles.checkOk)}>
+                  <span {...stylex.props(styles.checkIcon)}>
+                    <Check size={18} aria-hidden />
+                  </span>
+                  <span>
+                    {formatMonthDay(values.date)} {values.start}–{values.end} 可以预约
+                  </span>
+                </div>
+              ) : isRangeValid ? (
+                <div {...stylex.props(styles.check, styles.checkPending)}>
+                  <span {...stylex.props(styles.checkIcon)}>
+                    <LoaderCircle size={18} aria-hidden {...stylex.props(styles.spin)} />
+                  </span>
+                  <span>正在检查这个时段…</span>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
-        <span {...stylex.props(styles.duration)}>
-          {isRangeValid ? `共 ${formatDuration(durationMinutes)}` : "结束时间需要晚于开始时间"} · 开放时间{" "}
-          {room.rules.openTime}–{room.rules.closeTime}，单次最长{" "}
-          {formatDuration(room.rules.maxDurationMinutes)}
-        </span>
-      </Stack>
+      </div>
 
-      <form.Field name="title">
-        {(field) => (
-          <TextField
-            label="用途（可选）"
-            placeholder="例如：组会、答辩、面试"
-            value={field.state.value}
-            onValueChange={(next) => field.handleChange(next)}
-            maxLength={60}
-            error={field.state.meta.errors[0]?.message}
-          />
-        )}
-      </form.Field>
+      <PurposeField
+        value={values.title}
+        onValueChange={(next) => form.setFieldValue("title", next)}
+        error={titleError}
+        placeholder={isBlock ? "例如：消杀、考试" : undefined}
+      />
 
       {isAdmin && editing === undefined ? (
         <AdminOptions
@@ -555,141 +579,78 @@ export function BookingForm({ room, draft, editing, initialKind = "normal", onDo
       ) : null}
 
       {editing === undefined ? (
-        <form.Field name="isRepeat">
-          {(field) => (
-            <SwitchRow
-              label="重复预约"
-              hint="例如每周三的组会"
-              isChecked={field.state.value}
-              onCheckedChange={(next) => field.handleChange(next)}
-            />
-          )}
-        </form.Field>
+        <SwitchRow
+          label="重复预约"
+          hint="例如每周三的组会"
+          isChecked={values.isRepeat}
+          onCheckedChange={(next) => form.setFieldValue("isRepeat", next)}
+        />
       ) : null}
 
       {values.isRepeat && editing === undefined ? (
         <Card>
           <div {...stylex.props(styles.repeatBox)}>
-            <form.Field name="freq">
-              {(field) => (
-                <Segmented
-                  label="重复频率"
-                  value={field.state.value}
-                  isFullWidth
-                  options={[
-                    { value: "weekly", label: "每周" },
-                    { value: "biweekly", label: "每两周" },
-                  ]}
-                  onValueChange={(next) => field.handleChange(next)}
-                />
-              )}
-            </form.Field>
-            <form.Field name="weekdays">
-              {(field) => (
-                <Stack gap="xs">
-                  <ChipGroup
-                    label="在星期几"
-                    values={field.state.value}
-                    options={WEEKDAY_OPTIONS}
-                    onValuesChange={(next) => field.handleChange(next)}
-                  />
-                  {field.state.value.length === 0 ? <Notice tone="warning">至少选择一天</Notice> : null}
-                </Stack>
-              )}
-            </form.Field>
-            <form.Field name="endMode">
-              {(field) => (
-                <Segmented
-                  label="结束方式"
-                  value={field.state.value}
-                  isFullWidth
-                  options={[
-                    { value: "count", label: "按次数" },
-                    { value: "until", label: "截止日期" },
-                  ]}
-                  onValueChange={(next) => field.handleChange(next)}
-                />
-              )}
-            </form.Field>
+            <Segmented
+              label="重复频率"
+              value={values.freq}
+              isFullWidth
+              options={[
+                { value: "weekly", label: "每周" },
+                { value: "biweekly", label: "每两周" },
+              ]}
+              onValueChange={(next) => form.setFieldValue("freq", next)}
+            />
+            <Stack gap="xs">
+              <ChipGroup
+                label="在星期几"
+                values={values.weekdays}
+                options={WEEKDAY_OPTIONS}
+                onValuesChange={(next) => form.setFieldValue("weekdays", next)}
+              />
+              {values.weekdays.length === 0 ? <Notice tone="warning">至少选择一天</Notice> : null}
+            </Stack>
+            <Segmented
+              label="结束方式"
+              value={values.endMode}
+              isFullWidth
+              options={[
+                { value: "count", label: "按次数" },
+                { value: "until", label: "截止日期" },
+              ]}
+              onValueChange={(next) => form.setFieldValue("endMode", next)}
+            />
             {values.endMode === "count" ? (
-              <form.Field name="count">
-                {(field) => (
-                  <SelectField
-                    label="重复次数"
-                    value={field.state.value}
-                    options={COUNT_OPTIONS}
-                    onValueChange={(next) => field.handleChange(next)}
-                  />
-                )}
-              </form.Field>
+              <Stepper
+                label="重复次数"
+                value={values.count}
+                min={2}
+                max={Math.max(2, room.rules.recurringMaxWeeks)}
+                unit="次"
+                onValueChange={(next) => form.setFieldValue("count", next)}
+              />
             ) : (
-              <form.Field name="untilDate">
-                {(field) => (
-                  <TextField
-                    label="截止日期"
-                    type="date"
-                    min={values.date}
-                    value={field.state.value}
-                    onValueChange={(next) => field.handleChange(next)}
-                    description={`最长 ${room.rules.recurringMaxWeeks} 周`}
-                  />
-                )}
-              </form.Field>
+              <DatePicker
+                label={`截止日期（最长 ${room.rules.recurringMaxWeeks} 周）`}
+                value={values.untilDate}
+                min={selectedDate}
+                max={repeatHorizon}
+                today={today}
+                hasShortcuts={false}
+                isPopoverOnly
+                onValueChange={(next) => form.setFieldValue("untilDate", next)}
+              />
             )}
           </div>
         </Card>
       ) : null}
 
-      {values.isRepeat && editing === undefined ? (
-        values.weekdays.length === 0 || !isRangeValid ? null : (
-          <RecurringPreview
-            slug={room.slug}
-            rule={ruleFromValues(values)}
-            onChoicesChange={setSeriesOverrides}
-          />
-        )
-      ) : (
-        <div aria-live="polite" {...stylex.props(styles.checkBox)}>
-          {submitError !== undefined ? (
-            <div {...stylex.props(styles.check, styles.checkBad)}>
-              <span {...stylex.props(styles.checkIcon)}>
-                <CircleAlert size={18} aria-hidden />
-              </span>
-              <span>{submitError}</span>
-            </div>
-          ) : visibleConflict !== undefined ? (
-            <ConflictPanel
-              conflict={visibleConflict}
-              isEditing={editing !== undefined}
-              isBusy={isBusy}
-              onTake={(index) => void takeSuggestion(visibleConflict, index)}
-            />
-          ) : violations.length > 0 ? (
-            <div {...stylex.props(styles.check, styles.checkWarn)}>
-              <span {...stylex.props(styles.checkIcon)}>
-                <CircleAlert size={18} aria-hidden />
-              </span>
-              <span>{violations.map((violation) => violation.message).join("；")}</span>
-            </div>
-          ) : isCheckOk && !isCheckStale ? (
-            <div {...stylex.props(styles.check, styles.checkOk)}>
-              <span {...stylex.props(styles.checkIcon)}>
-                <Check size={18} aria-hidden />
-              </span>
-              <span>
-                {formatMonthDay(values.date)} {values.start}–{values.end} 可以预约
-              </span>
-            </div>
-          ) : isRangeValid ? (
-            <div {...stylex.props(styles.check, styles.checkPending)}>
-              <span {...stylex.props(styles.checkIcon)}>
-                <LoaderCircle size={18} aria-hidden {...stylex.props(styles.spin)} />
-              </span>
-              <span>正在检查这个时段…</span>
-            </div>
-          ) : null}
-        </div>
-      )}
+      {values.isRepeat && editing === undefined && values.weekdays.length > 0 && isRangeValid ? (
+        <RecurringPreview
+          slug={room.slug}
+          rule={ruleFromValues(values)}
+          onChoicesChange={setSeriesOverrides}
+        />
+      ) : null}
 
       {values.isRepeat && submitError !== undefined ? <Notice tone="busy">{submitError}</Notice> : null}
 
@@ -806,7 +767,7 @@ function AdminOptions({
       <Disclosure
         title="管理员选项"
         hint={values.kind === "block" ? "不可预约时段" : values.onBehalfOf === "" ? undefined : "代人预约"}
-        isDefaultOpen={values.kind === "block"}
+        isDefaultOpen={values.kind === "block" || values.onBehalfOf !== ""}
       >
         <Stack gap="md">
           <SwitchRow

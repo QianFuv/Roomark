@@ -255,3 +255,103 @@ export function dayAgenda<Item extends TimedItem>(
 
   return entries;
 }
+
+/** State of one grid step when picking a start time. */
+export type SlotState = "free" | "busy" | "past" | "closed";
+
+/** Open hours, the earliest bookable minute and the busy intervals of one day. */
+export interface DayAvailability<Item extends TimedItem> {
+  openMinutes: number;
+  closeMinutes: number;
+  earliestMinutes: number;
+  busy: PositionedItem<Item>[];
+}
+
+/**
+ * Collect what limits booking on one day.
+ *
+ * @param items - Bookings on any date (exclude the one being edited).
+ * @param date - The day.
+ * @param openClock - Opening time.
+ * @param closeClock - Closing time.
+ * @param now - Current time.
+ * @returns The availability.
+ */
+export function dayAvailability<Item extends TimedItem>(
+  items: readonly Item[],
+  date: Temporal.PlainDate,
+  openClock: string,
+  closeClock: string,
+  now: Temporal.ZonedDateTime,
+): DayAvailability<Item> {
+  const today = now.toPlainDate();
+  const isPastDay = date.until(today).days > 0;
+  const isToday = date.equals(today);
+
+  return {
+    openMinutes: clockToMinutes(openClock),
+    closeMinutes: clockToMinutes(closeClock),
+    earliestMinutes: isPastDay ? Number.POSITIVE_INFINITY : isToday ? ceilToGrid(minutesOfDay(now)) : 0,
+    busy: layoutDay(items, date, "00:00", "24:00"),
+  };
+}
+
+/**
+ * State of the grid step starting at a minute.
+ *
+ * @param availability - The day's availability.
+ * @param startMinutes - Minutes since midnight.
+ * @returns `closed` outside open hours, `past` before now, `busy` when a booking overlaps.
+ */
+export function slotState<Item extends TimedItem>(
+  availability: DayAvailability<Item>,
+  startMinutes: number,
+): SlotState {
+  const endMinutes = startMinutes + GRID_MINUTES;
+
+  if (startMinutes < availability.openMinutes || endMinutes > availability.closeMinutes) return "closed";
+
+  if (startMinutes < availability.earliestMinutes) return "past";
+
+  const isBusy = availability.busy.some(
+    (entry) => entry.startMinutes < endMinutes && startMinutes < entry.endMinutes,
+  );
+
+  return isBusy ? "busy" : "free";
+}
+
+/**
+ * The booking that first limits how long a slot starting at a minute can last.
+ *
+ * @param availability - The day's availability.
+ * @param startMinutes - Start minutes since midnight.
+ * @returns The first booking ending after the start, if any.
+ */
+export function nextBusy<Item extends TimedItem>(
+  availability: DayAvailability<Item>,
+  startMinutes: number,
+): PositionedItem<Item> | undefined {
+  return availability.busy.find((entry) => entry.endMinutes > startMinutes);
+}
+
+/**
+ * Latest end for a booking that starts at a minute: closing time, maximum duration and the next
+ * booking, whichever comes first. Equals the start when the start itself is taken.
+ *
+ * @param availability - The day's availability.
+ * @param startMinutes - Start minutes since midnight.
+ * @param maxDurationMinutes - Longest allowed booking.
+ * @returns Minutes since midnight.
+ */
+export function latestEnd<Item extends TimedItem>(
+  availability: DayAvailability<Item>,
+  startMinutes: number,
+  maxDurationMinutes: number,
+): number {
+  const limit = Math.min(availability.closeMinutes, startMinutes + maxDurationMinutes);
+  const blocker = nextBusy(availability, startMinutes);
+
+  if (blocker === undefined) return limit;
+
+  return Math.min(limit, Math.max(blocker.startMinutes, startMinutes));
+}
