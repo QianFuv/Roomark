@@ -29,7 +29,15 @@ export default defineConfig(({ mode }) => ({
   publicDir: mode === "test" || mode === "mock" ? "test-public" : "public",
   optimizeDeps:
     mode === "test"
-      ? { include: ["@stylexjs/stylex/lib/stylex-inject", "msw", "msw/browser", "vitest-browser-react"] }
+      ? {
+          include: [
+            "@stylexjs/stylex/lib/stylex-inject",
+            "motion/react",
+            "msw",
+            "msw/browser",
+            "vitest-browser-react",
+          ],
+        }
       : {},
   server: {
     host: "127.0.0.1",

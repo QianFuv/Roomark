@@ -173,15 +173,6 @@ function RoomFrame({ slug }: { slug: string }) {
             概况
           </Link>
           <Link
-            to="/r/$slug/calendar"
-            params={{ slug }}
-            activeOptions={{ includeSearch: false }}
-            {...stylex.props(styles.tab)}
-          >
-            <CalendarDays size={18} aria-hidden />
-            日历
-          </Link>
-          <Link
             to="/r/$slug/book"
             params={{ slug }}
             activeOptions={{ includeSearch: false }}
@@ -189,6 +180,15 @@ function RoomFrame({ slug }: { slug: string }) {
           >
             <CirclePlus size={18} aria-hidden />
             预约
+          </Link>
+          <Link
+            to="/r/$slug/calendar"
+            params={{ slug }}
+            activeOptions={{ includeSearch: false }}
+            {...stylex.props(styles.tab)}
+          >
+            <CalendarDays size={18} aria-hidden />
+            日历
           </Link>
         </nav>
       </div>

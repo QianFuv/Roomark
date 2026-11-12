@@ -2,14 +2,24 @@
  * Room calendar. Phones get a day view under a week strip (swipe to change day); narrow and wide
  * windows get a week view. Both share a time gutter, a now-line, tappable free gaps that open a
  * prefilled booking sheet, and booking blocks that show 用途 and the booker, with the viewer's
- * own bookings, series and blocked time told apart.
+ * own bookings, series and blocked time told apart. Paging slides the day/week content with Motion
+ * while the time gutter stays put; a touch swipe drags the content with the finger and commits
+ * past a distance or velocity threshold. Reduced motion changes pages instantly.
  *
  * @module
  */
-import type { Temporal } from "@js-temporal/polyfill";
+import { Temporal } from "@js-temporal/polyfill";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
-import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useDragControls,
+  type PanInfo,
+  type Transition,
+  type Variants,
+} from "motion/react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 
 import type { Booking, Room } from "../../api/client";
 import { dayAgenda, isFinished, isOngoing, layoutDay, proposeSlot } from "../../lib/schedule";
@@ -20,8 +30,8 @@ import {
   floorToGrid,
   formatClock,
   formatDateLabel,
+  formatDateSpan,
   formatDuration,
-  formatMonthDay,
   minutesOfDay,
   minutesToClock,
   parseDate,
@@ -32,7 +42,7 @@ import { colors, fonts, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
 import { Skeleton, Stack } from "../../ui/layout";
 import { Sheet } from "../../ui/sheet";
-import { useLayoutTier } from "../../ui/tier";
+import { useLayoutTier, usePrefersReducedMotion } from "../../ui/tier";
 import { notify } from "../../ui/toast";
 import { BookingDetailSheet } from "../booking/booking-detail";
 import { BookingForm, type BookingDraft } from "../booking/booking-form";
@@ -46,6 +56,31 @@ const WEEK_HOUR_HEIGHT = 52;
 
 /** Space above the first hour line so its label is not clipped. */
 const BODY_PADDING = 10;
+
+/** Height of the week view's day header row, shared by the fixed corner and the sliding header. */
+const HEAD_HEIGHT = 64;
+
+/** Share of the content width a swipe must travel to change the page. */
+const SWIPE_COMMIT_RATIO = 0.2;
+
+/** Swipe speed in px/s that changes the page even when the distance is short. */
+const SWIPE_COMMIT_VELOCITY = 500;
+
+/** Enter from the paging direction, leave the other way; direction 0 only cross-fades. */
+const PAGE_VARIANTS: Variants = {
+  enter: (direction: number) => ({ x: `${direction * 35}%`, opacity: direction === 0 ? 1 : 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: `${direction * -100}%`, opacity: 0 }),
+};
+
+/** Spring for the slide (keeps a swipe's velocity), quick fade for the cross-over. */
+const PAGE_TRANSITION: Transition = {
+  x: { type: "spring", stiffness: 420, damping: 42 },
+  opacity: { duration: 0.2, ease: "easeOut" },
+};
+
+/** Instant page change for reduced motion. */
+const INSTANT: Transition = { duration: 0 };
 
 const styles = stylex.create({
   toolbar: { alignItems: "center", display: "flex", gap: 6 },
@@ -97,15 +132,22 @@ const styles = stylex.create({
     borderRadius: radii.large,
     borderStyle: "solid",
     borderWidth: 1,
+    display: "grid",
     overflow: "hidden",
     touchAction: "pan-y",
   },
+  gutterColumn: { display: "flex", flexDirection: "column" },
+  viewport: { minWidth: 0, overflow: "hidden", position: "relative" },
+  pane: { backgroundColor: colors.surface, display: "flex", flexDirection: "column" },
   head: {
     backgroundColor: colors.surface,
     borderBottomColor: colors.border,
     borderBottomStyle: "solid",
     borderBottomWidth: 1,
+    boxSizing: "border-box",
     display: "grid",
+    flexShrink: 0,
+    height: HEAD_HEIGHT,
   },
   dayHead: {
     alignItems: "center",
@@ -115,7 +157,7 @@ const styles = stylex.create({
     fontSize: fonts.sizeXs,
     fontWeight: 600,
     gap: 2,
-    paddingBlock: 8,
+    justifyContent: "center",
   },
   dayHeadToday: { color: colors.primaryText },
   dayNumber: {
@@ -129,6 +171,7 @@ const styles = stylex.create({
   },
   dayNumberToday: { backgroundColor: colors.primary, borderRadius: radii.pill, color: colors.onPrimary },
   body: { display: "grid", paddingBottom: BODY_PADDING, paddingTop: BODY_PADDING },
+  gutterBody: { paddingBottom: BODY_PADDING, paddingTop: BODY_PADDING },
   gutter: { position: "relative" },
   hourLabel: {
     color: colors.textMuted,
@@ -188,7 +231,7 @@ const styles = stylex.create({
     backgroundColor: colors.busySolid,
     borderRadius: radii.pill,
     height: 8,
-    insetInlineStart: -4,
+    insetInlineStart: 0,
     position: "absolute",
     top: -3,
     width: 8,
@@ -297,15 +340,16 @@ const styles = stylex.create({
   swatchFree: { borderColor: colors.free, borderStyle: "dashed", borderWidth: 1 },
   height: (height: number) => ({ height }),
   position: (top: string, height: string) => ({ height, top }),
-  columns: (count: number, gutter: number) => ({
-    gridTemplateColumns: `${gutter}px repeat(${count}, minmax(0, 1fr))`,
-  }),
+  gutterWidth: (gutter: number) => ({ gridTemplateColumns: `${gutter}px minmax(0, 1fr)` }),
+  columns: (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }),
 });
 
 /** Props of {@link RoomCalendar}. */
 export interface RoomCalendarProps {
   slug: string;
   anchorDate: string | undefined;
+  /** `HH:MM` to scroll into view, e.g. after tapping a heatmap cell. */
+  focusClock?: string;
   onAnchorChange: (date: string | undefined) => void;
 }
 
@@ -315,7 +359,7 @@ export interface RoomCalendarProps {
  * @param props - Calendar props.
  * @returns The calendar.
  */
-export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarProps) {
+export function RoomCalendar({ slug, anchorDate, focusClock, onAnchorChange }: RoomCalendarProps) {
   const tier = useLayoutTier();
   const isDayView = tier === "mobile";
   const now = useNow(30_000);
@@ -330,7 +374,48 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
   const [selected, setSelected] = useState<Booking>();
   const [draft, setDraft] = useState<BookingDraft>();
   const swipeStart = useRef<{ x: number; y: number }>(undefined);
+  const didSwipe = useRef(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
+  const isReducedMotion = usePrefersReducedMotion();
   const room = detail.data?.room;
+  const openTime = room?.rules.openTime;
+  const closeTime = room?.rules.closeTime;
+  const pageDate = isDayView ? anchor : weekStart;
+  const pageKey = `${isDayView ? "day" : "week"}-${pageDate.toString()}`;
+  const [paging, setPaging] = useState({ key: pageKey, date: pageDate, isDayView, direction: 0 });
+
+  if (paging.key !== pageKey) {
+    setPaging({
+      key: pageKey,
+      date: pageDate,
+      isDayView,
+      direction: paging.isDayView === isDayView ? Temporal.PlainDate.compare(pageDate, paging.date) : 0,
+    });
+  }
+
+  useEffect(() => {
+    const gutterElement = gutterRef.current;
+
+    if (
+      focusClock === undefined ||
+      openTime === undefined ||
+      closeTime === undefined ||
+      gutterElement === null
+    ) {
+      return;
+    }
+
+    const openMinutes = clockToMinutes(openTime);
+    const span = Math.max(clockToMinutes(closeTime) - openMinutes, GRID_MINUTES);
+    const ratio = Math.min(Math.max((clockToMinutes(focusClock) - openMinutes) / span, 0), 1);
+    const rect = gutterElement.getBoundingClientRect();
+    const top = window.scrollY + rect.top + ratio * rect.height - window.innerHeight * 0.3;
+    const isReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    window.scrollTo({ top: Math.max(0, top), behavior: isReduced ? "auto" : "smooth" });
+  }, [anchorDate, closeTime, focusClock, openTime]);
 
   /**
    * Move the view by days.
@@ -342,16 +427,27 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
   }
 
   /**
-   * Remember where a touch swipe starts.
+   * Start a touch swipe: the content follows the finger, or with reduced motion only the start
+   * point is remembered.
    *
    * @param event - Pointer event.
    */
   function onPointerDown(event: PointerEvent<HTMLDivElement>): void {
-    if (event.pointerType === "touch") swipeStart.current = { x: event.clientX, y: event.clientY };
+    didSwipe.current = false;
+
+    if (event.pointerType !== "touch") return;
+
+    if (isReducedMotion) {
+      swipeStart.current = { x: event.clientX, y: event.clientY };
+
+      return;
+    }
+
+    dragControls.start(event);
   }
 
   /**
-   * Change day (day view) or week on a horizontal swipe.
+   * Reduced motion: change day (day view) or week on a horizontal swipe, without animation.
    *
    * @param event - Pointer event.
    */
@@ -367,6 +463,27 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
 
     if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
       move((deltaX < 0 ? 1 : -1) * (isDayView ? 1 : 7));
+    }
+  }
+
+  /**
+   * Commit a dragged swipe past the distance or velocity threshold; otherwise the content springs
+   * back.
+   *
+   * @param _event - Pointer event.
+   * @param info - Drag offset and velocity.
+   */
+  function onDragEnd(_event: unknown, info: PanInfo): void {
+    const width = viewportRef.current?.clientWidth ?? 360;
+    const offset = info.offset.x;
+
+    const isFlick =
+      Math.abs(info.velocity.x) > SWIPE_COMMIT_VELOCITY && Math.sign(info.velocity.x) === Math.sign(offset);
+
+    didSwipe.current = Math.abs(offset) > 10;
+
+    if (Math.abs(offset) > width * SWIPE_COMMIT_RATIO || (isFlick && Math.abs(offset) > 16)) {
+      move((offset < 0 ? 1 : -1) * (isDayView ? 1 : 7));
     }
   }
 
@@ -397,11 +514,7 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
 
   const hasFutureDay = days.some((date) => date.until(today).days <= 0);
 
-  const rangeLabel = isDayView
-    ? `${anchor.month}月${anchor.day}日 ${weekdayLabel(anchor.dayOfWeek)}`
-    : weekStart.month === weekEnd.month
-      ? `${weekStart.month}月${weekStart.day}日–${weekEnd.day}日`
-      : `${formatMonthDay(weekStart)}–${formatMonthDay(weekEnd)}`;
+  const rangeLabel = isDayView ? formatDateLabel(anchor) : formatDateSpan(weekStart, weekEnd);
 
   /**
    * Open the booking sheet for a tap on free time.
@@ -478,12 +591,6 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
         </div>
       ) : null}
 
-      {visibleCount === 0 && hasFutureDay && bookings.data !== undefined ? (
-        <p {...stylex.props(styles.emptyLine)}>
-          {isDayView ? "这天还没有预约" : "这周还没有预约"}，点任意空闲时间即可预约。
-        </p>
-      ) : null}
-
       <div
         role="region"
         aria-label={`${room.name} ${rangeLabel} 的预约`}
@@ -492,72 +599,111 @@ export function RoomCalendar({ slug, anchorDate, onAnchorChange }: RoomCalendarP
         onPointerCancel={() => {
           swipeStart.current = undefined;
         }}
-        {...stylex.props(styles.frame)}
-      >
-        {isDayView ? null : (
-          <div {...stylex.props(styles.head, styles.columns(days.length, gutter))}>
-            <span />
-            {days.map((date) => {
-              const isToday = date.equals(today);
+        onClickCapture={(event) => {
+          if (!didSwipe.current) return;
 
-              return (
-                <span
-                  key={date.toString()}
-                  aria-label={formatDateLabel(date)}
-                  {...stylex.props(styles.dayHead, isToday && styles.dayHeadToday)}
-                >
-                  {isToday ? "今天" : weekdayLabel(date.dayOfWeek)}
-                  <span {...stylex.props(styles.dayNumber, isToday && styles.dayNumberToday)}>
-                    {date.day}
+          didSwipe.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        {...stylex.props(styles.frame, styles.gutterWidth(gutter))}
+      >
+        <div {...stylex.props(styles.gutterColumn)}>
+          {isDayView ? null : <span aria-hidden {...stylex.props(styles.head)} />}
+          <div {...stylex.props(styles.gutterBody)}>
+            <div ref={gutterRef} aria-hidden {...stylex.props(styles.gutter, styles.height(bodyHeight))}>
+              {lines
+                .filter((minutes) => minutes % 60 === 0)
+                .map((minutes) => (
+                  <span
+                    key={minutes}
+                    {...stylex.props(
+                      styles.hourLabel,
+                      styles.position(`${((minutes - openMinutes) / span) * 100}%`, "auto"),
+                    )}
+                  >
+                    {minutesToClock(minutes)}
                   </span>
-                </span>
-              );
-            })}
-          </div>
-        )}
-        <div {...stylex.props(styles.body, styles.columns(days.length, gutter))}>
-          <div aria-hidden {...stylex.props(styles.gutter, styles.height(bodyHeight))}>
-            {lines
-              .filter((minutes) => minutes % 60 === 0)
-              .map((minutes) => (
+                ))}
+              {isNowInside ? (
                 <span
-                  key={minutes}
                   {...stylex.props(
-                    styles.hourLabel,
-                    styles.position(`${((minutes - openMinutes) / span) * 100}%`, "auto"),
+                    styles.nowLabel,
+                    styles.position(`${((nowMinutes - openMinutes) / span) * 100}%`, "auto"),
                   )}
                 >
-                  {minutesToClock(minutes)}
+                  {formatClock(now)}
                 </span>
-              ))}
-            {isNowInside ? (
-              <span
-                {...stylex.props(
-                  styles.nowLabel,
-                  styles.position(`${((nowMinutes - openMinutes) / span) * 100}%`, "auto"),
-                )}
-              >
-                {formatClock(now)}
-              </span>
-            ) : null}
+              ) : null}
+            </div>
           </div>
-          {days.map((date) => (
-            <DayColumn
-              key={date.toString()}
-              date={date}
-              room={room}
-              items={items}
-              now={now}
-              lines={lines}
-              hourHeight={hourHeight}
-              bodyHeight={bodyHeight}
-              isDayView={isDayView}
-              onTapFree={(minutes) => tapFree(date, minutes)}
-              onSelect={setSelected}
-            />
-          ))}
+        </div>
+        <div ref={viewportRef} {...stylex.props(styles.viewport)}>
+          <AnimatePresence initial={false} custom={paging.direction} mode="popLayout">
+            <motion.div
+              key={pageKey}
+              custom={paging.direction}
+              variants={PAGE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={isReducedMotion ? INSTANT : PAGE_TRANSITION}
+              drag={isReducedMotion ? false : "x"}
+              dragControls={dragControls}
+              dragListener={false}
+              dragDirectionLock
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.85}
+              onDragEnd={onDragEnd}
+              {...stylex.props(styles.pane)}
+            >
+              {isDayView ? null : (
+                <div {...stylex.props(styles.head, styles.columns(days.length))}>
+                  {days.map((date) => {
+                    const isToday = date.equals(today);
+
+                    return (
+                      <span
+                        key={date.toString()}
+                        aria-label={formatDateLabel(date)}
+                        {...stylex.props(styles.dayHead, isToday && styles.dayHeadToday)}
+                      >
+                        {isToday ? "今天" : weekdayLabel(date.dayOfWeek)}
+                        <span {...stylex.props(styles.dayNumber, isToday && styles.dayNumberToday)}>
+                          {date.day}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <div {...stylex.props(styles.body, styles.columns(days.length))}>
+                {days.map((date) => (
+                  <DayColumn
+                    key={date.toString()}
+                    date={date}
+                    room={room}
+                    items={items}
+                    now={now}
+                    lines={lines}
+                    hourHeight={hourHeight}
+                    bodyHeight={bodyHeight}
+                    isDayView={isDayView}
+                    onTapFree={(minutes) => tapFree(date, minutes)}
+                    onSelect={setSelected}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
+
+      {visibleCount === 0 && hasFutureDay && bookings.data !== undefined ? (
+        <p {...stylex.props(styles.emptyLine)}>
+          {isDayView ? "这天还没有预约" : "这周还没有预约"}，点任意空闲时间即可预约。
+        </p>
+      ) : null}
 
       <div aria-hidden {...stylex.props(styles.legend)}>
         <span {...stylex.props(styles.legendItem)}>

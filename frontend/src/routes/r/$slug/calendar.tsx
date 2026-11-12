@@ -13,6 +13,10 @@ const searchSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
 });
 
 export const Route = createFileRoute("/r/$slug/calendar")({
@@ -27,13 +31,14 @@ export const Route = createFileRoute("/r/$slug/calendar")({
  */
 function CalendarPage() {
   const { slug } = Route.useParams();
-  const { date } = Route.useSearch();
+  const { date, time } = Route.useSearch();
   const navigate = useNavigate();
 
   return (
     <RoomCalendar
       slug={slug}
       anchorDate={date}
+      focusClock={time}
       onAnchorChange={(next) =>
         void navigate({
           to: "/r/$slug/calendar",
