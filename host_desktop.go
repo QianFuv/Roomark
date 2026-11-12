@@ -8,11 +8,17 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"log/slog"
 	"os"
+	"runtime"
 )
 
 const platformName = "desktop"
 
+// configureClient connects desktop navigation and tray actions to the client window.
 func configureClient(app *application.App, window *application.WebviewWindow, hosts *hostServices) {
+	if runtime.GOOS == "windows" {
+		window.RegisterKeyBinding("alt+left", func(window application.Window) { window.ExecJS("history.back()") })
+		window.RegisterKeyBinding("alt+right", func(window application.Window) { window.ExecJS("history.forward()") })
+	}
 	tray := app.SystemTray.New()
 	hosts.tray.tray = tray
 	if icon, err := trayIcon(false); err == nil {
