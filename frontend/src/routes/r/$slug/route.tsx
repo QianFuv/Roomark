@@ -40,8 +40,15 @@ export const Route = createFileRoute("/r/$slug")({
 });
 
 const styles = stylex.create({
-  header: { display: "flex", flexDirection: "column", gap: 4 },
-  name: { fontSize: { default: fonts.sizeXxl, [media.tablet]: 30 }, fontWeight: 800, lineHeight: 1.2 },
+  top: {
+    alignItems: { default: "stretch", [media.narrow]: "flex-end" },
+    display: "flex",
+    flexDirection: { default: "column", [media.narrow]: "row" },
+    gap: { default: 14, [media.narrow]: 24 },
+    justifyContent: "space-between",
+  },
+  header: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 },
+  name: { fontSize: { default: fonts.sizeXxl, [media.narrow]: 30 }, fontWeight: 800, lineHeight: 1.2 },
   meta: {
     alignItems: "center",
     color: colors.textMuted,
@@ -55,8 +62,10 @@ const styles = stylex.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.medium,
     display: "flex",
+    flexShrink: 0,
     gap: 2,
     padding: 3,
+    width: { default: "100%", [media.narrow]: 360 },
   },
   tab: {
     alignItems: "center",
@@ -134,53 +143,55 @@ function RoomFrame({ slug }: { slug: string }) {
 
   return (
     <Stack gap="lg">
-      <header {...stylex.props(styles.header)}>
-        {room === undefined ? (
-          <Skeleton height={36} width="50%" />
-        ) : (
-          <>
-            <h1 {...stylex.props(styles.name)}>{room.name}</h1>
-            <div {...stylex.props(styles.meta)}>
-              {room.location === "" ? null : <span>{room.location}</span>}
-              {room.capacity > 0 ? (
-                <span {...stylex.props(styles.metaItem)}>
-                  <Users size={14} aria-hidden />
-                  可容纳 {room.capacity} 人
-                </span>
-              ) : null}
-            </div>
-          </>
-        )}
-      </header>
-      <nav aria-label="会议室" {...stylex.props(styles.tabs)}>
-        <Link
-          to="/r/$slug"
-          params={{ slug }}
-          activeOptions={{ exact: true, includeSearch: false }}
-          {...stylex.props(styles.tab)}
-        >
-          <House size={18} aria-hidden />
-          概况
-        </Link>
-        <Link
-          to="/r/$slug/calendar"
-          params={{ slug }}
-          activeOptions={{ includeSearch: false }}
-          {...stylex.props(styles.tab)}
-        >
-          <CalendarDays size={18} aria-hidden />
-          日历
-        </Link>
-        <Link
-          to="/r/$slug/book"
-          params={{ slug }}
-          activeOptions={{ includeSearch: false }}
-          {...stylex.props(styles.tab)}
-        >
-          <CirclePlus size={18} aria-hidden />
-          预约
-        </Link>
-      </nav>
+      <div {...stylex.props(styles.top)}>
+        <header {...stylex.props(styles.header)}>
+          {room === undefined ? (
+            <Skeleton height={36} width="50%" />
+          ) : (
+            <>
+              <h1 {...stylex.props(styles.name)}>{room.name}</h1>
+              <div {...stylex.props(styles.meta)}>
+                {room.location === "" ? null : <span>{room.location}</span>}
+                {room.capacity > 0 ? (
+                  <span {...stylex.props(styles.metaItem)}>
+                    <Users size={14} aria-hidden />
+                    可容纳 {room.capacity} 人
+                  </span>
+                ) : null}
+              </div>
+            </>
+          )}
+        </header>
+        <nav aria-label="会议室" {...stylex.props(styles.tabs)}>
+          <Link
+            to="/r/$slug"
+            params={{ slug }}
+            activeOptions={{ exact: true, includeSearch: false }}
+            {...stylex.props(styles.tab)}
+          >
+            <House size={18} aria-hidden />
+            概况
+          </Link>
+          <Link
+            to="/r/$slug/calendar"
+            params={{ slug }}
+            activeOptions={{ includeSearch: false }}
+            {...stylex.props(styles.tab)}
+          >
+            <CalendarDays size={18} aria-hidden />
+            日历
+          </Link>
+          <Link
+            to="/r/$slug/book"
+            params={{ slug }}
+            activeOptions={{ includeSearch: false }}
+            {...stylex.props(styles.tab)}
+          >
+            <CirclePlus size={18} aria-hidden />
+            预约
+          </Link>
+        </nav>
+      </div>
       <Outlet />
     </Stack>
   );

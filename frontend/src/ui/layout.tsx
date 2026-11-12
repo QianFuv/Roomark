@@ -20,7 +20,7 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: 12,
     minWidth: 0,
-    padding: { default: 16, [media.tablet]: 20 },
+    padding: { default: 16, [media.narrow]: 20 },
   },
   section: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
   sectionHeader: {
@@ -35,7 +35,7 @@ const styles = stylex.create({
   pageHeader: { display: "flex", flexDirection: "column", gap: 4, paddingBottom: 4 },
   pageTitle: {
     color: colors.text,
-    fontSize: { default: fonts.sizeXxl, [media.tablet]: 30 },
+    fontSize: { default: fonts.sizeXxl, [media.narrow]: 30 },
     fontWeight: 800,
     lineHeight: 1.2,
   },

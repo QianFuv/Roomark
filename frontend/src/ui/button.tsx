@@ -70,7 +70,7 @@ const styles = stylex.create({
     color: colors.onPrimary,
   },
   success: {
-    backgroundColor: { default: colors.free, ":hover:not(:disabled)": colors.freeStrong },
+    backgroundColor: { default: colors.freeSolid, ":hover:not(:disabled)": colors.freeSolidHover },
     color: colors.onFree,
   },
   secondary: {
@@ -87,7 +87,7 @@ const styles = stylex.create({
     color: colors.text,
   },
   danger: {
-    backgroundColor: { default: colors.busySoft, ":hover:not(:disabled)": colors.busy },
+    backgroundColor: { default: colors.busySoft, ":hover:not(:disabled)": colors.busySolid },
     color: { default: colors.busyStrong, ":hover:not(:disabled)": "#ffffff" },
   },
   spinner: {

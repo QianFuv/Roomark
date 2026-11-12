@@ -53,8 +53,8 @@ const styles = stylex.create({
     gap: 12,
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
-      [media.tablet]: "repeat(2, minmax(0, 1fr))",
-      [media.desktop]: "220px auto auto 1fr",
+      [media.narrow]: "repeat(2, minmax(0, 1fr))",
+      [media.wide]: "220px auto auto 1fr",
     },
   },
   filterGroup: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
@@ -66,7 +66,7 @@ const styles = stylex.create({
     gap: 12,
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
-      [media.desktop]: "repeat(4, minmax(0, 1fr))",
+      [media.wide]: "repeat(4, minmax(0, 1fr))",
     },
   },
   kpi: {
@@ -84,7 +84,7 @@ const styles = stylex.create({
   kpiLabel: { color: colors.textMuted, fontSize: fonts.sizeSm, fontWeight: 600 },
   kpiValue: {
     color: colors.text,
-    fontSize: { default: 26, [media.tablet]: 32 },
+    fontSize: { default: 26, [media.narrow]: 32 },
     fontVariantNumeric: "tabular-nums",
     fontWeight: 800,
     lineHeight: 1.1,
@@ -106,7 +106,7 @@ const styles = stylex.create({
     alignItems: "start",
     display: "grid",
     gap: 16,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.desktop]: "repeat(2, minmax(0, 1fr))" },
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.wide]: "repeat(2, minmax(0, 1fr))" },
   },
   metricGrid: { display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
   metric: { display: "flex", flexDirection: "column", gap: 2 },

@@ -10,7 +10,7 @@ import { Archive, Plus, QrCode, RefreshCw, Settings2, Users } from "lucide-react
 import { useState } from "react";
 import { z } from "zod";
 
-import { api, errorMessage, fetchClient, invalidateBookings, type AdminRoom } from "../../api/client";
+import { api, errorMessage, fetchClient, refreshBookings, type AdminRoom } from "../../api/client";
 import { gridClockOptions } from "../../lib/time";
 import { colors, fonts, media, radii } from "../../styles/tokens.stylex";
 import { Button } from "../../ui/button";
@@ -54,7 +54,11 @@ const styles = stylex.create({
   grid: {
     display: "grid",
     gap: 12,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.tablet]: "repeat(2, minmax(0, 1fr))" },
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [media.narrow]: "repeat(2, minmax(0, 1fr))",
+      [media.wide]: "repeat(3, minmax(0, 1fr))",
+    },
   },
   roomName: { fontSize: fonts.sizeLg, fontWeight: 700 },
   meta: { color: colors.textMuted, fontSize: fonts.sizeSm, lineHeight: 1.6 },
@@ -229,7 +233,7 @@ function AdminRoomsPage() {
             onDone={() => {
               setEditing(undefined);
               void rooms.refetch();
-              void invalidateBookings();
+              void refreshBookings();
             }}
           />
         )}

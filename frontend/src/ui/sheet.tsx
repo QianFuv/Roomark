@@ -49,10 +49,10 @@ const styles = stylex.create({
     fontFamily: fonts.sans,
     maxHeight: "92dvh",
     outline: "none",
-    width: { default: "100%", [media.tablet]: "min(560px, 100% - 32px)" },
+    width: { default: "100%", [media.narrow]: "min(560px, 100% - 32px)" },
   },
   popupWide: {
-    width: { default: "100%", [media.tablet]: "min(720px, 100% - 32px)" },
+    width: { default: "100%", [media.narrow]: "min(720px, 100% - 32px)" },
   },
   handle: {
     backgroundColor: colors.borderStrong,

@@ -7,13 +7,46 @@ import { Collapsible } from "@animate-ui/react/primitives/base-ui/collapsible";
 import { Switch } from "@animate-ui/react/primitives/base-ui/switch";
 import { Tabs } from "@animate-ui/react/primitives/base-ui/tabs";
 import { Field } from "@base-ui/react/field";
+import { NumberField } from "@base-ui/react/number-field";
 import * as stylex from "@stylexjs/stylex";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Minus, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { colors, fonts, media, radii } from "../styles/tokens.stylex";
 
 const styles = stylex.create({
+  stepperRoot: { alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between" },
+  stepperLabel: { color: colors.text, fontSize: fonts.sizeSm, fontWeight: 600 },
+  stepperGroup: { alignItems: "center", display: "flex", gap: 6 },
+  stepperButton: {
+    alignItems: "center",
+    backgroundColor: { default: colors.surface, ":hover:not([data-disabled])": colors.surfaceHover },
+    borderColor: colors.borderStrong,
+    borderRadius: radii.medium,
+    borderStyle: "solid",
+    borderWidth: 1,
+    color: colors.text,
+    cursor: { default: "pointer", "[data-disabled]": "not-allowed" },
+    display: "inline-flex",
+    height: 40,
+    justifyContent: "center",
+    opacity: { default: 1, "[data-disabled]": 0.4 },
+    outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
+    width: 44,
+  },
+  stepperInput: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    color: colors.text,
+    fontFamily: fonts.sans,
+    fontSize: fonts.sizeLg,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 700,
+    outline: { default: "none", ":focus-visible": `3px solid ${colors.focusRing}` },
+    textAlign: "center",
+    width: 48,
+  },
+  stepperUnit: { color: colors.textMuted, fontSize: fonts.sizeSm },
   switchRow: {
     alignItems: "center",
     display: "flex",
@@ -216,5 +249,50 @@ export function Disclosure({ title, hint, isDefaultOpen = false, children }: Dis
       </Collapsible.Trigger>
       <Collapsible.Panel {...stylex.props(styles.disclosurePanel)}>{children}</Collapsible.Panel>
     </Collapsible.Root>
+  );
+}
+
+/** Props of {@link Stepper}. */
+export interface StepperProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  unit?: string;
+  onValueChange: (value: number) => void;
+}
+
+/**
+ * Compact number input with − / + buttons (Base UI NumberField), used instead of long dropdowns.
+ *
+ * @param props - Stepper props.
+ * @returns The stepper.
+ */
+export function Stepper({ label, value, min, max, unit, onValueChange }: StepperProps) {
+  return (
+    <NumberField.Root
+      value={value}
+      min={min}
+      max={max}
+      step={1}
+      onValueChange={(next) => {
+        if (next !== null) onValueChange(Math.min(Math.max(Math.round(next), min), max));
+      }}
+      {...stylex.props(styles.stepperRoot)}
+    >
+      <span aria-hidden {...stylex.props(styles.stepperLabel)}>
+        {label}
+      </span>
+      <NumberField.Group {...stylex.props(styles.stepperGroup)}>
+        <NumberField.Decrement aria-label={`减少${label}`} {...stylex.props(styles.stepperButton)}>
+          <Minus size={18} aria-hidden />
+        </NumberField.Decrement>
+        <NumberField.Input aria-label={label} {...stylex.props(styles.stepperInput)} />
+        <NumberField.Increment aria-label={`增加${label}`} {...stylex.props(styles.stepperButton)}>
+          <Plus size={18} aria-hidden />
+        </NumberField.Increment>
+        {unit === undefined ? null : <span {...stylex.props(styles.stepperUnit)}>{unit}</span>}
+      </NumberField.Group>
+    </NumberField.Root>
   );
 }

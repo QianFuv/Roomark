@@ -22,7 +22,11 @@ const styles = stylex.create({
   grid: {
     display: "grid",
     gap: 12,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.tablet]: "repeat(2, minmax(0, 1fr))" },
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [media.narrow]: "repeat(2, minmax(0, 1fr))",
+      [media.wide]: "repeat(3, minmax(0, 1fr))",
+    },
   },
   card: {
     alignItems: "center",

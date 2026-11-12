@@ -38,7 +38,7 @@ const styles = stylex.create({
     alignItems: "start",
     display: "grid",
     gap: 16,
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.desktop]: "minmax(0, 1fr) 360px" },
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [media.wide]: "minmax(0, 1fr) 360px" },
   },
   stage: {
     alignItems: "center",
@@ -47,7 +47,7 @@ const styles = stylex.create({
     display: "flex",
     justifyContent: "center",
     minHeight: 360,
-    padding: { default: 16, [media.tablet]: 32 },
+    padding: { default: 16, [media.narrow]: 32 },
   },
   paper: {
     backgroundColor: "#ffffff",

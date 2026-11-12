@@ -1,8 +1,11 @@
 /**
  * Design tokens: colors, radii, spacing and type scale.
  *
- * Colors use `light-dark()`, so the theme follows the root `color-scheme`, which next-themes sets
- * before the first paint (system, light or dark).
+ * Colors follow the T3 Soft palette (`docs/design/t3-soft.json`): the light value of each
+ * `light-dark()` pair comes from `variants.light`, the dark value from `colors`. Status colors map
+ * onto the palette's own accents: free = accent blue, busy = error red, warning and blocked time =
+ * warning amber. The theme follows the root `color-scheme`, which next-themes sets before the first
+ * paint (system, light or dark).
  *
  * @module
  */
@@ -10,54 +13,58 @@ import * as stylex from "@stylexjs/stylex";
 
 /** Semantic colors for both color schemes. */
 export const colors = stylex.defineVars({
-  canvas: "light-dark(#f4f6f9, #0e1014)",
-  surface: "light-dark(#ffffff, #161920)",
-  surfaceRaised: "light-dark(#ffffff, #2a303c)",
-  surfaceMuted: "light-dark(#eef1f5, #1f232c)",
-  surfaceHover: "light-dark(#e6eaf0, #272c37)",
-  border: "light-dark(#dfe3ea, #2a2f3a)",
-  borderStrong: "light-dark(#c5ccd6, #3a4150)",
-  text: "light-dark(#14171d, #eef0f4)",
-  textMuted: "light-dark(#535b69, #a7adb9)",
-  textSubtle: "light-dark(#656d7c, #8d94a3)",
-  primary: "light-dark(#2457d6, #6e98ff)",
-  primaryHover: "light-dark(#1d4bbd, #88aaff)",
-  primaryText: "light-dark(#1e4fc4, #8eb0ff)",
-  onPrimary: "light-dark(#ffffff, #0a1022)",
-  primarySoft: "light-dark(#e7eefd, #1b2743)",
-  free: "light-dark(#11804a, #3fcf86)",
-  freeStrong: "light-dark(#0b6b3d, #62dc9d)",
-  onFree: "light-dark(#ffffff, #052614)",
-  freeSoft: "light-dark(#e2f5ea, #11291c)",
-  busy: "light-dark(#c23a2e, #ff7365)",
-  busyStrong: "light-dark(#a52f25, #ff8d81)",
-  busySoft: "light-dark(#fdebe8, #35191a)",
-  warning: "light-dark(#a15c07, #f3b44f)",
-  warningSoft: "light-dark(#fff3dd, #2f2413)",
-  info: "light-dark(#2457d6, #6e98ff)",
-  infoSoft: "light-dark(#e7eefd, #1b2743)",
-  block: "light-dark(#6b7280, #9aa1ae)",
-  blockSoft: "light-dark(#eceef2, #252a33)",
-  focusRing: "light-dark(rgb(36 87 214 / 0.45), rgb(110 152 255 / 0.55))",
-  scrim: "light-dark(rgb(15 18 25 / 0.45), rgb(0 0 0 / 0.6))",
-  shadow: "light-dark(rgb(16 24 40 / 0.08), rgb(0 0 0 / 0.35))",
-  shadowStrong: "light-dark(rgb(16 24 40 / 0.18), rgb(0 0 0 / 0.55))",
-  heat0: "light-dark(#eef1f5, #1f232c)",
-  heat1: "light-dark(#86b6ef, #184f95)",
-  heat2: "light-dark(#3987e5, #256abf)",
-  heat3: "light-dark(#256abf, #3987e5)",
-  heat4: "light-dark(#104281, #86b6ef)",
-  chart1: "light-dark(#2a78d6, #3987e5)",
-  chart2: "light-dark(#eb6834, #d95926)",
-  chart3: "light-dark(#1baf7a, #199e70)",
+  canvas: "light-dark(#f6f6f6, #141414)",
+  surface: "light-dark(#fbfbfb, #1b1b1b)",
+  surfaceRaised: "light-dark(#ffffff, #1e1e1e)",
+  surfaceMuted: "light-dark(#efefef, #252525)",
+  surfaceHover: "light-dark(#ededee, #2c2c2c)",
+  sidebar: "light-dark(#efefef, #1c1c1c)",
+  sidebarHover: "light-dark(#e7e7e8, #2c2c2c)",
+  sidebarActive: "light-dark(#fbfbfb, #343434)",
+  border: "light-dark(#e0e0e3, #242424)",
+  borderStrong: "light-dark(#d0d0d4, #343434)",
+  text: "light-dark(#27272a, #f5f5f5)",
+  textMuted: "light-dark(#696973, #8e8e8e)",
+  textSubtle: "light-dark(#676771, #a3a3a3)",
+  primary: "light-dark(#1b4ed8, #346bf1)",
+  primaryHover: "light-dark(#3160db, #3061d9)",
+  primaryText: "light-dark(#1b4ed8, #51a2ff)",
+  onPrimary: "#ffffff",
+  primarySoft: "light-dark(#dbe1f2, #1b2440)",
+  free: "light-dark(#1b4ed8, #51a2ff)",
+  freeStrong: "light-dark(#1b4ed8, #51a2ff)",
+  freeSolid: "light-dark(#1b4ed8, #346bf1)",
+  freeSolidHover: "light-dark(#3160db, #3061d9)",
+  onFree: "#ffffff",
+  freeSoft: "light-dark(#dbe1f2, #1b2440)",
+  busy: "light-dark(#c10007, #ff6467)",
+  busySolid: "light-dark(#fb2c36, #fb414a)",
+  busyStrong: "light-dark(#c10007, #ff6467)",
+  busySoft: "light-dark(#f7e6e7, #3a1a1c)",
+  warning: "light-dark(#b54b00, #ffb900)",
+  warningSolid: "#fe9a00",
+  warningSoft: "light-dark(#f7efe2, #3b2a11)",
+  info: "light-dark(#1b4ed8, #51a2ff)",
+  infoSoft: "light-dark(#dbe1f2, #1b2440)",
+  focusRing: "light-dark(rgb(27 78 216 / 0.45), rgb(52 107 241 / 0.6))",
+  scrim: "light-dark(rgb(39 39 42 / 0.4), rgb(0 0 0 / 0.6))",
+  shadowStrong: "light-dark(rgb(39 39 42 / 0.14), rgb(0 0 0 / 0.5))",
+  heat0: "light-dark(#efefef, #252525)",
+  heat1: "light-dark(#c6d2f1, #1b2c5c)",
+  heat2: "light-dark(#89a5e8, #22438f)",
+  heat3: "light-dark(#4b74df, #2f5fd6)",
+  heat4: "light-dark(#1b4ed8, #51a2ff)",
+  chart1: "light-dark(#1b4ed8, #346bf1)",
+  chart2: "light-dark(#fe9a00, #fe9a00)",
+  chart3: "light-dark(#fb2c36, #fb414a)",
 });
 
 /** Corner radii. */
 export const radii = stylex.defineConsts({
-  small: "8px",
-  medium: "12px",
-  large: "16px",
-  extraLarge: "22px",
+  small: "6px",
+  medium: "10px",
+  large: "14px",
+  extraLarge: "20px",
   pill: "999px",
 });
 
@@ -74,10 +81,15 @@ export const fonts = stylex.defineConsts({
   sizeHero: "34px",
 });
 
-/** Layout breakpoints as media queries. */
+/**
+ * Layout tiers as media queries: mobile is the default (< 768 px), `narrow` is a PC window or
+ * tablet (768–1279 px), `wide` is a maximised PC window (≥ 1280 px). Components that live in sheets
+ * use the container queries instead, so they follow the space they actually get.
+ */
 export const media = stylex.defineConsts({
-  tablet: "@media (min-width: 768px)",
-  desktop: "@media (min-width: 1024px)",
+  narrow: "@media (min-width: 768px)",
+  wide: "@media (min-width: 1280px)",
+  formTwoColumn: "@container (min-width: 640px)",
   reducedMotion: "@media (prefers-reduced-motion: reduce)",
   hover: "@media (hover: hover)",
 });
