@@ -12,6 +12,7 @@ import {
   latestEnd,
   layoutDay,
   minutesAtRatio,
+  nextFreeSlot,
   proposeSlot,
   quickUseOptions,
   slotState,
@@ -163,5 +164,38 @@ describe("day availability", () => {
     const availability = dayAvailability([], DAY, "08:00", "22:00", at("09:00", DAY.add({ days: 1 })));
 
     expect(slotState(availability, 12 * 60)).toBe("past");
+  });
+});
+
+describe("nextFreeSlot", () => {
+  test("given a booking right after now when looking for the next free slot then it starts when that booking ends", () => {
+    const slot = nextFreeSlot([item("09:15", "10:00")], at("09:07"), "08:00", "22:00", 240, DAY, DAY);
+
+    expect(slot).toEqual({ date: DAY, startClock: "10:00", endClock: "11:00" });
+  });
+
+  test("given a short free window before a booking when looking then the default duration shrinks to fit", () => {
+    const slot = nextFreeSlot([item("09:30", "12:00")], at("09:00"), "08:00", "22:00", 240, DAY, DAY);
+
+    expect(slot).toEqual({ date: DAY, startClock: "09:00", endClock: "09:30" });
+  });
+
+  test("given no time left today when looking then the next day's first free slot is used", () => {
+    const tomorrow = DAY.add({ days: 1 });
+
+    const early = {
+      start: toTimestamp(tomorrow, "08:00"),
+      end: toTimestamp(tomorrow, "08:30"),
+    };
+
+    const slot = nextFreeSlot([early], at("21:50"), "08:00", "22:00", 240, DAY, tomorrow);
+
+    expect(slot).toEqual({ date: tomorrow, startClock: "08:30", endClock: "09:30" });
+  });
+
+  test("given a fully booked range when looking then there is no slot", () => {
+    expect(
+      nextFreeSlot([item("08:00", "22:00")], at("07:00"), "08:00", "22:00", 240, DAY, DAY),
+    ).toBeUndefined();
   });
 });

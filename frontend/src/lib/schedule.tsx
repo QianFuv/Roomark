@@ -355,3 +355,52 @@ export function latestEnd<Item extends TimedItem>(
 
   return Math.min(limit, Math.max(blocker.startMinutes, startMinutes));
 }
+
+/** A proposed booking window on one date. */
+export interface FreeSlot {
+  date: Temporal.PlainDate;
+  startClock: string;
+  endClock: string;
+}
+
+/**
+ * The earliest free grid step from now on, within open hours and the booking horizon. The slot
+ * lasts {@link DEFAULT_SLOT_MINUTES} when that fits; otherwise it fills the free window up to the
+ * next booking, closing time or maximum duration.
+ *
+ * @param items - Bookings on any date.
+ * @param now - Current time.
+ * @param openClock - Opening time.
+ * @param closeClock - Closing time.
+ * @param maxDurationMinutes - Longest allowed booking.
+ * @param firstDate - First date to look at (today or later).
+ * @param lastDate - Last date to look at, inclusive.
+ * @returns The slot, or `undefined` when nothing is free in the range.
+ */
+export function nextFreeSlot(
+  items: readonly TimedItem[],
+  now: Temporal.ZonedDateTime,
+  openClock: string,
+  closeClock: string,
+  maxDurationMinutes: number,
+  firstDate: Temporal.PlainDate,
+  lastDate: Temporal.PlainDate,
+): FreeSlot | undefined {
+  for (let date = firstDate; date.until(lastDate).days >= 0; date = date.add({ days: 1 })) {
+    const availability = dayAvailability(items, date, openClock, closeClock, now);
+    const first = ceilToGrid(Math.max(availability.openMinutes, availability.earliestMinutes));
+
+    for (let start = first; start + GRID_MINUTES <= availability.closeMinutes; start += GRID_MINUTES) {
+      if (slotState(availability, start) !== "free") continue;
+
+      const end = Math.min(
+        start + DEFAULT_SLOT_MINUTES,
+        latestEnd(availability, start, Math.max(maxDurationMinutes, GRID_MINUTES)),
+      );
+
+      return { date, startClock: minutesToClock(start), endClock: minutesToClock(end) };
+    }
+  }
+
+  return undefined;
+}

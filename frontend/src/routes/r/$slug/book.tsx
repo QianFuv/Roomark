@@ -5,12 +5,13 @@
  */
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { z } from "zod";
 
 import type { Booking, Room } from "../../../api/client";
 import { BookingForm, type BookingDraft } from "../../../features/booking/booking-form";
 import { useRoomBookings, useRoomDetail } from "../../../features/room/room-data";
-import { DEFAULT_SLOT_MINUTES } from "../../../lib/schedule";
+import { DEFAULT_SLOT_MINUTES, nextFreeSlot } from "../../../lib/schedule";
 import {
   ceilToGrid,
   clockToMinutes,
@@ -18,6 +19,7 @@ import {
   minutesOfDay,
   minutesToClock,
   nowZoned,
+  parseDate,
   parseZoned,
 } from "../../../lib/time";
 import { colors, media, radii } from "../../../styles/tokens.stylex";
@@ -59,14 +61,20 @@ export const Route = createFileRoute("/r/$slug/book")({
   component: BookPage,
 });
 
+/** URL prefill of the booking form. */
+type BookSearch = z.infer<typeof searchSchema>;
+
 /**
- * Default draft: the next grid slot today (or tomorrow's opening after closing time).
+ * Default draft. URL prefills (from the calendar or agenda) win; otherwise the form starts at the
+ * next free slot of the room, on the prefilled date or from today on, falling back to the next grid
+ * step (or tomorrow's opening) when nothing is free.
  *
  * @param room - The room.
  * @param search - Prefill from the URL.
+ * @param bookings - Bookings covering the searched dates.
  * @returns The draft.
  */
-export function defaultDraft(room: Room, search: z.infer<typeof searchSchema>): BookingDraft {
+function defaultDraft(room: Room, search: BookSearch, bookings: readonly Booking[]): BookingDraft {
   const now = nowZoned();
   const open = clockToMinutes(room.rules.openTime);
   const close = clockToMinutes(room.rules.closeTime);
@@ -78,17 +86,59 @@ export function defaultDraft(room: Room, search: z.infer<typeof searchSchema>): 
     start = open;
   }
 
-  const startClock = search.start ?? minutesToClock(start);
+  const range = freeSlotRange(room, search);
+
+  const free =
+    search.start === undefined
+      ? nextFreeSlot(
+          bookings,
+          now,
+          room.rules.openTime,
+          room.rules.closeTime,
+          room.rules.maxDurationMinutes,
+          parseDate(range.from),
+          parseDate(range.to),
+        )
+      : undefined;
+
+  const startClock = search.start ?? free?.startClock ?? minutesToClock(start);
 
   const endClock =
-    search.end ?? minutesToClock(Math.min(clockToMinutes(startClock) + DEFAULT_SLOT_MINUTES, close));
+    search.end ??
+    (free !== undefined && search.start === undefined
+      ? free.endClock
+      : minutesToClock(Math.min(clockToMinutes(startClock) + DEFAULT_SLOT_MINUTES, close)));
 
   return {
-    date: search.date ?? date.toString(),
+    date: search.date ?? free?.date.toString() ?? date.toString(),
     start: startClock,
     end: endClock,
     title: "",
     isRepeat: search.repeat === true,
+  };
+}
+
+/** Inclusive `YYYY-MM-DD` date range. */
+interface DateSpan {
+  from: string;
+  to: string;
+}
+
+/**
+ * Dates searched for the next free slot: the prefilled date, or today through the booking horizon.
+ *
+ * @param room - The room, if loaded.
+ * @param search - Prefill from the URL.
+ * @returns Inclusive `YYYY-MM-DD` range.
+ */
+function freeSlotRange(room: Room | undefined, search: BookSearch): DateSpan {
+  if (search.date !== undefined) return { from: search.date, to: search.date };
+
+  const today = nowZoned().toPlainDate();
+
+  return {
+    from: today.toString(),
+    to: today.add({ days: Math.max(room?.rules.maxAdvanceDays ?? 0, 1) }).toString(),
   };
 }
 
@@ -105,8 +155,13 @@ function BookPage() {
   const editDate = search.edit === undefined ? "" : (search.date ?? "");
   const bookings = useRoomBookings(slug, editDate, editDate, search.edit !== undefined && editDate !== "");
   const room = detail.data?.room;
+  const needsFreeSlot = search.edit === undefined && search.start === undefined;
+  const range = freeSlotRange(room, search);
+  const freeBookings = useRoomBookings(slug, range.from, range.to, needsFreeSlot && room !== undefined);
+  const searchKey = JSON.stringify(search);
+  const [frozenDraft, setFrozenDraft] = useState<{ key: string; draft: BookingDraft }>();
 
-  if (room === undefined) {
+  if (room === undefined || (needsFreeSlot && (freeBookings.isPending || freeBookings.isPlaceholderData))) {
     return (
       <Stack gap="md">
         <Skeleton height={84} />
@@ -129,16 +184,22 @@ function BookPage() {
     }
   }
 
-  const draft: BookingDraft =
-    editing === undefined
-      ? defaultDraft(room, search)
-      : {
-          date: parseZoned(editing.start).toPlainDate().toString(),
-          start: formatClock(editing.start),
-          end: formatClock(editing.end),
-          title: editing.title,
-          isRepeat: false,
-        };
+  let draft: BookingDraft;
+
+  if (editing !== undefined) {
+    draft = {
+      date: parseZoned(editing.start).toPlainDate().toString(),
+      start: formatClock(editing.start),
+      end: formatClock(editing.end),
+      title: editing.title,
+      isRepeat: false,
+    };
+  } else if (frozenDraft?.key === searchKey) {
+    draft = frozenDraft.draft;
+  } else {
+    draft = defaultDraft(room, search, freeBookings.data ?? []);
+    setFrozenDraft({ key: searchKey, draft });
+  }
 
   return (
     <Stack gap="md" xstyle={styles.frame}>
