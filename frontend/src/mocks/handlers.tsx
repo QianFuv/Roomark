@@ -22,7 +22,7 @@ export const MOCK_SLUG = "9070";
 export const MOCK_TOKEN = "mock-room-token-0001";
 
 /** Passcode of the claimed mock person 李四. */
-export const MOCK_PASSCODE = "2468";
+export const MOCK_PASSCODE = "246813";
 
 const RULES = {
   openTime: "08:00",
@@ -43,8 +43,11 @@ const ROOM = {
   rules: RULES,
 };
 
+type MockRoom = typeof ROOM;
+
 /** Mutable mock state. */
 interface MockState {
+  room: MockRoom;
   people: (Person & { passcode?: string; lockedUntil?: string })[];
   bookings: Booking[];
   sessions: Map<string, number>;
@@ -60,8 +63,9 @@ function createMockState(): MockState {
   const tomorrow = nowZoned().toPlainDate().add({ days: 1 });
 
   return {
+    room: ROOM,
     people: [
-      { id: 1, name: "管理员", role: "teacher", isAdmin: true, hasPasscode: true, passcode: "1234" },
+      { id: 1, name: "管理员", role: "teacher", isAdmin: true, hasPasscode: true, passcode: "123456" },
       { id: 2, name: "李四", role: "teacher", isAdmin: false, hasPasscode: true, passcode: MOCK_PASSCODE },
       { id: 3, name: "张三", role: "student", isAdmin: false, hasPasscode: false },
       {
@@ -70,7 +74,7 @@ function createMockState(): MockState {
         role: "student",
         isAdmin: false,
         hasPasscode: true,
-        passcode: "9999",
+        passcode: "999999",
         lockedUntil: "2099-01-01T10:15:00+08:00",
       },
     ],
@@ -100,6 +104,31 @@ let state = createMockState();
 /** Reset the mock state between tests. */
 export function resetMockState(): void {
   state = createMockState();
+}
+
+/**
+ * Change the mock room's opening hours (tests that must not depend on the time of day use
+ * `00:00`–`23:59`).
+ *
+ * @param openTime - Opening `HH:MM`.
+ * @param closeTime - Closing `HH:MM`.
+ */
+export function setMockOpenHours(openTime: string, closeTime: string): void {
+  state.room = { ...state.room, rules: { ...state.room.rules, openTime, closeTime } };
+}
+
+/**
+ * Add a booking to the mock state (tests use it to set up ongoing bookings).
+ *
+ * @param booking - The booking; `id` is assigned.
+ * @returns The stored booking.
+ */
+export function addMockBooking(booking: Omit<Booking, "id">): Booking {
+  const stored: Booking = { ...booking, id: (state.nextId += 1) };
+
+  state.bookings.push(stored);
+
+  return stored;
 }
 
 /**
@@ -236,7 +265,7 @@ function previewRule(rule: components["schemas"]["SeriesRule"]): Occurrence[] {
 /** All handlers. */
 export const handlers = [
   http.get("*/api/rooms/:slug", () =>
-    HttpResponse.json({ room: ROOM, status: { state: "free" }, announcements: [] }),
+    HttpResponse.json({ room: state.room, status: { state: "free" }, announcements: [] }),
   ),
   http.get("*/api/rooms/:slug/bookings", () => HttpResponse.json(state.bookings)),
   http.get("*/api/rooms/:slug/heatmap", () =>
@@ -343,5 +372,22 @@ export const handlers = [
     state.bookings.push(booking);
 
     return HttpResponse.json(booking, { status: 201 });
+  }),
+  http.post("*/api/bookings/:id/end", ({ request, params }) => {
+    const booking = state.bookings.find((item) => item.id === Number(params["id"]));
+
+    if (sessionPerson(request) === undefined)
+      return problem(401, "session_required", "请先选择姓名并输入口令");
+
+    if (booking === undefined) return problem(404, "not_found", "预约不存在");
+
+    const now = nowZoned().round({ smallestUnit: "minute", roundingMode: "floor" });
+
+    booking.releasedMinutes = Math.round(
+      (parseZoned(booking.end).epochMilliseconds - now.epochMilliseconds) / 60_000,
+    );
+    booking.end = formatTimestamp(now);
+
+    return HttpResponse.json(booking);
   }),
 ];

@@ -44,7 +44,7 @@ export default defineConfig({
       ROOMARK_DB: DATABASE,
       ROOMARK_PUBLIC_URL: `http://127.0.0.1:${PORT}`,
       ROOMARK_ADMIN_NAME: "管理员",
-      ROOMARK_ADMIN_PASSCODE: "1234",
+      ROOMARK_ADMIN_PASSCODE: "123456",
       WAILS_SERVER_HOST: "127.0.0.1",
       WAILS_SERVER_PORT: String(PORT),
     },

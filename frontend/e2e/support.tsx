@@ -12,8 +12,11 @@ export const ROOM_SLUG = "e2e9070";
 /** Seeded room name. */
 export const ROOM_NAME = "9070 会议室";
 
+/** Passcode of the admin created from the server environment (see playwright.config.ts). */
+export const ADMIN_PASSCODE = "123456";
+
 /** Passcode of the seeded claimed person 李四. */
-export const LISI_PASSCODE = "2468";
+export const LISI_PASSCODE = "246813";
 
 /** Data created by {@link seed}. */
 export interface Seeded {
@@ -39,7 +42,7 @@ export function tomorrow(): string {
  * @returns Tokens.
  */
 export async function seed(request: APIRequestContext): Promise<Seeded> {
-  const login = await request.post("/api/sessions", { data: { name: "管理员", passcode: "1234" } });
+  const login = await request.post("/api/sessions", { data: { name: "管理员", passcode: ADMIN_PASSCODE } });
 
   expect(login.ok()).toBeTruthy();
 
