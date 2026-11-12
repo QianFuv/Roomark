@@ -7,11 +7,9 @@ SELECT * FROM rooms WHERE id=?;
 -- name: RoomByToken :one
 SELECT * FROM rooms WHERE access_token=? AND archived_at IS NULL;
 -- name: CreateRoom :one
-INSERT INTO rooms(slug,name,location,capacity,description,access_token,token_rotated_at,open_time,close_time,max_duration_min,max_advance_days,max_active_per_person,recurring_max_weeks,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *;
+INSERT INTO rooms(slug,name,location,capacity,description,access_token,open_time,close_time,max_duration_min,max_advance_days,max_active_per_person,recurring_max_weeks,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *;
 -- name: UpdateRoom :one
 UPDATE rooms SET slug=?,name=?,location=?,capacity=?,description=?,open_time=?,close_time=?,max_duration_min=?,max_advance_days=?,max_active_per_person=?,recurring_max_weeks=?,archived_at=? WHERE id=? RETURNING *;
--- name: RotateRoomToken :one
-UPDATE rooms SET access_token=?,token_rotated_at=? WHERE id=? RETURNING *;
 -- name: ListPeople :many
 SELECT * FROM people WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE;
 -- name: AllPeople :many

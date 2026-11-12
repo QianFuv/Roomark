@@ -30,7 +30,7 @@ func registerDownload[I any](api huma.API, svc *Service, path, op, mimeType, fil
 	mediaType := strings.Split(mimeType, ";")[0]
 	huma.Register(api, huma.Operation{OperationID: op, Method: http.MethodGet, Path: path,
 		Responses: map[string]*huma.Response{"200": {Description: "Exported file", Content: map[string]*huma.MediaType{mediaType: {Schema: &huma.Schema{Type: "string", Format: "binary"}}}}},
-		Errors:    []int{401, 403, 404, 422, 500}}, func(ctx context.Context, input *I) (*downloadOutput, error) {
+		Errors:    []int{401, 403, 404, 422, 429, 500}}, func(ctx context.Context, input *I) (*downloadOutput, error) {
 		if svc == nil {
 			return nil, problem(503, "unavailable", "服务暂不可用")
 		}
@@ -105,7 +105,9 @@ func (s *Service) calendar(ctx context.Context, q *store.Queries, op string, r r
 		if !strings.HasSuffix(r.slug, ".ics") {
 			return nil, problem(404, "not_found", "订阅不存在")
 		}
-		r.RoomToken = r.K
+		if r.K != "" {
+			r.RoomToken = r.K
+		}
 		room, err := s.roomAccess(ctx, q, strings.TrimSuffix(r.slug, ".ics"), r, store.Person{})
 		if err != nil {
 			return nil, err

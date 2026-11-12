@@ -43,10 +43,8 @@ type Room struct {
 // AdminRoom includes the room's administrative access information.
 type AdminRoom struct {
 	Room
-	// AccessToken is the secret required for room-scoped access.
-	AccessToken string `json:"accessToken"`
-	// TokenRotatedAt is the last room-token rotation instant.
-	TokenRotatedAt time.Time `json:"tokenRotatedAt"`
+	// Code is the fixed six-character room access code.
+	Code string `json:"code" pattern:"^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$"`
 	// Archived marks a room unavailable for new bookings.
 	Archived bool `json:"archived"`
 }

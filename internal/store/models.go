@@ -75,7 +75,6 @@ type Room struct {
 	Capacity           int64         `json:"capacity"`
 	Description        string        `json:"description"`
 	AccessToken        string        `json:"access_token"`
-	TokenRotatedAt     int64         `json:"token_rotated_at"`
 	OpenTime           string        `json:"open_time"`
 	CloseTime          string        `json:"close_time"`
 	MaxDurationMin     int64         `json:"max_duration_min"`

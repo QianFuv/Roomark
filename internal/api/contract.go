@@ -92,7 +92,7 @@ func isBodyFieldError(detail *huma.ErrorDetail, field string) bool {
 type Headers struct {
 	// Authorization carries the bearer session header.
 	Authorization string `header:"Authorization"`
-	// RoomToken carries the room access-token header.
+	// RoomToken carries the case-insensitive six-character room code.
 	RoomToken string `header:"X-Room-Token"`
 	// Room selects a room or contains its metadata.
 	Room string `query:"room"`
@@ -108,7 +108,7 @@ type Headers struct {
 	Status string `query:"status" enum:"confirmed,cancelled"`
 	// Past selects completed or cancelled personal reservations.
 	Past bool `query:"past" default:"false"`
-	// K carries the iCal room-token query value.
+	// K carries the case-insensitive iCal room-code query value.
 	K string `query:"k"`
 }
 
@@ -343,12 +343,12 @@ type EditAnnouncement struct {
 	Pinned *bool `json:"pinned,omitempty"`
 }
 
-// QR describes the door link and its token version.
+// QR describes the door link and its fixed room code.
 type QR struct {
 	// URL is the public room QR destination.
 	URL string `json:"url"`
-	// TokenRotatedAt is the last room-token rotation instant.
-	TokenRotatedAt time.Time `json:"tokenRotatedAt"`
+	// Code is the fixed six-character room access code.
+	Code string `json:"code" pattern:"^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$"`
 }
 
 // Feed provides a secret personal calendar URL.
@@ -357,12 +357,18 @@ type Feed struct {
 	PersonFeedURL string `json:"personFeedUrl"`
 }
 
-// TokenResult returns a freshly rotated access token.
-type TokenResult struct {
-	// Token is the newly issued bearer secret.
-	Token string `json:"token"`
-	// TokenRotatedAt is the last room-token rotation instant.
-	TokenRotatedAt time.Time `json:"tokenRotatedAt"`
+// ResolveRoomCode supplies a typed or scanned room code.
+type ResolveRoomCode struct {
+	// Code is normalized before lookup; incorrect values count as failed checks.
+	Code string `json:"code"`
+}
+
+// ResolvedRoom identifies the non-archived room bound by a code.
+type ResolvedRoom struct {
+	// Slug is the URL-safe room identifier.
+	Slug string `json:"slug"`
+	// Name is the displayed room name.
+	Name string `json:"name"`
 }
 
 // Success acknowledges a completed mutation.

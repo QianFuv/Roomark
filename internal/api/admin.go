@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"roomark/internal/domain"
+	"roomark/internal/roomcode"
 	"roomark/internal/rules"
 	"roomark/internal/store"
 )
@@ -26,15 +27,12 @@ func (s *Service) admin(ctx context.Context, q *store.Queries, op string, r requ
 		return s.createRoom(ctx, q, r)
 	case "admin-edit-room":
 		return s.editRoom(ctx, q, r)
-	case "rotate-token":
-		room, err := q.RotateRoomToken(ctx, store.RotateRoomTokenParams{ID: r.id, AccessToken: token(), TokenRotatedAt: s.now().Unix()})
-		return TokenResult{Token: room.AccessToken, TokenRotatedAt: timestamp(room.TokenRotatedAt)}, err
 	case "room-qr":
 		if s.config.PublicURL == "" {
 			return nil, problem(422, "public_url_required", "请先设置服务器公开地址 ROOMARK_PUBLIC_URL")
 		}
 		room, err := q.RoomByID(ctx, r.id)
-		return QR{URL: s.config.PublicURL + "/r/" + room.Slug + "?k=" + room.AccessToken, TokenRotatedAt: timestamp(room.TokenRotatedAt)}, err
+		return QR{URL: s.config.PublicURL + "/r/" + room.Slug + "?k=" + room.AccessToken, Code: room.AccessToken}, err
 	case "admin-people":
 		return peopleList(ctx, q)
 	case "admin-create-person":
@@ -88,8 +86,17 @@ func (s *Service) createRoom(ctx context.Context, q *store.Queries, r request) (
 	if strings.TrimSpace(body.Name) == "" {
 		return nil, problem(422, "invalid_name", "名称不能为空")
 	}
-	room, err := q.CreateRoom(ctx, store.CreateRoomParams{Slug: body.Slug, Name: strings.TrimSpace(body.Name), Location: body.Location, Capacity: int64(body.Capacity), Description: body.Description, AccessToken: token(), TokenRotatedAt: s.now().Unix(), OpenTime: limits.OpenTime, CloseTime: limits.CloseTime, MaxDurationMin: int64(limits.MaxDurationMinutes), MaxAdvanceDays: int64(limits.MaxAdvanceDays), MaxActivePerPerson: int64(limits.MaxActivePerPerson), RecurringMaxWeeks: int64(limits.RecurringMaxWeeks), CreatedAt: s.now().Unix()})
-	return adminRoomView(room), err
+	for {
+		code, err := roomcode.New()
+		if err != nil {
+			return nil, err
+		}
+		room, err := q.CreateRoom(ctx, store.CreateRoomParams{Slug: body.Slug, Name: strings.TrimSpace(body.Name), Location: body.Location, Capacity: int64(body.Capacity), Description: body.Description, AccessToken: code, OpenTime: limits.OpenTime, CloseTime: limits.CloseTime, MaxDurationMin: int64(limits.MaxDurationMinutes), MaxAdvanceDays: int64(limits.MaxAdvanceDays), MaxActivePerPerson: int64(limits.MaxActivePerPerson), RecurringMaxWeeks: int64(limits.RecurringMaxWeeks), CreatedAt: s.now().Unix()})
+		if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed: rooms.access_token") {
+			continue
+		}
+		return adminRoomView(room), err
+	}
 }
 
 func (s *Service) editRoom(ctx context.Context, q *store.Queries, r request) (any, error) {

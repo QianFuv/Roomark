@@ -6,6 +6,7 @@ import (
 )
 
 func registerRoutes(api huma.API, svc *Service) {
+	register[rootBody[ResolveRoomCode], ResolvedRoom](api, svc, "POST", "/api/room-codes/resolve", "resolve-room-code", 200)
 	register[roomInput, domain.RoomDetail](api, svc, "GET", "/api/rooms/{slug}", "get-room", 200)
 	register[roomInput, []domain.Booking](api, svc, "GET", "/api/rooms/{slug}/bookings", "list-room-bookings", 200)
 	register[roomHeatmapInput, domain.RoomHeatmap](api, svc, "GET", "/api/rooms/{slug}/heatmap", "room-heatmap", 200)
@@ -30,7 +31,6 @@ func registerRoutes(api huma.API, svc *Service) {
 	register[rootInput, []domain.AdminRoom](api, svc, "GET", "/api/admin/rooms", "admin-rooms", 200)
 	register[rootBody[RoomInput], domain.AdminRoom](api, svc, "POST", "/api/admin/rooms", "admin-create-room", 201)
 	register[idBody[EditRoom], domain.AdminRoom](api, svc, "PATCH", "/api/admin/rooms/{id}", "admin-edit-room", 200)
-	register[idInput, TokenResult](api, svc, "POST", "/api/admin/rooms/{id}/rotate-token", "rotate-token", 200)
 	register[idInput, QR](api, svc, "GET", "/api/admin/rooms/{id}/qr", "room-qr", 200)
 	register[rootInput, []domain.Person](api, svc, "GET", "/api/admin/people", "admin-people", 200)
 	register[rootBody[PresetPerson], domain.Person](api, svc, "POST", "/api/admin/people", "admin-create-person", 201)

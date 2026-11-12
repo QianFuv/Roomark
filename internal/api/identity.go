@@ -105,8 +105,11 @@ func lockedProblem(until int64) *Problem {
 }
 
 func (s *Service) claim(ctx context.Context, q *store.Queries, r request) (any, error) {
-	if err := anyRoomAccess(ctx, q, r); err != nil {
+	if err := s.anyRoomAccess(ctx, q, r); err != nil {
 		return nil, err
+	}
+	if !s.allowedIP(ctx) {
+		return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
 	}
 	body, err := bodyAs[Passcode](r)
 	if err != nil {
@@ -131,8 +134,11 @@ func (s *Service) claim(ctx context.Context, q *store.Queries, r request) (any, 
 }
 
 func (s *Service) selfPerson(ctx context.Context, q *store.Queries, r request) (any, error) {
-	if err := anyRoomAccess(ctx, q, r); err != nil {
+	if err := s.anyRoomAccess(ctx, q, r); err != nil {
 		return nil, err
+	}
+	if !s.allowedIP(ctx) {
+		return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
 	}
 	body, err := bodyAs[SelfPerson](r)
 	if err != nil {

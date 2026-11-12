@@ -3,16 +3,28 @@ package api
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
 	"roomark/internal/domain"
+	"roomark/internal/roomcode"
 	"roomark/internal/rules"
 	"roomark/internal/store"
 )
 
 func (s *Service) execute(ctx context.Context, q *store.Queries, op string, r request) (any, error) {
 	switch op {
+	case "resolve-room-code":
+		body, err := bodyAs[ResolveRoomCode](r)
+		if err != nil {
+			return nil, err
+		}
+		room, err := q.RoomByToken(ctx, roomcode.Normalize(body.Code))
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, s.invalidRoomCode(ctx, 404, "room_code_invalid", "房间码不正确")
+		}
+		return ResolvedRoom{Slug: room.Slug, Name: room.Name}, err
 	case "login":
 		return s.login(ctx, q, r)
 	case "claim-person":

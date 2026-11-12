@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"roomark/internal/roomcode"
 )
 
 type smokeClient struct {
@@ -135,8 +137,22 @@ func run(binary string) error {
 	if err != nil {
 		return err
 	}
-	c.roomToken, err = field[string](room, "accessToken")
+	c.roomToken, err = field[string](room, "code")
 	if err != nil {
+		return err
+	}
+	if len(c.roomToken) != 6 || strings.Trim(c.roomToken, roomcode.Alphabet) != "" {
+		return fmt.Errorf("invalid room code %q", c.roomToken)
+	}
+	qr, err := c.call("GET", "/api/admin/rooms/1/qr", nil, 200)
+	if err != nil {
+		return err
+	}
+	qrCode, err := field[string](qr, "code")
+	if err != nil || qrCode != c.roomToken {
+		return fmt.Errorf("QR code does not match room code: %q: %v", qrCode, err)
+	}
+	if _, err := c.call("POST", "/api/admin/rooms/1/rotate-token", nil, 404); err != nil {
 		return err
 	}
 	person, err := c.call("POST", "/api/admin/people", map[string]any{"name": "SmokePerson", "role": "student", "isAdmin": false}, 201)
@@ -148,6 +164,18 @@ func run(binary string) error {
 		return err
 	}
 	c.authorization = ""
+	c.roomToken = strings.ToLower(c.roomToken)
+	resolved, err := c.call("POST", "/api/room-codes/resolve", map[string]string{"code": " " + c.roomToken + " "}, 200)
+	if err != nil {
+		return err
+	}
+	slug, err := field[string](resolved, "slug")
+	if err != nil || slug != "9070" {
+		return fmt.Errorf("room code resolved to %q: %v", slug, err)
+	}
+	if _, err := c.call("POST", "/api/room-codes/resolve", map[string]string{"code": "WRONG"}, 404); err != nil {
+		return err
+	}
 	session, err = c.call("POST", fmt.Sprintf("/api/people/%d/claim", id), map[string]string{"passcode": "123456"}, 200)
 	if err != nil {
 		return err
@@ -196,6 +224,17 @@ func run(binary string) error {
 		return err
 	}
 	if _, err := c.call("GET", "/ical/9070.ics?k="+c.roomToken, nil, 200); err != nil {
+		return err
+	}
+	for range 9 {
+		if _, err := c.call("POST", "/api/room-codes/resolve", map[string]string{"code": "WRONG"}, 404); err != nil {
+			return err
+		}
+	}
+	if _, err := c.call("POST", "/api/room-codes/resolve", map[string]string{"code": "WRONG"}, 429); err != nil {
+		return err
+	}
+	if _, err := c.call("POST", "/api/room-codes/resolve", map[string]string{"code": c.roomToken}, 200); err != nil {
 		return err
 	}
 	fmt.Println("Server smoke passed")

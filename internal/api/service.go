@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"roomark/db"
 	"roomark/internal/domain"
+	"roomark/internal/roomcode"
 	"roomark/internal/rules"
 	"roomark/internal/store"
 	"strings"
@@ -57,8 +58,9 @@ type Service struct {
 }
 
 type ipLimit struct {
-	limiter *rate.Limiter
-	seen    time.Time
+	limiter  *rate.Limiter
+	seen     time.Time
+	failures []time.Time
 }
 type ipContextKey struct{}
 type publicURLContextKey struct{}
@@ -89,7 +91,7 @@ func Open(ctx context.Context, config Config) (*Service, error) {
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
-	provider, err := goose.NewProvider(goose.DialectSQLite3, database, migrations)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, database, migrations, goose.WithGoMigrations(db.RoomCodeMigration()))
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
@@ -182,11 +184,18 @@ func (s *Service) publicURL(ctx context.Context) string {
 }
 
 func (s *Service) allowedIP(ctx context.Context) bool {
-	ip, _ := ctx.Value(ipContextKey{}).(string)
 	s.ipMu.Lock()
 	defer s.ipMu.Unlock()
 	now := s.now()
-	entry := s.limits[ip]
+	entry := s.limitForIP(ctx, "identity", now)
+	return entry != nil && entry.limiter.AllowN(now, 1)
+}
+
+// limitForIP shares bounded IP storage between identity and room-code checks; ipMu must be held.
+func (s *Service) limitForIP(ctx context.Context, scope string, now time.Time) *ipLimit {
+	ip, _ := ctx.Value(ipContextKey{}).(string)
+	key := scope + ":" + ip
+	entry := s.limits[key]
 	if entry == nil {
 		for key, item := range s.limits {
 			if now.Sub(item.seen) > time.Hour {
@@ -194,13 +203,34 @@ func (s *Service) allowedIP(ctx context.Context) bool {
 			}
 		}
 		if len(s.limits) >= 4096 {
-			return false
+			return nil
 		}
 		entry = &ipLimit{limiter: rate.NewLimiter(rate.Every(6*time.Second), 10)}
-		s.limits[ip] = entry
+		s.limits[key] = entry
 	}
 	entry.seen = now
-	return entry.limiter.AllowN(now, 1)
+	return entry
+}
+
+// invalidRoomCode counts only failed checks, sharing ten failures per ten minutes across endpoints.
+func (s *Service) invalidRoomCode(ctx context.Context, status int, code, detail string) error {
+	s.ipMu.Lock()
+	defer s.ipMu.Unlock()
+	now := s.now()
+	entry := s.limitForIP(ctx, "room-code", now)
+	if entry != nil {
+		cutoff := now.Add(-10 * time.Minute)
+		first := 0
+		for first < len(entry.failures) && !entry.failures[first].After(cutoff) {
+			first++
+		}
+		entry.failures = entry.failures[first:]
+		if len(entry.failures) < 10 {
+			entry.failures = append(entry.failures, now)
+			return problem(status, code, detail)
+		}
+	}
+	return problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
 }
 
 func token() string { return base64.RawURLEncoding.EncodeToString(randomBytes(32)) }
@@ -233,11 +263,11 @@ func roomView(room store.Room) domain.Room {
 	return domain.Room{ID: room.ID, Slug: room.Slug, Name: room.Name, Location: room.Location, Capacity: int(room.Capacity), Description: room.Description, Rules: domain.Rules{OpenTime: room.OpenTime, CloseTime: room.CloseTime, MaxDurationMinutes: int(room.MaxDurationMin), MaxAdvanceDays: int(room.MaxAdvanceDays), MaxActivePerPerson: int(room.MaxActivePerPerson), RecurringMaxWeeks: int(room.RecurringMaxWeeks)}}
 }
 func adminRoomView(room store.Room) domain.AdminRoom {
-	return domain.AdminRoom{Room: roomView(room), AccessToken: room.AccessToken, TokenRotatedAt: timestamp(room.TokenRotatedAt), Archived: room.ArchivedAt.Valid}
+	return domain.AdminRoom{Room: roomView(room), Code: room.AccessToken, Archived: room.ArchivedAt.Valid}
 }
 
 func (s *Service) dispatch(ctx context.Context, op string, r request) (any, error) {
-	if op == "login" || op == "claim-person" || op == "create-person" {
+	if op == "login" {
 		if !s.allowedIP(ctx) {
 			return nil, problem(429, "rate_limited", "尝试过于频繁，请稍后重试")
 		}
@@ -304,6 +334,7 @@ func (s *Service) authenticate(ctx context.Context, q *store.Queries, r request,
 }
 
 func (s *Service) roomAccess(ctx context.Context, q *store.Queries, slug string, r request, person store.Person) (store.Room, error) {
+	r.RoomToken = roomcode.Normalize(r.RoomToken)
 	if person.IsAdmin == 0 && r.RoomToken == "" {
 		return store.Room{}, problem(403, "room_token_required", "请扫描会议室二维码")
 	}
@@ -312,21 +343,22 @@ func (s *Service) roomAccess(ctx context.Context, q *store.Queries, slug string,
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return room, err
 		}
-		return room, problem(403, "room_token_invalid", "会议室二维码已失效")
+		return room, s.invalidRoomCode(ctx, 403, "room_token_invalid", "房间码不正确")
 	}
 	if person.IsAdmin == 0 && !sameToken(r.RoomToken, room.AccessToken) {
-		return room, problem(403, "room_token_invalid", "会议室二维码已失效")
+		return room, s.invalidRoomCode(ctx, 403, "room_token_invalid", "房间码不正确")
 	}
 	return room, nil
 }
 
-func anyRoomAccess(ctx context.Context, q *store.Queries, r request) error {
+func (s *Service) anyRoomAccess(ctx context.Context, q *store.Queries, r request) error {
+	r.RoomToken = roomcode.Normalize(r.RoomToken)
 	if r.RoomToken == "" {
 		return problem(403, "room_token_required", "请扫描会议室二维码")
 	}
 	_, err := q.RoomByToken(ctx, r.RoomToken)
 	if errors.Is(err, sql.ErrNoRows) {
-		return problem(403, "room_token_invalid", "会议室二维码已失效")
+		return s.invalidRoomCode(ctx, 403, "room_token_invalid", "房间码不正确")
 	}
 	return err
 }

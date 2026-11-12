@@ -45,7 +45,7 @@ func newTestClient(t *testing.T) *testClient {
 	client.session = session.Token
 	var room domain.AdminRoom
 	client.call("POST", "/api/admin/rooms", RoomInput{Slug: "9070", Name: "讨论室"}, 201, &room)
-	client.roomToken = room.AccessToken
+	client.roomToken = room.Code
 	return client
 }
 
@@ -312,11 +312,8 @@ func TestAuthorizationLockoutAndRevocation(t *testing.T) {
 	c.session = ""
 	c.call("POST", "/api/sessions", Login{PersonID: first.Person.ID, Passcode: "123456"}, 409, nil)
 	c.session = admin
-	var rotated TokenResult
-	c.call("POST", "/api/admin/rooms/1/rotate-token", nil, 200, &rotated)
+	c.call("POST", "/api/admin/rooms/1/rotate-token", nil, 404, nil)
 	c.session = ""
-	c.call("GET", "/api/rooms/9070", nil, 403, nil)
-	c.roomToken = rotated.Token
 	c.call("GET", "/api/rooms/9070", nil, 200, nil)
 }
 

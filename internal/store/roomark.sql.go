@@ -317,7 +317,7 @@ func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Per
 }
 
 const createRoom = `-- name: CreateRoom :one
-INSERT INTO rooms(slug,name,location,capacity,description,access_token,token_rotated_at,open_time,close_time,max_duration_min,max_advance_days,max_active_per_person,recurring_max_weeks,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at
+INSERT INTO rooms(slug,name,location,capacity,description,access_token,open_time,close_time,max_duration_min,max_advance_days,max_active_per_person,recurring_max_weeks,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at
 `
 
 type CreateRoomParams struct {
@@ -327,7 +327,6 @@ type CreateRoomParams struct {
 	Capacity           int64  `json:"capacity"`
 	Description        string `json:"description"`
 	AccessToken        string `json:"access_token"`
-	TokenRotatedAt     int64  `json:"token_rotated_at"`
 	OpenTime           string `json:"open_time"`
 	CloseTime          string `json:"close_time"`
 	MaxDurationMin     int64  `json:"max_duration_min"`
@@ -345,7 +344,6 @@ func (q *Queries) CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, e
 		arg.Capacity,
 		arg.Description,
 		arg.AccessToken,
-		arg.TokenRotatedAt,
 		arg.OpenTime,
 		arg.CloseTime,
 		arg.MaxDurationMin,
@@ -363,7 +361,6 @@ func (q *Queries) CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, e
 		&i.Capacity,
 		&i.Description,
 		&i.AccessToken,
-		&i.TokenRotatedAt,
 		&i.OpenTime,
 		&i.CloseTime,
 		&i.MaxDurationMin,
@@ -687,7 +684,7 @@ func (q *Queries) ListPeople(ctx context.Context) ([]Person, error) {
 }
 
 const listRooms = `-- name: ListRooms :many
-SELECT id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms ORDER BY slug
+SELECT id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms ORDER BY slug
 `
 
 func (q *Queries) ListRooms(ctx context.Context) ([]Room, error) {
@@ -707,7 +704,6 @@ func (q *Queries) ListRooms(ctx context.Context) ([]Room, error) {
 			&i.Capacity,
 			&i.Description,
 			&i.AccessToken,
-			&i.TokenRotatedAt,
 			&i.OpenTime,
 			&i.CloseTime,
 			&i.MaxDurationMin,
@@ -894,7 +890,7 @@ func (q *Queries) RevokeSessions(ctx context.Context, personID int64) error {
 }
 
 const roomByID = `-- name: RoomByID :one
-SELECT id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE id=?
+SELECT id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE id=?
 `
 
 func (q *Queries) RoomByID(ctx context.Context, id int64) (Room, error) {
@@ -908,7 +904,6 @@ func (q *Queries) RoomByID(ctx context.Context, id int64) (Room, error) {
 		&i.Capacity,
 		&i.Description,
 		&i.AccessToken,
-		&i.TokenRotatedAt,
 		&i.OpenTime,
 		&i.CloseTime,
 		&i.MaxDurationMin,
@@ -922,7 +917,7 @@ func (q *Queries) RoomByID(ctx context.Context, id int64) (Room, error) {
 }
 
 const roomBySlug = `-- name: RoomBySlug :one
-SELECT id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE slug=?
+SELECT id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE slug=?
 `
 
 func (q *Queries) RoomBySlug(ctx context.Context, slug string) (Room, error) {
@@ -936,7 +931,6 @@ func (q *Queries) RoomBySlug(ctx context.Context, slug string) (Room, error) {
 		&i.Capacity,
 		&i.Description,
 		&i.AccessToken,
-		&i.TokenRotatedAt,
 		&i.OpenTime,
 		&i.CloseTime,
 		&i.MaxDurationMin,
@@ -950,7 +944,7 @@ func (q *Queries) RoomBySlug(ctx context.Context, slug string) (Room, error) {
 }
 
 const roomByToken = `-- name: RoomByToken :one
-SELECT id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE access_token=? AND archived_at IS NULL
+SELECT id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at FROM rooms WHERE access_token=? AND archived_at IS NULL
 `
 
 func (q *Queries) RoomByToken(ctx context.Context, accessToken string) (Room, error) {
@@ -964,41 +958,6 @@ func (q *Queries) RoomByToken(ctx context.Context, accessToken string) (Room, er
 		&i.Capacity,
 		&i.Description,
 		&i.AccessToken,
-		&i.TokenRotatedAt,
-		&i.OpenTime,
-		&i.CloseTime,
-		&i.MaxDurationMin,
-		&i.MaxAdvanceDays,
-		&i.MaxActivePerPerson,
-		&i.RecurringMaxWeeks,
-		&i.ArchivedAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const rotateRoomToken = `-- name: RotateRoomToken :one
-UPDATE rooms SET access_token=?,token_rotated_at=? WHERE id=? RETURNING id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at
-`
-
-type RotateRoomTokenParams struct {
-	AccessToken    string `json:"access_token"`
-	TokenRotatedAt int64  `json:"token_rotated_at"`
-	ID             int64  `json:"id"`
-}
-
-func (q *Queries) RotateRoomToken(ctx context.Context, arg RotateRoomTokenParams) (Room, error) {
-	row := q.db.QueryRowContext(ctx, rotateRoomToken, arg.AccessToken, arg.TokenRotatedAt, arg.ID)
-	var i Room
-	err := row.Scan(
-		&i.ID,
-		&i.Slug,
-		&i.Name,
-		&i.Location,
-		&i.Capacity,
-		&i.Description,
-		&i.AccessToken,
-		&i.TokenRotatedAt,
 		&i.OpenTime,
 		&i.CloseTime,
 		&i.MaxDurationMin,
@@ -1171,7 +1130,7 @@ func (q *Queries) UpdatePerson(ctx context.Context, arg UpdatePersonParams) (Per
 }
 
 const updateRoom = `-- name: UpdateRoom :one
-UPDATE rooms SET slug=?,name=?,location=?,capacity=?,description=?,open_time=?,close_time=?,max_duration_min=?,max_advance_days=?,max_active_per_person=?,recurring_max_weeks=?,archived_at=? WHERE id=? RETURNING id, slug, name, location, capacity, description, access_token, token_rotated_at, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at
+UPDATE rooms SET slug=?,name=?,location=?,capacity=?,description=?,open_time=?,close_time=?,max_duration_min=?,max_advance_days=?,max_active_per_person=?,recurring_max_weeks=?,archived_at=? WHERE id=? RETURNING id, slug, name, location, capacity, description, access_token, open_time, close_time, max_duration_min, max_advance_days, max_active_per_person, recurring_max_weeks, archived_at, created_at
 `
 
 type UpdateRoomParams struct {
@@ -1215,7 +1174,6 @@ func (q *Queries) UpdateRoom(ctx context.Context, arg UpdateRoomParams) (Room, e
 		&i.Capacity,
 		&i.Description,
 		&i.AccessToken,
-		&i.TokenRotatedAt,
 		&i.OpenTime,
 		&i.CloseTime,
 		&i.MaxDurationMin,
