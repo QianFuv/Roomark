@@ -357,6 +357,27 @@ func TestIPRateLimitAndOwnership(t *testing.T) {
 	c.call("POST", "/api/sessions", Login{Name: "不存在", Passcode: "1234"}, 429, nil)
 }
 
+// TestCheckExcludesEditedBooking lets the edit form check a new time without colliding with the booking's own slot.
+func TestCheckExcludesEditedBooking(t *testing.T) {
+	c := newTestClient(t)
+	var own domain.Booking
+	c.call("POST", "/api/rooms/9070/bookings", bookingBody("14:00", "15:00"), 201, &own)
+	c.call("POST", "/api/rooms/9070/bookings", bookingBody("15:30", "16:30"), 201, nil)
+	moved := bookingBody("14:30", "15:30").TimeRange
+	var plain, excluded domain.CheckResult
+	c.call("POST", "/api/rooms/9070/check", moved, 200, &plain)
+	c.call("POST", "/api/rooms/9070/check", CheckRange{TimeRange: moved, ExcludeBookingID: own.ID}, 200, &excluded)
+	if plain.OK || !excluded.OK {
+		t.Fatalf("plain=%+v excluded=%+v", plain, excluded)
+	}
+	overlapping := bookingBody("14:30", "16:00").TimeRange
+	var other domain.CheckResult
+	c.call("POST", "/api/rooms/9070/check", CheckRange{TimeRange: overlapping, ExcludeBookingID: own.ID}, 200, &other)
+	if other.OK || other.Conflict == nil || other.Conflict.ConflictWith.Start.Hour() != 15 {
+		t.Fatalf("must still report the other booking: %+v", other)
+	}
+}
+
 // TestClientIPTrustsOnlyConfiguredProxies keeps per-client throttling behind a reverse proxy without letting direct clients spoof X-Real-IP.
 func TestClientIPTrustsOnlyConfiguredProxies(t *testing.T) {
 	proxies, err := ParseTrustedProxies("172.20.0.0/16, 10.0.0.5")

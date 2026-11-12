@@ -83,6 +83,13 @@ type TimeRange struct {
 	End time.Time `json:"end"`
 }
 
+// CheckRange is a live availability check that may ignore the booking being edited.
+type CheckRange struct {
+	TimeRange
+	// ExcludeBookingID ignores this booking when looking for conflicts and active-booking limits.
+	ExcludeBookingID int64 `json:"excludeBookingId,omitempty"`
+}
+
 // CreateBooking is a single booking request.
 type CreateBooking struct {
 	TimeRange

@@ -63,7 +63,7 @@ func (s *Service) check(start, end time.Time, room store.Room, bookings []domain
 }
 
 func (s *Service) checkBooking(ctx context.Context, q *store.Queries, r request, room store.Room, person store.Person) (any, error) {
-	body, err := bodyAs[TimeRange](r)
+	body, err := bodyAs[CheckRange](r)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,9 @@ func (s *Service) checkBooking(ctx context.Context, q *store.Queries, r request,
 	if err != nil {
 		return nil, err
 	}
-	return s.check(body.Start, body.End, room, forRoom(bookings, room.Slug, nil), rules.Options{Now: s.now(), Active: activeCount(bookings, room.Slug, person.ID, s.now())}), nil
+	excluded := map[int64]bool{body.ExcludeBookingID: body.ExcludeBookingID != 0}
+	options := rules.Options{Now: s.now(), Active: activeCount(bookings, room.Slug, person.ID, s.now()), Existing: body.ExcludeBookingID != 0}
+	return s.check(body.Start, body.End, room, forRoom(bookings, room.Slug, excluded), options), nil
 }
 
 func bookingOwner(ctx context.Context, q *store.Queries, person store.Person, onBehalfOf int64, kind string) (sql.NullInt64, string, error) {
