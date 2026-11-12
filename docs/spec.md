@@ -35,7 +35,7 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 ### 2.1 Rooms and room token
 
-- A room has: `slug` (e.g. `9070`), name, location, capacity, description, and rules (§2.4).
+- A room has: `slug` (e.g. `| POST | `/api/rooms/{slug}/quick` | `{minutes: 30|60|90|120, title}`; capped70`), name, location, capacity, description, and rules (§2.4).
 - Each room has a random **room token** (≥ 16 chars, URL-safe). The door QR encodes `{PUBLIC_URL}/r/{slug}?k={token}`.
 - Every room-scoped API call needs header `X-Room-Token` matching that room, unless the caller is an admin. Without it the room is invisible (`403 room_token_required` / `room_token_invalid`). Exception: `/api/bookings/{id}/*` only needs the booker's own session, so people can manage their bookings from any device.
 - Clients remember tokens per room (web: `localStorage`; apps: same, inside the webview) and strip `k` from the address bar after storing it.
@@ -45,7 +45,7 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 - No accounts. A person = name + role (`teacher` | `student` | `other`) + optional admin flag + personal passcode.
 - Admin maintains a preset list. Anyone not on it can add themselves with a custom name (role `other`).
-- **Everyone uses a 4- or 6-digit numeric passcode.** The person chooses the length when setting it.
+- **Everyone uses a 6-digit numeric passcode.**
 - First use of a preset name: the person sets the passcode (claim). After that, anyone using that name must enter it.
 - Login works on any device: pick name (or type it on the admin login) + passcode → long-lived session (365 days, sliding).
 - 5 consecutive wrong passcodes lock that person for 15 minutes. Also rate-limit login attempts per client IP.
@@ -59,13 +59,13 @@ One Go module (`roomark`), one React frontend, three build targets:
 
 - Statuses: `confirmed`, `cancelled`. Nothing else. No approval, no check-in, no no-show tracking.
 - `kind`: `normal` or `block` (admin-only "不可预约" time, e.g. 消杀/考试; rules other than conflicts do not apply).
-- A booking has optional `title` (用途). Everyone who can see the room sees booker name and title.
+- A booking has a required `title` (用途, 1–200 chars after trimming; blocks too). Everyone who can see the room sees booker name and title. Quick use ("马上使用") also asks for 用途.
 - Grid: start and end align to 15 minutes. Exception: quick use ("马上使用") starts at the current minute.
 - A free slot books instantly. A conflict returns `409` with **suggestions** (§2.5).
 - Edit: change time/title; re-validated excluding itself.
 - Cancel: future or ongoing booking. Cancelling an ongoing booking is not allowed; use end-early.
 - End early: only while ongoing; sets `end` to the current minute and records `releasedMinutes`.
-- Extend: by 15/30/60 minutes, only if the extension is free, within open hours and within max duration.
+- Extend: by 15/30/| POST | `/api/rooms/{slug}/quick` | `{minutes: 30|60|90|120, title}`; capped minutes, only if the extension is free, within open hours and within max duration.
 - "Ongoing" / "finished" are derived from time; there is no background job.
 
 ### 2.4 Rules (per room, admin-editable, defaults)
@@ -180,12 +180,12 @@ Person scope (session; room endpoints also need the room token):
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/api/rooms/{slug}/bookings` | `{start,end,title?,conflictEventId?, onBehalfOf? (admin), kind? (admin: block)}` → 201 Booking / 409 Conflict / 422 |
-| POST | `/api/rooms/{slug}/quick` | `{minutes: 30\|60\|90\|120}`; capped at next booking / close time; returns Booking |
+| POST | `/api/rooms/{slug}/quick` | `{minutes: 30|60|90|120, title}`; capped\|60\|90\|120}`; capped at next booking / close time; returns Booking |
 | POST | `/api/rooms/{slug}/series/preview` | `{rule}` → `{ occurrences: Occurrence[] }` |
 | POST | `/api/rooms/{slug}/series` | `{rule,title?,overrides,onBehalfOf?,kind?}` → `{ seriesId, created: Booking[], skipped: date[] }` / 409 `{ occurrences }` |
 | PATCH | `/api/bookings/{id}` | `{start?,end?,title?,scope?}` |
 | POST | `/api/bookings/{id}/cancel` | `{scope?: "this"\|"following"}` |
-| POST | `/api/bookings/{id}/extend` | `{minutes: 15\|30\|60}` |
+| POST | `/api/bookings/{id}/extend` | `{minutes: 15\|30\|| POST | `/api/rooms/{slug}/quick` | `{minutes: 30|60|90|120, title}`; capped}` |
 | POST | `/api/bookings/{id}/end` | end early |
 | GET | `/api/me` | Person |
 | GET | `/api/me/bookings?past=false` | `{ singles: Booking[], series: [{ id, roomSlug, title, ruleSummary, firstDate, lastDate, remaining, occurrences: Booking[] }] }` |
@@ -222,19 +222,27 @@ Non-API: `GET /ical/{slug}.ics?k=`, `GET /ical/person/{feedToken}.ics`. Everythi
 
 ## 5. Frontend routes and flows
 
-Mobile first (360 px wide), also comfortable on desktop. Light and dark themes.
+Three layout tiers, each designed on purpose (not just stretched):
+
+| Tier | Viewport | Used by |
+| --- | --- | --- |
+| Mobile | < 768 px | phones (browser and Android app) |
+| Narrow | 768–1279 px | PC app and web in a smaller window |
+| Wide | ≥ 1280 px | PC app and web maximised |
+
+Light and dark themes. Colors follow the T3 Soft palette in `docs/design/t3-soft.json` (dark = `colors`, light = `variants.light`). No visible horizontal scrollbars in pickers; date and time choices use compact, scroll-free pickers.
 
 | Route | Content |
 | --- | --- |
 | `/` | No stored room: "请扫描会议室门口的二维码" (apps: 扫码绑定 / 粘贴链接). One room: redirect. Several: room cards with live status. |
-| `/r/$slug` | Room home: big status (空闲 / 使用中：某某 到 15:30, "空闲至 16:00"), primary action 马上使用 (30/60/90/120, options beyond the free window disabled), 预约 button, next booking, today's timeline, announcement banner, "通常空闲时段" heatmap (collapsible). Mine-and-ongoing: 续时 / 提前结束. |
+| `/r/$slug` | Room home: big status (空闲 / 使用中：某某 到 15:30, "空闲至 16:00"), primary action 马上使用 (30/| POST | `/api/rooms/{slug}/quick` | `{minutes: 30|60|90|120, title}`; capped/90/120, options beyond the free window disabled), 预约 button, next booking, today's timeline, announcement banner, "通常空闲时段" heatmap (collapsible). Mine-and-ongoing: 续时 / 提前结束. |
 | `/r/$slug/calendar` | 3-day view on phones (swipe), week view ≥ 768 px. Tap empty slot → booking sheet prefilled. Booking blocks show name, title, 🔁 for series. Tap → detail sheet. |
 | `/r/$slug/book` | Booking form: date, start/end (15-min steps), 用途, 重复 toggle. Live check via `/check`. Conflict → suggestion chips (one tap books). Recurring → preview list (see below). |
 | `/me` | Identity (name, switch, logout, change passcode), 我的预约: upcoming / past tabs; series collapse into one card ("组会 · 每周三 14:00–16:00 · 11/19–1/7 · 还剩 6 次"), expandable. iCal feed links with copy buttons. |
 | `/admin/*` | 房间 (info, rules, rotate token, 导出二维码), 名单 (CRUD, import, reset passcode, admin flag), 预约 (filterable table, edit/cancel, 代人预约, 不可预约时段 incl. recurring), 公告, 统计. |
 | `/settings` | Apps only: server URL; desktop: 开机自启. |
 
-Identity flow (sheet, triggered by any write action when there is no session): search the preset list → if unclaimed, set passcode (choose 4 or 6 digits, enter twice) → done. "我不在名单里" → type name → set passcode. Claimed names → enter passcode. Locked → show remaining time. Admin login on `/admin` takes name + passcode.
+Identity flow (sheet, triggered by any write action when there is no session): search the preset list → if unclaimed, set a 6-digit passcode (enter twice) → done. "我不在名单里" → type name → set passcode. Claimed names → enter passcode. Locked → show remaining time. Admin login on `/admin` takes name + passcode.
 
 Recurring preview layout:
 
