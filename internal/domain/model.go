@@ -307,6 +307,18 @@ type MyBookings struct {
 	Series []MySeries `json:"series"`
 }
 
+// RoomHeatmap contains one Shanghai Monday–Sunday week's booked shares by clock hour.
+type RoomHeatmap struct {
+	// WeekStart is the Monday date in Asia/Shanghai.
+	WeekStart string `json:"weekStart" format:"date"`
+	// Days lists the seven local dates from Monday through Sunday.
+	Days [7]string `json:"days" format:"date"`
+	// Hours lists clock hours from the open hour through the last hour starting before close.
+	Hours []int `json:"hours"`
+	// Cells contains confirmed booking and block minutes clipped to open hours, divided by sixty and capped at one.
+	Cells [7][]float64 `json:"cells"`
+}
+
 // Overview measures actual elapsed normal room usage.
 type Overview struct {
 	// Bookings counts reservations or contains source reservation rows.

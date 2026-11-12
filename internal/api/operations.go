@@ -38,7 +38,7 @@ func (s *Service) execute(ctx context.Context, q *store.Queries, op string, r re
 		case "list-room-bookings":
 			return s.filteredBookings(ctx, q, r, person, room.Slug, true)
 		case "room-heatmap":
-			return s.publicHeatmap(ctx, q, room, r.Weeks)
+			return s.publicHeatmap(ctx, q, room, r.week)
 		case "check-booking":
 			return s.checkBooking(ctx, q, r, room, person)
 		case "create-booking", "quick-booking":

@@ -8,7 +8,7 @@ import (
 func registerRoutes(api huma.API, svc *Service) {
 	register[roomInput, domain.RoomDetail](api, svc, "GET", "/api/rooms/{slug}", "get-room", 200)
 	register[roomInput, []domain.Booking](api, svc, "GET", "/api/rooms/{slug}/bookings", "list-room-bookings", 200)
-	register[roomInput, [7][14]float64](api, svc, "GET", "/api/rooms/{slug}/heatmap", "room-heatmap", 200)
+	register[roomHeatmapInput, domain.RoomHeatmap](api, svc, "GET", "/api/rooms/{slug}/heatmap", "room-heatmap", 200)
 	register[roomBody[CheckRange], domain.CheckResult](api, svc, "POST", "/api/rooms/{slug}/check", "check-booking", 200)
 	register[rootInput, []domain.Person](api, svc, "GET", "/api/people", "list-people", 200)
 	register[roomBody[CreateBooking], domain.Booking](api, svc, "POST", "/api/rooms/{slug}/bookings", "create-booking", 201)

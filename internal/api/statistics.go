@@ -45,15 +45,19 @@ func (s *Service) statistics(ctx context.Context, q *store.Queries, r request) (
 	return statistics.Calculate(input), nil
 }
 
-func (s *Service) publicHeatmap(ctx context.Context, q *store.Queries, room store.Room, weeks int) ([7][14]float64, error) {
-	if weeks == 0 {
-		weeks = 8
+// publicHeatmap returns the selected week's booked shares without limiting future hours.
+func (s *Service) publicHeatmap(ctx context.Context, q *store.Queries, room store.Room, week string) (domain.RoomHeatmap, error) {
+	day := rules.Day(s.now())
+	if week != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", week, rules.Shanghai)
+		if err != nil || parsed.Format("2006-01-02") != week {
+			return domain.RoomHeatmap{}, problem(422, "invalid_range", "日期格式必须为 YYYY-MM-DD")
+		}
+		day = parsed
 	}
-	input := statistics.Input{Rooms: []store.Room{room}, Room: room.Slug, Now: s.now(), From: rules.Day(s.now()).AddDate(0, 0, -weeks*7), To: s.now().Truncate(time.Minute)}
-	var err error
-	input.Bookings, err = q.ListBookings(ctx)
+	bookings, err := q.ListBookings(ctx)
 	if err != nil {
-		return [7][14]float64{}, err
+		return domain.RoomHeatmap{}, err
 	}
-	return statistics.Heatmap(input, true), nil
+	return statistics.WeeklyHeatmap(room, bookings, day)
 }

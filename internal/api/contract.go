@@ -108,8 +108,6 @@ type Headers struct {
 	Status string `query:"status" enum:"confirmed,cancelled"`
 	// Past selects completed or cancelled personal reservations.
 	Past bool `query:"past" default:"false"`
-	// Weeks sets the historical heatmap lookback.
-	Weeks int `query:"weeks" default:"8" minimum:"1" maximum:"104"`
 	// K carries the iCal room-token query value.
 	K string `query:"k"`
 }
@@ -379,6 +377,13 @@ type roomInput struct {
 	// Slug is the URL-safe room identifier.
 	Slug string `path:"slug"`
 }
+type roomHeatmapInput struct {
+	Headers
+	// Slug is the URL-safe room identifier.
+	Slug string `path:"slug"`
+	// Week selects the Monday–Sunday week containing this Shanghai date; omitted means the current week.
+	Week string `query:"week" format:"date"`
+}
 type idInput struct {
 	Headers
 	// ID identifies this record.
@@ -410,6 +415,7 @@ type request struct {
 	slug string
 	id   int64
 	feed string
+	week string
 	body any
 }
 
@@ -423,12 +429,13 @@ func convertInput(input any) request {
 		Slug      string
 		ID        int64
 		FeedToken string
+		Week      string
 		Body      json.RawMessage
 	}
 	if err := json.Unmarshal(encoded, &flat); err != nil {
 		panic(err)
 	}
-	return request{Headers: flat.Headers, slug: flat.Slug, id: flat.ID, feed: flat.FeedToken, body: flat.Body}
+	return request{Headers: flat.Headers, slug: flat.Slug, id: flat.ID, feed: flat.FeedToken, week: flat.Week, body: flat.Body}
 }
 
 func bodyAs[T any](r request) (T, error) {
