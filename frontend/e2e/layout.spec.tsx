@@ -17,7 +17,7 @@
  */
 import path from "node:path";
 
-import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
 import {
   ADMIN_PASSCODE,
@@ -29,6 +29,7 @@ import {
   seed,
   tomorrow,
   type Seeded,
+  test,
 } from "./support";
 
 const VIEWPORTS = [

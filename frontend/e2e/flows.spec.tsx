@@ -6,7 +6,7 @@
  *
  * @module
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import {
   ADMIN_PASSCODE,
@@ -17,6 +17,7 @@ import {
   seed,
   tomorrow,
   type Seeded,
+  test,
 } from "./support";
 
 let seeded: Seeded;

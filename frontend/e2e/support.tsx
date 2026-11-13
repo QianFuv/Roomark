@@ -4,7 +4,25 @@
  * @module
  */
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test as base, expect, type APIRequestContext, type Page } from "@playwright/test";
+
+/**
+ * Playwright `test` whose requests carry a client address unique to the test. The e2e server
+ * trusts loopback as a proxy (see playwright.config.ts), so the per-IP identity rate limit counts
+ * each test as its own client instead of throttling the whole suite.
+ */
+export const test = base.extend({
+  extraHTTPHeaders: async ({ extraHTTPHeaders }, use, testInfo) => {
+    let hash = 0;
+
+    for (const character of `${testInfo.testId}:${testInfo.retry}`) {
+      hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0;
+    }
+
+    const address = `10.${(hash >>> 16) & 255}.${(hash >>> 8) & 255}.${hash & 255}`;
+    await use({ ...extraHTTPHeaders, "X-Real-IP": address });
+  },
+});
 
 /** Seeded room slug. */
 export const ROOM_SLUG = "e2e9070";
@@ -131,12 +149,21 @@ export async function seed(request: APIRequestContext): Promise<Seeded> {
 }
 
 /**
- * Assert that a page has no serious or critical axe violations.
+ * Assert that a page has no serious or critical axe violations, once finite animations have
+ * settled so half-faded colors are not measured.
  *
  * @param page - The page.
  * @param include - Only check inside this selector, e.g. an open overlay window above a dimmed page.
  */
 export async function expectAccessible(page: Page, include?: string): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity,
+      ),
+  );
   const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]);
   const results = await (include === undefined ? builder : builder.include(include)).analyze();
 

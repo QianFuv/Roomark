@@ -6,9 +6,9 @@
  *
  * @module
  */
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
-import { ADMIN_PASSCODE, LISI_PASSCODE, ROOM_NAME, ROOM_SLUG, seed, type Seeded } from "./support";
+import { ADMIN_PASSCODE, LISI_PASSCODE, ROOM_NAME, ROOM_SLUG, seed, type Seeded, test } from "./support";
 
 const STORAGE_KEY = "roomark.state.v1";
 
