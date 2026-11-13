@@ -6,9 +6,20 @@ import (
 	"testing"
 )
 
+// resolvedTempDir returns a temporary directory with symlinks and Windows
+// short (8.3) names expanded, matching what resolveDataDirectory reports.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
 // TestResolveDataDirectory keeps desktop data beside the exe and Android in app storage.
 func TestResolveDataDirectory(t *testing.T) {
-	directory := t.TempDir()
+	directory := resolvedTempDir(t)
 	executable := filepath.Join(directory, "roomark.exe")
 	if err := os.WriteFile(executable, nil, 0600); err != nil {
 		t.Fatal(err)
@@ -33,7 +44,7 @@ func TestResolveDataDirectory(t *testing.T) {
 
 // TestResolveDataDirectorySymlink stores data beside the actual executable.
 func TestResolveDataDirectorySymlink(t *testing.T) {
-	directory := t.TempDir()
+	directory := resolvedTempDir(t)
 	executable := filepath.Join(directory, "roomark.exe")
 	if err := os.WriteFile(executable, nil, 0600); err != nil {
 		t.Fatal(err)
