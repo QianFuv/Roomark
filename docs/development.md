@@ -119,10 +119,12 @@ CI 定义在 `.github/workflows/`，推送到 `main`、提交 Pull Request 或�
 版本号以仓库根目录的 `VERSION` 为准（`MAJOR.MINOR.PATCH`）。Go 程序嵌入它，Android 的 `versionName` / `versionCode` 从它计算；`apps/roomark/build/config.yml` 的 `info.version` 和 `apps/roomark/build/windows/info.json` 中的四处版本号需要手动改成同一个值，CI 会检查。
 
 1. 同时修改上面三个文件里的版本号并推送到 `main`。
-2. CI 发现 `VERSION` 比推送前高，全部检查和打包通过后发布 `v<版本>`：GitHub Release、镜像 `ghcr.io/qianfuv/roomark:v<版本>` 和 `latest`。
-3. 版本号不能降低；没改版本号的推送只做检查和打包，不发版。
+2. CI 发现 `VERSION` 有变化，全部检查和打包通过后发布标签 `v<版本>`，Release 标题为 `Roomark v<版本>`，镜像为 `ghcr.io/qianfuv/roomark-server:v<版本>` 和 `latest`。
+3. 只有推送前的版本尚无本地或远端 `v<旧版本>` 标签时才允许降低版本号（首个公开版本为 `0.1.0`）；已发布版本不能降低。没改版本号的推送只做检查和打包，不发版。目标 `v<版本>` 标签已存在时拒绝再次发布。
 
-发布失败或要补发当前版本时，在 Actions 里手动运行 CI，填入与 `main` 上 `VERSION` 相同的版本号。已存在的 Release 会覆盖同名文件，但标签必须指向同一个提交。
+标签尚未创建的发布失败后，可以在 Actions 里手动运行 CI，填入与 `main` 上 `VERSION` 相同的版本号。已有标签不会被覆盖。发版说明按 Features、Bug fixes 等 Conventional Commits 类型列出全部提交和短 SHA 链接；有旧版时从最近可达的已公开稳定版本算起，首版列出全部提交。
+
+本地打包和 CI 直接使用同一套命名：`roomark-server_<版本>_<系统>_<架构>.<扩展名>`、`roomark-client_<版本>_<系统>_<架构>.<扩展名>`。Windows 便携版为 `roomark-client_<版本>_windows_amd64.zip`，Android 为 `roomark-client_<版本>_android_arm64.apk`。压缩包内只有一个与压缩包同名的顶层目录，包含程序和 `LICENSE`；Windows 客户端程序名为 `roomark-client.exe`，旁边保留空的 `data/`。Release 另附 `SHA256SUMS`。
 
 ### Android 签名
 

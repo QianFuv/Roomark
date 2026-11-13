@@ -73,14 +73,14 @@ ROOMARK_PUBLIC_URL=http://localhost:8080 WAILS_SERVER_PORT=8080 \
 | 目标 | 命令 | 产物 |
 | --- | --- | --- |
 | 服务端（含网页） | `wails3 task build:server` | `bin/roomark-server`（Windows 为 `.exe`） |
-| 服务端 Docker 镜像 | `wails3 task build:docker` | 本地镜像 `roomark:latest`，容器内端口 8080 |
-| Windows 便携版 | `wails3 task package` | `bin/Roomark-portable-windows-amd64.zip` |
+| 服务端 Docker 镜像 | `wails3 task build:docker` | 本地镜像 `roomark-server:latest`，容器内端口 8080 |
+| Windows 便携版 | `wails3 task package` | `bin/roomark-client_<版本>_windows_amd64.zip` |
 | Windows 安装包（可选） | `wails3 task package FORMAT=nsis` | NSIS 安装程序 |
-| Android | `wails3 task android:package` | `bin/roomark.apk` |
+| Android | `wails3 task android:package` | `bin/roomark-client_<版本>_android_arm64.apk` |
 
 Windows 便携版解压即用，所有数据（服务器地址、网页存储）都放在程序同目录的 `data` 文件夹，不写入系统目录。桌面端和 Android 首次启动时填写服务器地址，也可以在构建时通过 `-X main.defaultServerURL=https://...` 预置。
 
-每个版本的服务端程序、Windows 便携版、Android 安装包和 Docker 镜像（`ghcr.io/qianfuv/roomark`）都由 CI 构建并发布在 [Releases](https://github.com/QianFuv/Roomark/releases)。
+每个版本的服务端程序、Windows 便携版、Android 安装包和 Docker 镜像（`ghcr.io/qianfuv/roomark-server:v<版本>` 和 `latest`）都由 CI 构建并发布在 [Releases](https://github.com/QianFuv/Roomark/releases)。服务端压缩包名为 `roomark-server_<版本>_linux_amd64.tar.gz` 和 `roomark-server_<版本>_windows_amd64.zip`；每个压缩包里只有一个同名顶层目录，包含程序和 `LICENSE`。Release 另附 `SHA256SUMS` 校验文件。
 
 部署细节见 [docs/deployment.md](docs/deployment.md)，开发和测试见 [docs/development.md](docs/development.md)。
 
