@@ -1,3 +1,5 @@
+<p align="center"><img src="apps/roomark/frontend/public/favicon.svg" width="96" alt="Roomark"></p>
+
 # Roomark
 
 Roomark 是一个给小团队用的会议室预约应用。每间会议室门口贴一张二维码，扫码就能看到房间现在有没有人用、今天还有哪些空档，并直接预约。

@@ -88,13 +88,9 @@ const styles = stylex.create({
     textDecoration: "none",
   },
   logo: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    color: colors.onPrimary,
-    display: "inline-flex",
+    display: "block",
+    flexShrink: 0,
     height: 28,
-    justifyContent: "center",
     width: 28,
   },
   navItem: {
@@ -322,9 +318,7 @@ function Sidebar() {
     <div {...stylex.props(styles.sidebarRail)}>
       <nav aria-label="侧边导航" {...stylex.props(styles.sidebar)}>
         <Link to="/" {...stylex.props(text.title, styles.brand)}>
-          <span aria-hidden {...stylex.props(text.label, styles.logo)}>
-            R
-          </span>
+          <img src="/favicon.svg" alt="" aria-hidden width={28} height={28} {...stylex.props(styles.logo)} />
           会议室
         </Link>
         <div {...stylex.props(styles.sideGroup)}>
@@ -399,9 +393,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header {...stylex.props(styles.bar)}>
         <nav aria-label="主导航" {...stylex.props(styles.barInner)}>
           <Link to="/" {...stylex.props(text.title, styles.brand)}>
-            <span aria-hidden {...stylex.props(text.label, styles.logo)}>
-              R
-            </span>
+            <img
+              src="/favicon.svg"
+              alt=""
+              aria-hidden
+              width={28}
+              height={28}
+              {...stylex.props(styles.logo)}
+            />
             会议室
           </Link>
           {isApp ? (
