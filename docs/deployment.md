@@ -13,6 +13,8 @@ wails3 task build:docker    # 生成镜像 roomark:latest
 
 两个任务都会先构建生产版前端（`frontend/dist`），再把它嵌入 Go 程序。Docker 镜像基于 `distroless/static`，程序是不依赖 CGO 的静态二进制，容器内监听 8080 端口。
 
+不想自己构建时，可以用 [GitHub Releases](https://github.com/QianFuv/Roomark/releases) 里的服务端程序，或直接拉取镜像 `ghcr.io/qianfuv/roomark:<版本>`（最新版本也标记为 `latest`），把下面示例里的 `image` 换成它即可。
+
 ### 环境变量
 
 | 变量 | 默认值 | 说明 |

@@ -27,6 +27,9 @@
 │   ├── bindings/             Wails 绑定（生成）
 │   └── e2e/                  Playwright 端到端测试
 ├── build/                    各平台构建配置（Taskfile、Android、Windows、Docker）
+├── scripts/                  CI 发版规则（release-version.mjs）
+├── .github/                  CI 工作流和 Dependabot
+├── VERSION                   发布版本号
 └── docs/                     项目文档
 ```
 
@@ -86,6 +89,42 @@ cd frontend && pnpm e2e
 ```
 
 默认使用 `bin/roomark-server.exe`，可以用环境变量 `ROOMARK_E2E_SERVER` 指定其他路径。`e2e/layout.spec.tsx` 会检查各档屏宽下是否有横向溢出和大块留白；设置 `ROOMARK_SCREENSHOT_DIR` 后会顺便保存截图。
+
+## 持续集成与发布
+
+CI 定义在 `.github/workflows/`，推送到 `main`、提交 Pull Request 或手动运行时触发：
+
+| 任务 | 内容 |
+| --- | --- |
+| Release rules | 测试发版规则，检查各处版本号一致，判断本次是否发版 |
+| Go server (Linux) | gofmt、sqlc 和 OpenAPI 生成物无差异、`-tags server` 下的 vet、golangci-lint 和带竞态检测的测试 |
+| Go desktop (Windows) | 桌面端默认标签下的 vet、golangci-lint 和测试 |
+| Frontend | `pnpm check`、Knip、接口类型无差异、单元测试、生产构建、真实服务端上的端到端测试 |
+| Package | 构建 Linux / Windows 服务端程序、Docker 镜像、Windows 便携版和 Android APK，服务端和镜像都会跑冒烟测试；产物作为 Actions artifact 保留 14 天 |
+| Publish release | 只在发版时运行：推送镜像到 GHCR，创建 GitHub Release 并上传全部产物和 `SHA256SUMS` |
+
+### 发版
+
+版本号以仓库根目录的 `VERSION` 为准（`MAJOR.MINOR.PATCH`）。Go 程序嵌入它，Android 的 `versionName` / `versionCode` 从它计算；`build/config.yml` 的 `info.version` 和 `build/windows/info.json` 中的四处版本号需要手动改成同一个值，CI 会检查。
+
+1. 同时修改上面三个文件里的版本号并推送到 `main`。
+2. CI 发现 `VERSION` 比推送前高，全部检查和打包通过后发布 `v<版本>`：GitHub Release、镜像 `ghcr.io/qianfuv/roomark:v<版本>` 和 `latest`。
+3. 版本号不能降低；没改版本号的推送只做检查和打包，不发版。
+
+发布失败或要补发当前版本时，在 Actions 里手动运行 CI，填入与 `main` 上 `VERSION` 相同的版本号。已存在的 Release 会覆盖同名文件，但标签必须指向同一个提交。
+
+### Android 签名
+
+发版时 Android APK 必须用正式密钥签名，否则这一项会被跳过（其他产物照常发布），以免不同版本签名不一致导致无法覆盖安装。在仓库的 Actions secrets 中设置：
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | keystore 文件的 Base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 密码 |
+| `ANDROID_KEY_ALIAS` | 密钥别名 |
+| `ANDROID_KEY_PASSWORD` | 密钥密码 |
+
+没有设置时，平时的 CI 会用调试密钥构建 APK，文件名带 `_debug-signed`，只用于测试。
 
 ## 约定
 

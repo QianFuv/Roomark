@@ -75,6 +75,8 @@ ROOMARK_PUBLIC_URL=http://localhost:8080 WAILS_SERVER_PORT=8080 \
 
 Windows 便携版解压即用，所有数据（服务器地址、网页存储）都放在程序同目录的 `data` 文件夹，不写入系统目录。桌面端和 Android 首次启动时填写服务器地址，也可以在构建时通过 `-X main.defaultServerURL=https://...` 预置。
 
+每个版本的服务端程序、Windows 便携版、Android 安装包和 Docker 镜像（`ghcr.io/qianfuv/roomark`）都由 CI 构建并发布在 [Releases](https://github.com/QianFuv/Roomark/releases)。
+
 部署细节见 [docs/deployment.md](docs/deployment.md)，开发和测试见 [docs/development.md](docs/development.md)。
 
 ## 文档
@@ -83,7 +85,7 @@ Windows 便携版解压即用，所有数据（服务器地址、网页存储）
 | --- | --- |
 | [docs/spec.md](docs/spec.md) | 产品规则、数据模型、HTTP API、前端页面与宿主服务 |
 | [docs/deployment.md](docs/deployment.md) | 服务端配置、Docker、反向代理、客户端分发 |
-| [docs/development.md](docs/development.md) | 目录结构、开发命令、代码生成、测试与检查 |
+| [docs/development.md](docs/development.md) | 目录结构、开发命令、代码生成、测试与检查、CI 与发布 |
 | [docs/design/visual-system.md](docs/design/visual-system.md) | 字体、字号角色、间距、图标和弹窗规则 |
 | [docs/design/t3-soft.json](docs/design/t3-soft.json) | T3 Soft 配色（深色为 `colors`，浅色为 `variants.light`） |
 | [api/openapi.json](api/openapi.json) | 由后端导出的 OpenAPI 3.1 接口描述 |
