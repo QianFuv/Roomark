@@ -97,8 +97,8 @@ CI 定义在 `.github/workflows/`，推送到 `main`、提交 Pull Request 或�
 | 任务 | 内容 |
 | --- | --- |
 | Release rules | 测试发版规则，检查各处版本号一致，判断本次是否发版 |
-| Go server (Linux) | gofmt、sqlc 和 OpenAPI 生成物无差异、`-tags server` 下的 vet、golangci-lint 和带竞态检测的测试 |
-| Go desktop (Windows) | 桌面端默认标签下的 vet、golangci-lint 和测试 |
+| Go server (Linux) | 不启用 CGO：gofmt、sqlc 和 OpenAPI 生成物无差异、`-tags server` 下的 vet、golangci-lint 和测试 |
+| Go desktop (Windows) | 桌面端默认标签下的 vet、golangci-lint，以及两种标签下带竞态检测的测试 |
 | Frontend | `pnpm check`、Knip、接口类型无差异、单元测试、生产构建、真实服务端上的端到端测试 |
 | Package | 构建 Linux / Windows 服务端程序、Docker 镜像、Windows 便携版和 Android APK，服务端和镜像都会跑冒烟测试；产物作为 Actions artifact 保留 14 天 |
 | Publish release | 只在发版时运行：推送镜像到 GHCR，创建 GitHub Release 并上传全部产物和 `SHA256SUMS` |

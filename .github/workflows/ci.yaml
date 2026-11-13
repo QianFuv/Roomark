@@ -53,10 +53,14 @@ jobs:
           REQUESTED_VERSION: ${{ inputs.version }}
         run: node scripts/release-version.mjs
 
+  # Linux checks build without CGO, like the shipped server; with CGO, Wails
+  # would link the GTK desktop stack even under the server tag.
   backend-linux:
     name: Go server (Linux)
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    env:
+      CGO_ENABLED: "0"
     steps:
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,8 +89,8 @@ jobs:
         run: go vet -tags server ./...
       - name: Lint
         run: golangci-lint run --build-tags server ./...
-      - name: Test with the race detector
-        run: go test -race -tags server ./...
+      - name: Test
+        run: go test -tags server ./...
 
   backend-windows:
     name: Go desktop (Windows)
@@ -115,8 +119,13 @@ jobs:
         run: go vet ./...
       - name: Lint
         run: golangci-lint run ./...
-      - name: Test
-        run: go test ./...
+      - name: Test with the race detector
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          gcc --version
+          go test -race ./...
+          go test -race -tags server ./...
 
   frontend:
     name: Frontend
@@ -163,6 +172,8 @@ jobs:
         run: pnpm build
       - name: Build the server for end-to-end tests
         working-directory: .
+        env:
+          CGO_ENABLED: "0"
         run: go build -tags server,production -trimpath -buildvcs=false -o bin/roomark-server .
       - name: End-to-end tests
         env:
