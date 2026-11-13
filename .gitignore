@@ -1,5 +1,5 @@
 .task
 .wails
 bin
-frontend/dist
-frontend/node_modules
+apps/roomark/frontend/dist
+apps/roomark/frontend/node_modules

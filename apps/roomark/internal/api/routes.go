@@ -1,0 +1,47 @@
+package api
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+	"roomark/apps/roomark/internal/domain"
+)
+
+func registerRoutes(api huma.API, svc *Service) {
+	register[rootBody[ResolveRoomCode], ResolvedRoom](api, svc, "POST", "/api/room-codes/resolve", "resolve-room-code", 200)
+	register[roomInput, domain.RoomDetail](api, svc, "GET", "/api/rooms/{slug}", "get-room", 200)
+	register[roomInput, []domain.Booking](api, svc, "GET", "/api/rooms/{slug}/bookings", "list-room-bookings", 200)
+	register[roomHeatmapInput, domain.RoomHeatmap](api, svc, "GET", "/api/rooms/{slug}/heatmap", "room-heatmap", 200)
+	register[roomBody[CheckRange], domain.CheckResult](api, svc, "POST", "/api/rooms/{slug}/check", "check-booking", 200)
+	register[rootInput, []domain.Person](api, svc, "GET", "/api/people", "list-people", 200)
+	register[roomBody[CreateBooking], domain.Booking](api, svc, "POST", "/api/rooms/{slug}/bookings", "create-booking", 201)
+	register[roomBody[Quick], domain.Booking](api, svc, "POST", "/api/rooms/{slug}/quick", "quick-booking", 201)
+	register[roomBody[RuleInput], domain.Preview](api, svc, "POST", "/api/rooms/{slug}/series/preview", "preview-series", 200)
+	register[roomBody[CreateSeries], domain.SeriesResult](api, svc, "POST", "/api/rooms/{slug}/series", "create-series", 201)
+	register[idBody[EditBooking], domain.Booking](api, svc, "PATCH", "/api/bookings/{id}", "edit-booking", 200)
+	register[idBody[Scope], Success](api, svc, "POST", "/api/bookings/{id}/cancel", "cancel-booking", 200)
+	register[idBody[Extend], domain.Booking](api, svc, "POST", "/api/bookings/{id}/extend", "extend-booking", 200)
+	register[idInput, domain.Booking](api, svc, "POST", "/api/bookings/{id}/end", "end-booking", 200)
+	register[rootInput, domain.Person](api, svc, "GET", "/api/me", "get-me", 200)
+	register[rootInput, domain.MyBookings](api, svc, "GET", "/api/me/bookings", "my-bookings", 200)
+	register[rootInput, Feed](api, svc, "GET", "/api/me/feeds", "my-feeds", 200)
+	register[rootBody[ChangePasscode], Success](api, svc, "PUT", "/api/me/passcode", "change-passcode", 200)
+	register[rootInput, Success](api, svc, "DELETE", "/api/sessions/current", "logout", 200)
+	register[rootBody[Login], domain.Session](api, svc, "POST", "/api/sessions", "login", 200)
+	register[idBody[Passcode], domain.Session](api, svc, "POST", "/api/people/{id}/claim", "claim-person", 200)
+	register[rootBody[SelfPerson], domain.Session](api, svc, "POST", "/api/people", "create-person", 201)
+	register[rootInput, []domain.AdminRoom](api, svc, "GET", "/api/admin/rooms", "admin-rooms", 200)
+	register[rootBody[RoomInput], domain.AdminRoom](api, svc, "POST", "/api/admin/rooms", "admin-create-room", 201)
+	register[idBody[EditRoom], domain.AdminRoom](api, svc, "PATCH", "/api/admin/rooms/{id}", "admin-edit-room", 200)
+	register[idInput, QR](api, svc, "GET", "/api/admin/rooms/{id}/qr", "room-qr", 200)
+	register[rootInput, []domain.Person](api, svc, "GET", "/api/admin/people", "admin-people", 200)
+	register[rootBody[PresetPerson], domain.Person](api, svc, "POST", "/api/admin/people", "admin-create-person", 201)
+	register[rootBody[ImportPeople], []domain.Person](api, svc, "POST", "/api/admin/people/import", "import-people", 201)
+	register[idBody[EditPerson], domain.Person](api, svc, "PATCH", "/api/admin/people/{id}", "admin-edit-person", 200)
+	register[idInput, Success](api, svc, "DELETE", "/api/admin/people/{id}", "delete-person", 200)
+	register[idInput, Success](api, svc, "POST", "/api/admin/people/{id}/reset-passcode", "reset-passcode", 200)
+	register[rootInput, []domain.Booking](api, svc, "GET", "/api/admin/bookings", "admin-bookings", 200)
+	register[rootInput, []domain.Announcement](api, svc, "GET", "/api/admin/announcements", "admin-announcements", 200)
+	register[rootBody[AnnouncementInput], domain.Announcement](api, svc, "POST", "/api/admin/announcements", "create-announcement", 201)
+	register[idBody[EditAnnouncement], domain.Announcement](api, svc, "PATCH", "/api/admin/announcements/{id}", "edit-announcement", 200)
+	register[idInput, Success](api, svc, "DELETE", "/api/admin/announcements/{id}", "delete-announcement", 200)
+	register[rootInput, domain.Stats](api, svc, "GET", "/api/admin/stats", "stats", 200)
+}

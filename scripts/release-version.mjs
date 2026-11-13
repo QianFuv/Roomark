@@ -49,10 +49,10 @@ export function compareVersions(first, second) {
 export function checkVersionFiles(root) {
   const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
   const version = parseVersion(read("VERSION"));
-  const config = read("build/config.yml").match(/^info:\r?\n(?:[ \t].*\r?\n)*?[ \t]+version:\s*"([^"]+)"/m);
-  assert(config, "build/config.yml must declare info.version");
-  assert.equal(config[1], version, "build/config.yml info.version must equal VERSION");
-  const windows = JSON.parse(read("build/windows/info.json"));
+  const config = read("apps/roomark/build/config.yml").match(/^info:\r?\n(?:[ \t].*\r?\n)*?[ \t]+version:\s*"([^"]+)"/m);
+  assert(config, "apps/roomark/build/config.yml must declare info.version");
+  assert.equal(config[1], version, "apps/roomark/build/config.yml info.version must equal VERSION");
+  const windows = JSON.parse(read("apps/roomark/build/windows/info.json"));
   const windowsVersions = [
     windows.fixed.file_version,
     windows.fixed.product_version,
@@ -60,7 +60,7 @@ export function checkVersionFiles(root) {
     windows.info["0409"].ProductVersion,
   ];
   for (const declared of windowsVersions) {
-    assert.equal(declared, version, "build/windows/info.json versions must equal VERSION");
+    assert.equal(declared, version, "apps/roomark/build/windows/info.json versions must equal VERSION");
   }
   return version;
 }

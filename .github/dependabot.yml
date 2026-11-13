@@ -29,7 +29,7 @@ updates:
           - patch
 
   - package-ecosystem: npm
-    directory: "/frontend"
+    directory: "/apps/roomark/frontend"
     schedule:
       interval: weekly
       day: monday
@@ -43,7 +43,7 @@ updates:
           - patch
 
   - package-ecosystem: docker
-    directory: "/build/docker"
+    directory: "/apps/roomark/build/docker"
     schedule:
       interval: weekly
       day: monday

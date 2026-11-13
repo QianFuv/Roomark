@@ -50,13 +50,13 @@ test("the repository version declarations agree", () => {
 
 test("a stale Windows resource version is rejected", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "roomark-version-"));
-  fs.mkdirSync(path.join(root, "build/windows"), { recursive: true });
+  fs.mkdirSync(path.join(root, "apps/roomark/build/windows"), { recursive: true });
   fs.writeFileSync(path.join(root, "VERSION"), "1.2.0\n");
-  fs.writeFileSync(path.join(root, "build/config.yml"), 'info:\n  productName: "Roomark"\n  version: "1.2.0"\n');
+  fs.writeFileSync(path.join(root, "apps/roomark/build/config.yml"), 'info:\n  productName: "Roomark"\n  version: "1.2.0"\n');
   const windows = {
     fixed: { file_version: "1.2.0", product_version: "1.2.0" },
     info: { "0409": { FileVersion: "1.1.0", ProductVersion: "1.2.0" } },
   };
-  fs.writeFileSync(path.join(root, "build/windows/info.json"), JSON.stringify(windows));
+  fs.writeFileSync(path.join(root, "apps/roomark/build/windows/info.json"), JSON.stringify(windows));
   assert.throws(() => checkVersionFiles(root), /info\.json/);
 });
