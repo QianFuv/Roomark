@@ -4,6 +4,8 @@ includes:
   common: ../Taskfile.yml
 
 vars:
+  VERSION:
+    sh: node -p "require('node:fs').readFileSync('../../VERSION', 'utf8').trim()"
   APP_ID: '{{.APP_ID | default "com.roomark.app"}}'
   MIN_SDK: '21'
   TARGET_SDK: '35'
@@ -139,6 +141,8 @@ tasks:
           ARCH: '{{.ARCH | default "arm64"}}'
     cmds:
       - task: assemble:apk:release
+        vars:
+          ARCH: '{{.ARCH | default "arm64"}}'
 
   package:fat:
     summary: Packages a production build for all architectures (fat APK)
@@ -153,6 +157,8 @@ tasks:
           ARCH: amd64
           PRODUCTION: "true"
       - task: assemble:apk:release
+        vars:
+          ARCH: universal
 
   bundle:
     summary: Packages a production AAB (Android App Bundle) for Play Store submission
@@ -208,8 +214,8 @@ tasks:
         # build assets, so restore it before invoking the wrapper.
         {{if eq OS "windows"}}cmd.exe /c '{{.ROOT_DIR}}\build\android\gradlew.bat' assembleRelease{{else}}chmod +x ./gradlew
         ./gradlew assembleRelease{{end}}
-        cp app/build/outputs/apk/release/app-release.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}.apk"
-        echo "Release APK created: {{.BIN_DIR}}/{{.APP_NAME}}.apk"
+        cp app/build/outputs/apk/release/app-release.apk "../../{{.BIN_DIR}}/roomark-client_{{.VERSION}}_android_{{.ARCH | default "arm64"}}.apk"
+        echo "Release APK created: {{.BIN_DIR}}/roomark-client_{{.VERSION}}_android_{{.ARCH | default "arm64"}}.apk"
 
   assemble:aab:
     summary: Assembles a debug AAB (Android App Bundle) using Gradle
@@ -348,6 +354,8 @@ tasks:
 
   deploy-emulator:
     summary: Deploy the packaged release APK to the Android Emulator
+    vars:
+      ARCH: '{{.ARCH | default .HOST_ARCH}}'
     deps:
       - task: package
         vars:
@@ -355,7 +363,7 @@ tasks:
     cmds:
       - task: ensure-emulator
       - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'
-      - '"{{.ADB}}" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"'
+      - '"{{.ADB}}" install "{{.BIN_DIR}}/roomark-client_{{.VERSION}}_android_{{.ARCH}}.apk"'
       - '"{{.ADB}}" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity'
 
   run:
@@ -407,6 +415,8 @@ tasks:
 
   deploy-device:
     summary: Deploy the packaged release APK to a connected physical Android device
+    vars:
+      ARCH: arm64
     deps:
       - task: package
         vars:
@@ -427,9 +437,9 @@ tasks:
           exit 1
         fi
 
-        echo "Deploying {{.BIN_DIR}}/{{.APP_NAME}}.apk to device $DEVICE..."
+        echo "Deploying {{.BIN_DIR}}/roomark-client_{{.VERSION}}_android_{{.ARCH}}.apk to device $DEVICE..."
         "{{.ADB}}" -s "$DEVICE" uninstall {{.APP_ID}} 2>/dev/null || true
-        "{{.ADB}}" -s "$DEVICE" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"
+        "{{.ADB}}" -s "$DEVICE" install "{{.BIN_DIR}}/roomark-client_{{.VERSION}}_android_{{.ARCH}}.apk"
         "{{.ADB}}" -s "$DEVICE" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity
     preconditions:
       - sh: '[ -x "{{.ADB}}" ] || command -v adb'

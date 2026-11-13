@@ -115,9 +115,11 @@ tasks:
         vars:
           ARCH: '{{.ARCH}}'
           DEV: 'false'
-      - 'powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/portable.ps1" -Executable "{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe" -OutputPath "{{.ROOT_DIR}}/{{.BIN_DIR}}/Roomark-portable-windows-{{.ARCH}}.zip"'
+      - 'powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/portable.ps1" -Executable "{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe" -OutputPath "{{.ROOT_DIR}}/{{.BIN_DIR}}/roomark-client_{{.VERSION}}_windows_{{.ARCH}}.zip"'
     vars:
       ARCH: '{{.ARCH | default "amd64"}}'
+      VERSION:
+        sh: node -p "require('node:fs').readFileSync('../../VERSION', 'utf8').trim()"
 
   generate:syso:
     summary: Generates Windows `.syso` file

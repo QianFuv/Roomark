@@ -304,7 +304,7 @@ tasks:
         --build-arg CGO_ENABLED={{.CGO_ENABLED | default "0"}}
         --build-arg GO_IMAGE={{.GO_IMAGE | default "golang:alpine"}}
         --build-arg RUNTIME_IMAGE={{.RUNTIME_IMAGE | default "gcr.io/distroless/static-debian12"}}
-        -t {{.TAG | default (printf "%s:latest" .APP_NAME)}}
+        -t {{.TAG | default "roomark-server:latest"}}
         -f build/docker/Dockerfile.server "{{.REPO_DIR}}"
     vars:
       TAG: "{{.TAG}}"
@@ -328,7 +328,7 @@ tasks:
           TAG:
             ref: .TAG
     cmds:
-      - docker run --rm -p {{.PORT | default "8080"}}:8080 {{.TAG | default (printf "%s:latest" .APP_NAME)}}
+      - docker run --rm -p {{.PORT | default "8080"}}:8080 {{.TAG | default "roomark-server:latest"}}
     vars:
       TAG: "{{.TAG}}"
       PORT: "{{.PORT}}"
