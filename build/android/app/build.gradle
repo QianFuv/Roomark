@@ -2,6 +2,15 @@ plugins {
     id 'com.android.application'
 }
 
+// versionName comes from the repository VERSION file (MAJOR.MINOR.PATCH);
+// versionCode packs it as MAJOR * 10000 + MINOR * 100 + PATCH.
+def releaseVersion = rootProject.file('../../VERSION').getText('UTF-8').trim()
+def versionMatch = releaseVersion =~ /^(0|[1-9]\d{0,4})\.(0|[1-9]\d?)\.(0|[1-9]\d?)$/
+if (!versionMatch.matches()) {
+    throw new GradleException("VERSION must be MAJOR.MINOR.PATCH with minor and patch below 100, got '${releaseVersion}'")
+}
+def releaseVersionCode = versionMatch.group(1).toInteger() * 10000 + versionMatch.group(2).toInteger() * 100 + versionMatch.group(3).toInteger()
+
 android {
     namespace = 'com.wails.app'
     compileSdk = 36
@@ -14,8 +23,8 @@ android {
         applicationId = "com.roomark.app"
         minSdk = 21
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersion
 
         // Configure supported ABIs
         ndk {

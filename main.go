@@ -17,6 +17,13 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+//go:embed VERSION
+var versionFile string
+
+// version is the release version from the VERSION file at the repository root.
+var version = strings.TrimSpace(versionFile)
+
 var defaultServerURL string
 
 func spaAssets() http.Handler {

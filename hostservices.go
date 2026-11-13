@@ -46,7 +46,7 @@ type PlatformService struct {
 
 // Info reports web, desktop or Android as required by the frontend.
 func (s *PlatformService) Info() PlatformInfo {
-	return PlatformInfo{Platform: platformName, Version: "1.0.0"}
+	return PlatformInfo{Platform: platformName, Version: version}
 }
 
 func configDirectory() (string, error) {
