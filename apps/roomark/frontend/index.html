@@ -8,6 +8,14 @@
     <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Roomark 会议室</title>
+    <!--
+      Declare the base.css reset layer before any stylesheet loads, so it always ranks below StyleX's
+      priority layers. In `vp dev` the StyleX runtime injects its <style> ahead of base.css, which
+      would otherwise declare the reset layer last and let it override StyleX.
+    -->
+    <style>
+      @layer reset;
+    </style>
   </head>
   <body>
     <div id="root"></div>
