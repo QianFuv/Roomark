@@ -1,10 +1,10 @@
 # 视觉规范
 
-所有页面和三档屏宽（手机 < 768 px、窄屏 768–1279 px、宽屏 ≥ 1280 px）共用一套字体、字号角色、间距和图标规则。颜色见 [t3-soft.json](t3-soft.json)。变量定义在 `frontend/src/styles/tokens.stylex.tsx`，字号角色在 `frontend/src/ui/typography.tsx`，图标尺寸在 `frontend/src/ui/icon.tsx`。
+所有页面和三档屏宽（手机 < 768 px、窄屏 768–1279 px、宽屏 ≥ 1280 px）共用一套字体、字号角色、间距和图标规则。颜色见 [t3-soft.json](t3-soft.json)。变量定义在 `apps/roomark/frontend/src/styles/tokens.stylex.tsx`，字号角色在 `apps/roomark/frontend/src/ui/typography.tsx`，图标尺寸在 `apps/roomark/frontend/src/ui/icon.tsx`。
 
 ## 字体
 
-使用 `JetBrainsLxgwNerdMono`（JetBrains Mono 与霞鹜文楷 Mono 的合并字体，OFL-1.1）。字体经 cn-font-split 切成按 unicode-range 划分的 WOFF2 分片，放在 `frontend/assets/JetBrainsLxgwNerdMono-Regular/` 和 `frontend/assets/JetBrainsLxgwNerdMono-Bold/`，由 `src/styles/base.css` 通过 `@import` 引入，全局字体为 `'JetBrainsLxgwNerdMono', monospace`。浏览器只下载页面实际用到的分片。
+使用 `JetBrainsLxgwNerdMono`（JetBrains Mono 与霞鹜文楷 Mono 的合并字体，OFL-1.1）。字体经 cn-font-split 切成按 unicode-range 划分的 WOFF2 分片，放在 `apps/roomark/frontend/assets/JetBrainsLxgwNerdMono-Regular/` 和 `apps/roomark/frontend/assets/JetBrainsLxgwNerdMono-Bold/`，由 `src/styles/base.css` 通过 `@import` 引入，全局字体为 `'JetBrainsLxgwNerdMono', monospace`。浏览器只下载页面实际用到的分片。
 
 - 只有 400 和 700 两种字重，所有样式只用 `fontWeights.regular` 或 `fontWeights.bold`；`font-synthesis-weight: none` 阻止浏览器伪造其他字重。
 - 这是中英文 2:1 的等宽字体，同样像素下看起来比比例字体大一档，下面的字号已经按它校准。
@@ -64,7 +64,7 @@
 
 ## 弹窗
 
-所有弹出窗口（登录、预约详情、修改口令、后台编辑、确认框）都用 `frontend/src/ui/sheet.tsx` 中的同一个组件，按屏宽切换形态：
+所有弹出窗口（登录、预约详情、修改口令、后台编辑、确认框）都用 `apps/roomark/frontend/src/ui/sheet.tsx` 中的同一个组件，按屏宽切换形态：
 
 | 屏宽 | 形态 | 关闭方式 |
 | --- | --- | --- |

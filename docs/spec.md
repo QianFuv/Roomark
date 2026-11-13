@@ -138,7 +138,7 @@ Roomark 是给小团队（几位老师和学生）用的会议室预约应用。
 - 前缀 `/api`，JSON。时间为带 `+08:00` 的 RFC 3339，日期为 `YYYY-MM-DD`，时刻为 `HH:MM`。
 - 鉴权头：`X-Room-Token`（房间范围）、`Authorization: Bearer <session>`（个人范围）。
 - 错误使用 huma 的 RFC 9457 problem JSON，额外带 `code` 字段（snake_case）和中文 `detail`，前端直接显示 `detail`。
-- OpenAPI 3.1 导出到 `api/openapi.json`（`go run ./cmd/openapi`），前端用 openapi-typescript 生成 `frontend/src/api/schema.d.ts`。
+- OpenAPI 3.1 导出到 `apps/roomark/api/openapi.json`（`wails3 task openapi`），前端用 openapi-typescript 生成 `apps/roomark/frontend/src/api/schema.d.ts`。
 
 ### 4.1 数据结构
 

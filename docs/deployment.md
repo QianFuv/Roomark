@@ -6,12 +6,14 @@ Roomark 只有一个有状态的部分：服务端和它的 SQLite 数据库。�
 
 ### 构建
 
+在 `apps/roomark` 目录下运行（本文所有 `wails3 task` 命令都是如此）：
+
 ```bash
 wails3 task build:server    # 生成 bin/roomark-server
 wails3 task build:docker    # 生成镜像 roomark:latest
 ```
 
-两个任务都会先构建生产版前端（`frontend/dist`），再把它嵌入 Go 程序。Docker 镜像基于 `distroless/static`，程序是不依赖 CGO 的静态二进制，容器内监听 8080 端口。
+两个任务都会先构建生产版前端（`apps/roomark/frontend/dist`），再把它嵌入 Go 程序。Docker 镜像基于 `distroless/static`，程序是不依赖 CGO 的静态二进制，容器内监听 8080 端口。
 
 不想自己构建时，可以用 [GitHub Releases](https://github.com/QianFuv/Roomark/releases) 里的服务端程序，或直接拉取镜像 `ghcr.io/qianfuv/roomark:<版本>`（最新版本也标记为 `latest`），把下面示例里的 `image` 换成它即可。
 
@@ -80,7 +82,7 @@ networks:
 wails3 task package
 ```
 
-生成 `bin/Roomark-portable-windows-amd64.zip`，里面是 `Roomark/roomark.exe` 和空的 `Roomark/data/`。解压到任意有写入权限的文件夹后运行：
+生成 `apps/roomark/bin/Roomark-portable-windows-amd64.zip`，里面是 `Roomark/roomark.exe` 和空的 `Roomark/data/`。解压到任意有写入权限的文件夹后运行：
 
 - 服务器地址保存在 `data/server.json`，网页存储（房间绑定、登录状态、缓存）保存在 `data/webview/`。
 - 文件夹不可写（例如放在 `C:\Program Files` 下）时，程序会弹窗说明并退出，不会改写到系统目录。
@@ -95,10 +97,10 @@ wails3 task package
 JAVA_HOME=<JDK 21> ANDROID_HOME=<Android SDK> wails3 task android:package
 ```
 
-生成 `bin/roomark.apk`。正式签名通过环境变量 `ANDROID_KEYSTORE_FILE`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 传入（见 `build/android/app/build.gradle`）。系统返回手势会先关闭弹窗，再回到上一页。
+生成 `apps/roomark/bin/roomark.apk`。正式签名通过环境变量 `ANDROID_KEYSTORE_FILE`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 传入（见 `apps/roomark/build/android/app/build.gradle`）。系统返回手势会先关闭弹窗，再回到上一页。
 
 ### 预置服务器地址
 
 桌面端和 Android 首次启动时需要填写服务器地址，之后可以在「设置」里修改。服务器地址保存后优先于预置值。
 
-要让用户免填，可以在构建时通过链接参数写入默认地址 `main.defaultServerURL`。Taskfile 目前没有这个开关，需要在对应平台 Taskfile 的 `-ldflags` 中追加 `-X main.defaultServerURL=https://rooms.example.com`（Windows 见 `build/windows/Taskfile.yml`，Android 见 `build/android/Taskfile.yml`）。
+要让用户免填，可以在构建时通过链接参数写入默认地址 `main.defaultServerURL`。Taskfile 目前没有这个开关，需要在对应平台 Taskfile 的 `-ldflags` 中追加 `-X main.defaultServerURL=https://rooms.example.com`（Windows 见 `apps/roomark/build/windows/Taskfile.yml`，Android 见 `apps/roomark/build/android/Taskfile.yml`）。

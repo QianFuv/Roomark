@@ -55,6 +55,7 @@ Roomark 是一个给小团队用的会议室预约应用。每间会议室门口
 ### 本地运行服务端
 
 ```bash
+cd apps/roomark
 cd frontend && pnpm install && cd ..
 ROOMARK_ADMIN_NAME=管理员 ROOMARK_ADMIN_PASSCODE=123456 \
 ROOMARK_PUBLIC_URL=http://localhost:8080 WAILS_SERVER_PORT=8080 \
@@ -64,6 +65,8 @@ ROOMARK_PUBLIC_URL=http://localhost:8080 WAILS_SERVER_PORT=8080 \
 打开 http://localhost:8080/admin ，用上面的管理员姓名和口令登录，新建房间并导出二维码。
 
 ### 构建与打包
+
+以下命令都在 `apps/roomark` 目录下运行，产物输出到 `apps/roomark/bin/`。
 
 | 目标 | 命令 | 产物 |
 | --- | --- | --- |
@@ -88,10 +91,10 @@ Windows 便携版解压即用，所有数据（服务器地址、网页存储）
 | [docs/development.md](docs/development.md) | 目录结构、开发命令、代码生成、测试与检查、CI 与发布 |
 | [docs/design/visual-system.md](docs/design/visual-system.md) | 字体、字号角色、间距、图标和弹窗规则 |
 | [docs/design/t3-soft.json](docs/design/t3-soft.json) | T3 Soft 配色（深色为 `colors`，浅色为 `variants.light`） |
-| [api/openapi.json](api/openapi.json) | 由后端导出的 OpenAPI 3.1 接口描述 |
+| [apps/roomark/api/openapi.json](apps/roomark/api/openapi.json) | 由后端导出的 OpenAPI 3.1 接口描述 |
 
 ## 许可证
 
 本项目以 [MIT 许可证](LICENSE) 发布。
 
-`frontend/assets/` 中随附的 JetBrainsLxgwNerdMono 字体（JetBrains Mono + 霞鹜文楷 Mono 合并字体）使用 SIL Open Font License 1.1，见 [frontend/assets/OFL.txt](frontend/assets/OFL.txt)。
+`apps/roomark/frontend/assets/` 中随附的 JetBrainsLxgwNerdMono 字体（JetBrains Mono + 霞鹜文楷 Mono 合并字体）使用 SIL Open Font License 1.1，见 [OFL.txt](apps/roomark/frontend/assets/OFL.txt)。
