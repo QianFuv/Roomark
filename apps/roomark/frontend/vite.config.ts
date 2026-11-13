@@ -31,7 +31,15 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps:
     mode === "test"
       ? {
+          /**
+           * Pre-bundled up front so a cold cache never re-optimizes mid-run and reloads a test iframe.
+           * The first three are only reached through `index.html` → `src/main.tsx`, which Vite transforms
+           * when the Wails runtime's `HEAD /wails/custom.js` probe falls back to `index.html`.
+           */
           include: [
+            "@animate-ui/react/primitives/base-ui/menu",
+            "next-themes",
+            "react-dom/client",
             "@stylexjs/stylex/lib/stylex-inject",
             "motion/react",
             "msw",
