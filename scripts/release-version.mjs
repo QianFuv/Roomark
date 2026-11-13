@@ -67,8 +67,9 @@ export function checkVersionFiles(root) {
 
 /**
  * Decide the release for a CI event. A push to main releases when VERSION
- * increased across the pushed range; a manual run releases the checked-in
- * VERSION, which must match the requested one. A branch without a VERSION
+ * changes across the pushed range; published versions cannot decrease.
+ * A manual run releases the checked-in VERSION, which must match the requested
+ * one. A branch without a VERSION
  * baseline never releases on push.
  *
  * @param {object} event - CI event facts.
@@ -77,19 +78,39 @@ export function checkVersionFiles(root) {
  * @param {string} event.version - The checked-in VERSION at the run commit.
  * @param {string | undefined} event.previous - VERSION at the previous tip, if it existed.
  * @param {string | undefined} event.requested - Version typed into a manual run.
+ * @param {string[]} [event.tags] - Tags present locally or on the remote.
  * @returns {{ release: boolean, version: string }} The release decision.
  */
-export function decideRelease({ name, ref, version, previous, requested }) {
+export function decideRelease({ name, ref, version, previous, requested, tags = [] }) {
   if (name === "pull_request" || ref !== "refs/heads/main") return { release: false, version };
   if (name === "workflow_dispatch") {
     assert.equal(parseVersion(requested ?? ""), version, "The requested version must equal VERSION on main");
+    assert(!tags.includes(`v${version}`), `Release tag v${version} already exists`);
     return { release: true, version };
   }
   assert.equal(name, "push", `Unsupported event ${name}`);
   if (previous === undefined) return { release: false, version };
   const difference = compareVersions(version, previous);
-  assert(difference >= 0, `VERSION must not decrease (${previous} -> ${version})`);
-  return { release: difference > 0, version };
+  assert(difference >= 0 || !tags.includes(`v${parseVersion(previous)}`), `VERSION must not decrease from a published version (${previous} -> ${version})`);
+  if (difference === 0) return { release: false, version };
+  assert(!tags.includes(`v${version}`), `Release tag v${version} already exists`);
+  return { release: true, version };
+}
+
+/**
+ * Read local and remote tags without changing the checkout or Git configuration.
+ * Remote failures stop release decisions rather than treating tags as absent.
+ *
+ * @returns {string[]} The union of local and origin tags.
+ */
+function releaseTags() {
+  const git = (...args) => execFileSync("git", args, { encoding: "utf8", timeout: 30000 }).trim();
+  const tags = git("tag", "--list").split(/\r?\n/).filter(Boolean);
+  if (git("remote").split(/\r?\n/).includes("origin")) {
+    const remote = git("ls-remote", "--tags", "--refs", "origin", "v*");
+    for (const line of remote.split(/\r?\n/).filter(Boolean)) tags.push(line.split("\t")[1].replace(/^refs\/tags\//, ""));
+  }
+  return [...new Set(tags)];
 }
 
 /**
@@ -115,6 +136,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     version,
     previous: versionAt(process.env.BEFORE_SHA)?.trim(),
     requested: process.env.REQUESTED_VERSION,
+    tags: process.env.GITHUB_REF === "refs/heads/main" && ["push", "workflow_dispatch"].includes(process.env.GITHUB_EVENT_NAME) ? releaseTags() : [],
   });
   if (process.env.GITHUB_OUTPUT) {
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `release=${result.release}\nversion=${result.version}\n`);

@@ -1,5 +1,5 @@
 /**
- * Release rules: only a VERSION increase on main publishes, and every shipped
+ * Release rules: a VERSION change on main publishes, and every shipped
  * version declaration must agree with VERSION.
  *
  * @module
@@ -24,12 +24,27 @@ test("versions compare numerically, not lexically", () => {
   assert.throws(() => parseVersion("01.0.0"));
 });
 
-test("a push to main releases only when VERSION increases", () => {
+test("a push to main releases when VERSION increases and ignores unchanged versions", () => {
   const push = { name: "push", ref: "refs/heads/main", requested: undefined };
   assert.deepEqual(decideRelease({ ...push, version: "1.1.0", previous: "1.0.0" }), { release: true, version: "1.1.0" });
   assert.deepEqual(decideRelease({ ...push, version: "1.0.0", previous: "1.0.0" }), { release: false, version: "1.0.0" });
   assert.deepEqual(decideRelease({ ...push, version: "1.0.0", previous: undefined }), { release: false, version: "1.0.0" });
-  assert.throws(() => decideRelease({ ...push, version: "1.0.0", previous: "1.2.0" }), /must not decrease/);
+  assert.equal(decideRelease({ ...push, version: "1.0.0", previous: "1.0.0", tags: ["v1.0.0"] }).release, false);
+});
+
+test("the first release can lower an unpublished 1.0.0 baseline to 0.1.0", () => {
+  assert.deepEqual(decideRelease({ name: "push", ref: "refs/heads/main", version: "0.1.0", previous: "1.0.0", tags: [] }), { release: true, version: "0.1.0" });
+});
+
+test("a downgrade from a published version fails", () => {
+  assert.throws(() => decideRelease({ name: "push", ref: "refs/heads/main", version: "0.1.0", previous: "1.0.0", tags: ["v1.0.0"] }), /must not decrease from a published version/);
+});
+
+test("an existing target tag refuses push and manual releases", () => {
+  const facts = { ref: "refs/heads/main", version: "0.1.0", tags: ["v0.1.0"] };
+  assert.throws(() => decideRelease({ ...facts, name: "push", previous: "1.0.0" }), /already exists/);
+  assert.throws(() => decideRelease({ ...facts, name: "push", previous: "0.0.9" }), /already exists/);
+  assert.throws(() => decideRelease({ ...facts, name: "workflow_dispatch", requested: "0.1.0" }), /already exists/);
 });
 
 test("pull requests and other branches never release", () => {
