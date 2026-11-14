@@ -122,6 +122,8 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Keep LF line endings
+        run: git config --global core.autocrlf input
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -201,6 +203,8 @@ jobs:
           else
             echo "mode=debug" >> "$GITHUB_OUTPUT"
           fi
+      - name: Keep LF line endings
+        run: git config --global core.autocrlf input
       - name: Checkout source
         if: steps.signing.outputs.mode != 'omitted'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
