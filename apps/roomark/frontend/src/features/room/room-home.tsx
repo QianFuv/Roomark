@@ -124,7 +124,14 @@ const styles = stylex.create({
     justifyContent: "space-between",
     minHeight: sizes.control,
   },
-  quickGrid: { display: "grid", gap: space.controlGap, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
+  quickGrid: {
+    display: "grid",
+    gap: space.controlGap,
+    gridTemplateColumns: {
+      default: "repeat(2, minmax(0, 1fr))",
+      [media.narrow]: "repeat(4, minmax(0, 1fr))",
+    },
+  },
   quickButton: { flexDirection: "column", gap: 0, minWidth: 0, paddingInline: space.xs },
   quickLabel: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   quickHint: {

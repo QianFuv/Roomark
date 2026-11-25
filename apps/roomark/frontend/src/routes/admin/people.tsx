@@ -158,9 +158,11 @@ function AdminPeoplePage() {
       header: "管理员",
       cell: (info) => (info.getValue() ? <Badge tone="info">管理员</Badge> : null),
     }),
-    columnHelper.accessor("hasPasscode", {
+    columnHelper.display({
+      id: "hasPasscode",
       header: "口令",
-      cell: (info) => (info.getValue() ? <Badge tone="free">已设置</Badge> : <Badge>未设置</Badge>),
+      cell: (info) =>
+        info.row.original.hasPasscode ? <Badge tone="free">已设置</Badge> : <Badge>未设置</Badge>,
     }),
     columnHelper.display({
       id: "actions",

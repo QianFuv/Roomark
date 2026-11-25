@@ -28,7 +28,9 @@ const styles = stylex.create({
     alignItems: "center",
     color: colors.text,
     display: "flex",
+    flexShrink: 0,
     gap: space.xs,
+    whiteSpace: "nowrap",
   },
   summary: {
     color: colors.text,
@@ -36,6 +38,7 @@ const styles = stylex.create({
     minWidth: 0,
     textAlign: "end",
   },
+  summaryPart: { display: "inline-block", whiteSpace: "nowrap" },
   summaryMuted: { color: colors.textMuted, fontWeight: fontWeights.regular },
   hours: {
     display: "grid",
@@ -220,10 +223,17 @@ export function TimePicker({ availability, start, end, maxDurationMinutes, onCha
           </HelpHint>
         </span>
         <span aria-live="polite" {...stylex.props(text.label, styles.summary)}>
-          {start}–{end}
-          <span {...stylex.props(styles.summaryMuted)}>
-            {duration > 0 ? ` · ${formatDuration(duration)}` : ""}
+          <span {...stylex.props(styles.summaryPart)}>
+            {start}–{end}
           </span>
+          {duration > 0 ? (
+            <>
+              {" "}
+              <span {...stylex.props(styles.summaryPart, styles.summaryMuted)}>
+                · {formatDuration(duration)}
+              </span>
+            </>
+          ) : null}
         </span>
         <button
           type="button"

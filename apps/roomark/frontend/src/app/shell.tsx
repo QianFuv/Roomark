@@ -1,13 +1,14 @@
 /**
  * Application shell for the three layout tiers. Mobile and narrow windows get a top bar (icons
- * only on mobile, labelled on narrow); wide windows get a side navigation with the rooms on this
- * device, 我的, the admin sections and the theme menu, next to a wider content area.
+ * only on mobile, labelled on narrow) whose room menu switches between the rooms on this device
+ * and adds one; wide windows get a side navigation with the rooms on this device, 我的, the admin
+ * sections and the theme menu, next to a wider content area.
  *
  * @module
  */
 import { Menu } from "@animate-ui/react/primitives/base-ui/menu";
 import * as stylex from "@stylexjs/stylex";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ChartColumn,
   Check,
@@ -22,10 +23,11 @@ import {
   Users,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { IdentitySheet } from "../features/identity/identity";
 import { AccountMenu } from "./account-menu";
+import { afterOverlayClosed, useOverlayHistory } from "./overlay-history";
 import { ThemeResync } from "./theme-resync";
 import { platform } from "../platform/platform";
 import { appStore, useRememberedRooms, useSession } from "../state/app-store";
@@ -219,6 +221,9 @@ const styles = stylex.create({
     paddingInline: space.md,
   },
   menuCheck: { color: colors.primary, display: "inline-flex", marginInlineStart: "auto" },
+  menuItemText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  menuSeparator: { backgroundColor: colors.border, height: 1, marginBlock: space.xs },
+  roomMenuPopup: { maxWidth: `calc(100vw - ${space.lg})`, width: 248 },
 });
 
 const THEME_OPTIONS = [
@@ -263,6 +268,63 @@ function ThemeMenu() {
                 </Menu.RadioItem>
               ))}
             </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+/**
+ * Room menu for the top bar: the rooms on this device (the current one checked) and 添加会议室,
+ * matching the room group of the side navigation.
+ *
+ * @returns The menu.
+ */
+function RoomMenu() {
+  const rooms = useRememberedRooms();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const currentSlug = /^\/r\/([^/]+)/.exec(pathname)?.[1];
+  const [isOpen, setIsOpen] = useState(false);
+
+  useOverlayHistory(isOpen, () => setIsOpen(false));
+
+  return (
+    <Menu.Root open={isOpen} onOpenChange={(open: boolean) => setIsOpen(open)}>
+      <Menu.Trigger aria-label="切换会议室" {...stylex.props(text.label, styles.navItem)}>
+        <DoorOpen size={ICON_SIZE.nav} aria-hidden />
+        <span {...stylex.props(styles.navLabel)}>切换会议室</span>
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner sideOffset={6} align="end" {...stylex.props(styles.menuPositioner)}>
+          <Menu.Popup {...stylex.props(styles.menuPopup, styles.roomMenuPopup)}>
+            {rooms.map((room) => (
+              <Menu.Item
+                key={room.slug}
+                aria-current={room.slug === currentSlug ? "page" : undefined}
+                onClick={() =>
+                  afterOverlayClosed(() => void navigate({ to: "/r/$slug", params: { slug: room.slug } }))
+                }
+                {...stylex.props(text.body, styles.menuItem)}
+              >
+                <DoorOpen aria-hidden />
+                <span {...stylex.props(styles.menuItemText)}>{room.name ?? room.slug}</span>
+                {room.slug === currentSlug ? (
+                  <span {...stylex.props(styles.menuCheck)}>
+                    <Check aria-hidden />
+                  </span>
+                ) : null}
+              </Menu.Item>
+            ))}
+            {rooms.length > 0 ? <div {...stylex.props(styles.menuSeparator)} /> : null}
+            <Menu.Item
+              onClick={() => afterOverlayClosed(() => void navigate({ to: "/", search: { add: true } }))}
+              {...stylex.props(text.body, styles.menuItem)}
+            >
+              <Plus aria-hidden />
+              添加会议室
+            </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -403,6 +465,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             会议室
           </Link>
+          <RoomMenu />
           {isApp ? (
             <Link to="/settings" aria-label="设置" {...stylex.props(text.label, styles.navItem)}>
               <Settings size={ICON_SIZE.nav} aria-hidden />

@@ -15,7 +15,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-rea
 import { useId, useState } from "react";
 
 import { isString } from "../lib/guards";
-import { formatDateLabel, formatRelativeDate, parseDate } from "../lib/time";
+import { formatDateLabel, formatMonthDay, formatRelativeDate, parseDate, weekdayLabel } from "../lib/time";
 import { useOverlayHistory } from "../app/overlay-history";
 import { colors, fonts, media, radii, sizes, space } from "../styles/tokens.stylex";
 import { text } from "./typography";
@@ -78,6 +78,7 @@ const styles = stylex.create({
   },
   fieldIcon: { color: colors.textSubtle, display: "inline-flex", flexShrink: 0 },
   fieldValue: { flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  fieldWeekday: { display: { default: "none", "@container (min-width: 170px)": "inline" } },
   fieldRelative: { display: { default: "none", "@container (min-width: 230px)": "inline" } },
   fieldPlaceholder: { color: colors.textMuted },
   inline: {
@@ -257,7 +258,14 @@ export function DatePicker({
                 <CalendarDays />
               </span>
               <span {...stylex.props(styles.fieldValue, selected === undefined && styles.fieldPlaceholder)}>
-                {chosenLabel}
+                {selected === undefined ? (
+                  chosenLabel
+                ) : (
+                  <>
+                    {formatMonthDay(selected)}
+                    <span {...stylex.props(styles.fieldWeekday)}> {weekdayLabel(selected.dayOfWeek)}</span>
+                  </>
+                )}
                 {relative === undefined ? null : (
                   <span {...stylex.props(styles.fieldRelative)}> · {relative}</span>
                 )}

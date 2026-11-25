@@ -117,6 +117,25 @@ test("given the admin area when an admin signs out then the room overview opens,
   delete sessions["管理员"];
 });
 
+test("given a person without a passcode when an admin opens 名单 then the 口令 column says 未设置 on phones too", async ({
+  page,
+  request,
+}) => {
+  await storeState(page, {
+    session: await sessionFor(request, "管理员", ADMIN_PASSCODE),
+    rooms: { [ROOM_SLUG]: { token: seeded.roomToken } },
+  });
+  await request.post("/api/admin/people/import", {
+    headers: { Authorization: `Bearer ${seeded.adminToken}` },
+    data: { people: [{ name: "未设口令", role: "other", isAdmin: false }] },
+  });
+  await page.goto("/admin/people");
+
+  const visitor = page.getByRole("listitem").or(page.getByRole("row")).filter({ hasText: "未设口令" });
+
+  await expect(visitor).toContainText("未设置");
+});
+
 test("given a signed-in member on the calendar when switching identity then the sheet opens in place, cancel keeps them, and choosing another person switches", async ({
   page,
   request,
@@ -249,6 +268,29 @@ test("given no bound room when typing the room code then the room opens, and a w
   await expect(page.getByRole("alert")).toContainText("没有这个房间码");
   await first.click();
   await page.keyboard.type(seeded.roomToken.toLowerCase());
+  await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
+  await expect(page.getByRole("heading", { level: 1, name: ROOM_NAME })).toBeVisible();
+});
+
+test("given one bound room on a phone when using the room menu then it switches rooms and opens 添加会议室", async ({
+  page,
+}, testInfo) => {
+  // oxlint-disable-next-line anti-slop/tests-require-given-when-then
+  test.skip(testInfo.project.name !== "mobile", "Wide windows list the rooms in the side navigation.");
+  await storeState(page, { rooms: { [ROOM_SLUG]: { token: seeded.roomToken } } });
+  await page.goto(`/r/${ROOM_SLUG}`);
+  await expect(page.getByRole("heading", { level: 1, name: ROOM_NAME })).toBeVisible();
+
+  const roomMenu = page.getByRole("button", { name: "切换会议室" });
+
+  await roomMenu.click();
+  await expect(page.getByRole("menuitem", { name: ROOM_NAME })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("menuitem", { name: "添加会议室" }).click();
+  await expect(page).toHaveURL(/\/\?add=true$/);
+  await expect(page.getByRole("heading", { level: 1, name: "添加会议室" })).toBeVisible();
+
+  await roomMenu.click();
+  await page.getByRole("menuitem", { name: ROOM_NAME }).click();
   await expect(page).toHaveURL(new RegExp(`/r/${ROOM_SLUG}$`));
   await expect(page.getByRole("heading", { level: 1, name: ROOM_NAME })).toBeVisible();
 });
